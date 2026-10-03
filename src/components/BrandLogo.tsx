@@ -7,7 +7,7 @@ interface BrandLogoProps {
   showSubtitle?: boolean;
 }
 
-const DEFAULT_FOUR_SEASON_LOGO = '/assets/images/four_season_logo_1790686712803.jpg';
+const DEFAULT_FOUR_SEASON_LOGO = '/assets/images/four_season_confidential_logo_1790854372202.jpg';
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 'md',
@@ -55,7 +55,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   return (
     <div className={`inline-flex items-center gap-3 ${className}`}>
       <div
-        className={`relative ${dim.box} flex items-center justify-center shrink-0 select-none overflow-hidden`}
+        className={`relative ${dim.box} flex items-center justify-center shrink-0 select-none overflow-hidden rounded-full bg-gradient-to-br from-[#FFF8D6] via-[#E6C65A] to-[#A37B24] p-0.5 shadow-md border border-[#9C7720]/40`}
       >
         {!imgFailed ? (
           <img
@@ -63,13 +63,17 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
             alt="Four Season Cafe and Restaurant"
             referrerPolicy="no-referrer"
             onError={handleError}
-            className="w-full h-full object-contain"
+            loading="eager"
+            decoding="async"
+            className="w-full h-full object-contain rounded-full bg-[#E5C158]"
           />
         ) : (
           <img
             src="/assets/images/four_season_logo_exact.svg"
             alt="Four Season Cafe and Restaurant"
-            className="w-full h-full object-contain"
+            loading="eager"
+            decoding="async"
+            className="w-full h-full object-contain rounded-full bg-[#E5C158]"
           />
         )}
       </div>

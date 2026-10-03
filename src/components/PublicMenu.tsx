@@ -188,6 +188,8 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
             src={heroCoverUrl}
             alt={`${restaurant.name} Wall and Logo`}
             referrerPolicy="no-referrer"
+            loading="eager"
+            decoding="async"
             className="w-full h-full object-contain sm:object-cover object-center"
             onError={(e) => {
               const target = e.currentTarget;
@@ -358,6 +360,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
                   src={selectedItem.image_url}
                   alt={selectedItem.name}
                   referrerPolicy="no-referrer"
+                  decoding="async"
                   onError={(e) => {
                     const target = e.currentTarget;
                     if (target.src.includes('/assets/images/')) {

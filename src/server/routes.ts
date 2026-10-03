@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 import {
   getDatabase,
   saveDatabase,
@@ -42,7 +43,8 @@ apiRouter.get('/health', (_req: Request, res: Response) => {
 // High-Res Image Delivery Endpoint (Serves from disk or fallback to PostgreSQL blobs)
 apiRouter.get('/images/:filename', async (req: Request, res: Response) => {
   const rawFilename = req.params.filename || '';
-  const filename = path.basename(rawFilename);
+  const decodedRaw = decodeURIComponent(rawFilename);
+  const filename = path.basename(decodedRaw);
 
   if (!filename) {
     res.status(400).send('Filename required');
@@ -421,17 +423,26 @@ apiRouter.post('/upload-dish-photo', (req: Request, res: Response) => {
     const targetPath = path.join(publicDir, outFileName);
     fs.writeFileSync(targetPath, buffer);
 
+    // Fast-loading optimization: resize and compress dish photos to web-ready lightweight dimensions
+    try {
+      execSync(`convert "${targetPath}" -resize 440x440\\> -strip -quality 65 -interlace Plane /tmp/opt_upload.jpg && mv /tmp/opt_upload.jpg "${targetPath}"`);
+    } catch {
+      // Fallback to original buffer if convert is not available
+    }
+
+    const optimizedBuffer = fs.existsSync(targetPath) ? fs.readFileSync(targetPath) : buffer;
+
     const srcCopyPath = path.join(process.cwd(), 'src', 'assets', 'images', outFileName);
     try {
       if (fs.existsSync(path.dirname(srcCopyPath))) {
-        fs.writeFileSync(srcCopyPath, buffer);
+        fs.writeFileSync(srcCopyPath, optimizedBuffer);
       }
     } catch {
       // Ignore if src does not exist in production build
     }
 
     // Also persist directly to PostgreSQL image blobs
-    saveImageBlob(outFileName, `image/${ext === 'png' ? 'png' : 'jpeg'}`, buffer).catch(() => {});
+    saveImageBlob(outFileName, `image/${ext === 'png' ? 'png' : 'jpeg'}`, optimizedBuffer).catch(() => {});
 
     const publicUrl = `/assets/images/${outFileName}`;
     const db = getDatabase();

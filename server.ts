@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { apiRouter } from './src/server/routes.ts';
@@ -18,8 +19,33 @@ const isProduction = process.env.NODE_ENV === 'production';
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static assets from public
-app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
+// Route handler for /assets/images that directly serves files including exact names with spaces
+app.use('/assets/images', (req, res, next) => {
+  try {
+    const rawPath = req.path.replace(/^\//, '');
+    const decodedName = decodeURIComponent(rawPath);
+    const realPath = path.join(__dirname, 'public', 'assets', 'images', decodedName);
+    if (fs.existsSync(realPath)) {
+      const ext = path.extname(decodedName).toLowerCase();
+      res.setHeader('Content-Type', ext === '.png' ? 'image/png' : ext === '.svg' ? 'image/svg+xml' : 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+      return fs.createReadStream(realPath).pipe(res);
+    }
+  } catch {
+    // continue to next
+  }
+  next();
+});
+
+// Static assets from public with 30-day browser caching for instant loading
+app.use(
+  '/assets',
+  express.static(path.join(__dirname, 'public', 'assets'), {
+    maxAge: '30d',
+    immutable: true,
+    etag: true,
+  })
+);
 
 // Mount API routes
 app.use('/api', apiRouter);

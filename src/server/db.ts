@@ -190,7 +190,11 @@ export function getDatabase(): DatabaseState {
             ...cleanFresh,
             image_url: keepCustomUpload
               ? prev.image_url
-              : freshItem.image_url || (prev && prev.image_url ? prev.image_url : ''),
+              : freshItem.image_url !== undefined
+              ? freshItem.image_url
+              : prev && prev.image_url
+              ? prev.image_url
+              : '',
           };
         });
         inMemoryState = parsed;
