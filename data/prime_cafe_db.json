@@ -104,13 +104,13 @@
       "category_id": "cat_breakfast",
       "name": "Normal Fuul",
       "description": "Slow-simmered fava beans mashed with cumin, olive oil, fresh diced tomatoes, onions, and green peppers. Served with warm bread.",
-      "image_url": "/assets/images/primecafe_fuul.jpg",
+      "image_url": "/assets/images/normal_fuul_1791047613682.jpg",
       "is_available": true,
       "display_order": 1,
       "is_popular": true,
       "is_local_specialty": true,
       "created_at": "2026-09-24T06:36:50.156Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "bf_05",
@@ -269,11 +269,11 @@
       "category_id": "cat_breakfast",
       "name": "Chechebsa",
       "description": "Traditional shredded flatbread tossed in spiced clarified butter and berbere, served warm with honey.",
-      "image_url": "/assets/images/chachbsa.jpg",
+      "image_url": "/assets/images/chechebsa_1791047592467.jpg",
       "is_available": true,
       "display_order": 14,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-03T11:49:25.329Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "dn_03",
@@ -332,11 +332,11 @@
       "category_id": "cat_launch",
       "name": "Chicken Tibs",
       "description": "Sautéed tender chicken breast cubes with onions, bell peppers, garlic, and rosemary.",
-      "image_url": "/assets/images/chicken tibs.jpg",
+      "image_url": "/assets/images/chicken_tibs_1791047571088.jpg",
       "is_available": true,
       "display_order": 5,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-03T11:49:25.329Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "ln_normal_tibs",
@@ -368,12 +368,12 @@
       "restaurant_id": "rest_prime_cafe",
       "category_id": "cat_launch",
       "name": "Normal Rice",
-      "description": "Steamed aromatic basmati rice served with savory house sauce.",
-      "image_url": "/assets/images/item_normal_rice.jpg",
+      "description": "Steamed fragrant long-grain basmati rice served with savory house sauce.",
+      "image_url": "/assets/images/normal_rice_1791047581145.jpg",
       "is_available": true,
       "display_order": 8,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "ln_normal_shiro",
@@ -381,11 +381,11 @@
       "category_id": "cat_launch",
       "name": "Normal Shiro",
       "description": "Smooth slow-simmered roasted chickpea stew seasoned with garlic, onions, and spices.",
-      "image_url": "/assets/images/item_normal_shiro.jpg",
+      "image_url": "/assets/images/normal_shiro_1791047603414.jpg",
       "is_available": true,
       "display_order": 9,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "ln_normal_firfir",
@@ -479,12 +479,12 @@
       "restaurant_id": "rest_prime_cafe",
       "category_id": "cat_launch",
       "name": "Pasta with Tuna",
-      "description": "Savory pasta tossed with flaked tuna, onions, garlic, and rich tomato sauce.",
-      "image_url": "/assets/images/pasta with tuna.jpg",
+      "description": "Savory pasta tossed with flaked tuna, onions, garlic, and rich herb tomato sauce.",
+      "image_url": "/assets/images/pasta_with_tuna_1791047560097.jpg",
       "is_available": true,
       "display_order": 17,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-03T11:49:25.329Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "ln_rice_with_tuna",
@@ -615,11 +615,11 @@
       "category_id": "cat_launch",
       "name": "Half Mandi",
       "description": "Half portion of slow-roasted tender meat served over aromatic Mandi basmati rice.",
-      "image_url": "/assets/images/half mandi.jpg",
+      "image_url": "/assets/images/half_mandi_1791047549274.jpg",
       "is_available": true,
       "display_order": 28,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-03T11:49:25.329Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "ln_full_burma",
@@ -737,11 +737,11 @@
       "category_id": "cat_lunch_mains",
       "name": "Beef Sandwich",
       "description": "Warm toasted sandwich packed with tender sautéed beef strips, peppers, onions, and sauce.",
-      "image_url": "/assets/images/beef sandwich.jpg",
+      "image_url": "/assets/images/beef_sandwich_1791047538235.jpg",
       "is_available": true,
       "display_order": 6,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-03T11:49:25.329Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "bs_tuna_sandwich",
@@ -813,11 +813,11 @@
       "category_id": "cat_lunch_mains",
       "name": "Chicken Shawarma",
       "description": "Spiced rotisserie chicken strips wrapped in toasted flatbread with garlic toum and pickles.",
-      "image_url": "/assets/images/chicken shawarma.jpg",
+      "image_url": "/assets/images/chicken_shawarma_1791047526323.jpg",
       "is_available": true,
       "display_order": 12,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-03T11:49:25.329Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "bs_beef_shwarma",
@@ -1378,11 +1378,11 @@
       "category_id": "cat_mojito",
       "name": "Tropical Blue Mojito",
       "description": "Tropical citrus and blue lagoon syrup muddled with mint, lime, and sparkling soda.",
-      "image_url": "/assets/images/tropical blue mojito.jpg",
+      "image_url": "/assets/images/tropical_blue_mojito_1791047516397.jpg",
       "is_available": true,
       "display_order": 11,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-03T11:49:25.330Z"
+      "updated_at": "2026-10-03T17:14:08.152Z"
     },
     {
       "id": "moj_01",
@@ -1440,11 +1440,11 @@
       "category_id": "cat_soft_drink",
       "name": "Water 0.5",
       "description": "Chilled 0.5L purified natural spring bottled water.",
-      "image_url": "/assets/images/water 0.5.jpg",
+      "image_url": "/assets/images/water_half_liter_1791047500109.jpg",
       "is_available": true,
       "display_order": 2,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-03T11:49:25.330Z"
+      "updated_at": "2026-10-03T17:14:08.153Z"
     }
   ],
   "last_updated": "2026-10-03T12:17:32.350Z"
