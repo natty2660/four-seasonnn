@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .bg-shiny-gold {
+    background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 25%, #D4AF37 50%, #FBF5B7 75%, #AA771C 100%);
+  }
+  .bg-gold-canvas {
+    background: linear-gradient(180deg, #E8C75A 0%, #D4AF37 45%, #C59B27 100%);
+  }
+  .bg-gold-surface {
+    background: linear-gradient(135deg, #F7E6A2 0%, #E8C860 50%, #DAB53E 100%);
+  }
+  .bg-shiny-black {
+    background: linear-gradient(135deg, #222222 0%, #0A0A0A 50%, #000000 100%);
+  }
+  .text-shiny-gold {
+    background: linear-gradient(135deg, #D4AF37 0%, #FFF6C5 35%, #E5C158 65%, #AA7C11 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .border-shiny-gold {
+    border-color: #D4AF37;
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.22);
+  }
+}
+
