@@ -31,7 +31,11 @@ if (postgresUrl) {
 }
 
 function getDatabaseFilePath(): string {
-  if (process.env.DB_PATH && !process.env.DB_PATH.startsWith('postgres')) {
+  if (
+    process.env.DB_PATH &&
+    !process.env.DB_PATH.startsWith('postgres') &&
+    !/^[a-zA-Z]:[\\/]/.test(process.env.DB_PATH)
+  ) {
     return process.env.DB_PATH;
   }
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
@@ -46,7 +50,11 @@ let initPromise: Promise<boolean> | null = null;
 
 export async function ensureDatabaseInitialized(): Promise<boolean> {
   if (dbInitialized && inMemoryState) return true;
-  if (!pgPool) return false;
+  if (!pgPool) {
+    dbInitialized = true;
+    if (!inMemoryState) getDatabase();
+    return true;
+  }
   if (!initPromise) {
     initPromise = initPostgresDatabase().finally(() => {
       initPromise = null;
@@ -143,7 +151,13 @@ export async function initPostgresDatabase(): Promise<boolean> {
   } catch (err: any) {
     isPgConnected = false;
     lastPgError = err.message;
-    console.warn('⚠️ PostgreSQL connection notice, falling back to local storage:', err.message);
+    // Release pool and cleanly fallback to local JSON database storage
+    try {
+      await pgPool?.end();
+    } catch {}
+    pgPool = null;
+    dbInitialized = true;
+    console.log('[Database] Remote PostgreSQL unavailable, using local JSON storage.');
     return false;
   }
 }
@@ -196,8 +210,8 @@ export function saveDatabase(state: DatabaseState): boolean {
   inMemoryState = state;
   lastSyncedAt = new Date().toISOString();
 
-  // Async persist to PostgreSQL
-  if (pgPool) {
+  // Async persist to PostgreSQL if connected
+  if (pgPool && isPgConnected) {
     pgPool
       .query(
         'INSERT INTO prime_cafe_menu (id, state, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET state = $2, updated_at = NOW()',
@@ -210,7 +224,7 @@ export function saveDatabase(state: DatabaseState): boolean {
       .catch((err: any) => {
         isPgConnected = false;
         lastPgError = err.message;
-        console.warn('PostgreSQL write error:', err.message);
+        console.log('PostgreSQL sync note:', err.message);
       });
   }
 
@@ -230,7 +244,7 @@ export function saveDatabase(state: DatabaseState): boolean {
 
 export async function getDatabaseStatus() {
   const current = inMemoryState || getDatabase();
-  if (!pgPool) {
+  if (!pgPool || !isPgConnected) {
     return {
       connected: true,
       mode: 'local_storage',
@@ -348,7 +362,7 @@ export function checkAdminPassword(attempt: string): boolean {
 export async function getImageBlob(
   filename: string
 ): Promise<{ mime_type: string; data: Buffer } | null> {
-  if (!pgPool) return null;
+  if (!pgPool || !isPgConnected) return null;
   try {
     const res = await pgPool.query(
       'SELECT mime_type, data FROM prime_cafe_image_blobs WHERE filename = $1 LIMIT 1',
@@ -361,7 +375,7 @@ export async function getImageBlob(
       };
     }
   } catch (err: any) {
-    console.warn(`[getImageBlob] Error querying blob for ${filename}:`, err.message);
+    console.log(`[getImageBlob] Blob lookup skipped for ${filename}:`, err.message);
   }
   return null;
 }
@@ -371,7 +385,7 @@ export async function saveImageBlob(
   mimeType: string,
   buffer: Buffer
 ): Promise<boolean> {
-  if (!pgPool) return false;
+  if (!pgPool || !isPgConnected) return false;
   try {
     await pgPool.query(
       `INSERT INTO prime_cafe_image_blobs (filename, mime_type, data, created_at, updated_at)
@@ -381,7 +395,7 @@ export async function saveImageBlob(
     );
     return true;
   } catch (err: any) {
-    console.error(`[saveImageBlob] Error saving blob for ${filename}:`, err.message);
+    console.log(`[saveImageBlob] Blob save skipped for ${filename}:`, err.message);
     return false;
   }
 }

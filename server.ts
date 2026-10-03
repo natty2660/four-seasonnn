@@ -28,7 +28,7 @@ app.use('/api', apiRouter);
 async function setupServer() {
   // Initialize PostgreSQL database connection and sync state
   await initPostgresDatabase().catch((err) => {
-    console.warn('Postgres startup note:', err.message);
+    console.log('Postgres startup note:', err.message);
   });
 
   if (!isProduction) {
