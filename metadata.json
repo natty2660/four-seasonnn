@@ -1,0 +1,8 @@
+{
+  "name": "Prime Cafe — QR Digital Menu",
+  "description": "High-standard digital menu for Prime Cafe featuring specialty coffees, artisan gelateria, fast food, and meal-time sections with real-time Birr pricing and persistent table QR code.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
