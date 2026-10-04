@@ -15,7 +15,7 @@ import {
 } from './db.ts';
 import { buildMenuResponse, validateBirrPrice } from '../lib/storage.ts';
 import { generateQRCodeDataUrl } from '../lib/qr.ts';
-import { MenuItem, Category } from '../types/index.ts';
+import { MenuItem, Category, VipTable, Waiter, WaiterCall } from '../types/index.ts';
 
 export const apiRouter = Router();
 
@@ -535,6 +535,480 @@ apiRouter.post('/upload-brand-asset', (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ==========================================
+// REAL-TIME SSE BROADCASTER FOR VIP CALLS & WAITER NOTIFICATIONS
+// ==========================================
+const sseClients = new Set<Response>();
+
+export function broadcastSseUpdate(eventType: string, data: any) {
+  const payload = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(payload);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+}
+
+// 18. Server-Sent Events stream for zero-latency live ringing & alerts
+apiRouter.get('/waiter-calls/stream', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  const db = getDatabase();
+  const initData = {
+    calls: db.waiter_calls || [],
+    tables: db.vip_tables || [],
+    waiters: db.waiters || [],
+    timestamp: new Date().toISOString(),
+  };
+
+  res.write(`event: init\ndata: ${JSON.stringify(initData)}\n\n`);
+  sseClients.add(res);
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': keep-alive\n\n');
+    } catch {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    }
+  }, 15000);
+
+  _req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(res);
+  });
+});
+
+// ==========================================
+// VIP TABLES API
+// ==========================================
+
+// 19. Get VIP Tables
+apiRouter.get('/vip-tables', (_req: Request, res: Response) => {
+  const db = getDatabase();
+  const tables = db.vip_tables || [];
+  res.json(tables);
+});
+
+// 20. Add VIP Table (Admin)
+apiRouter.post('/vip-tables', requireAdmin, (req: Request, res: Response) => {
+  const { table_number, name, secret_code, assigned_waiter_id, notes } = req.body || {};
+  if (!table_number || !table_number.trim()) {
+    res.status(400).json({ error: 'VIP table number/label is required (e.g. VIP-1).' });
+    return;
+  }
+
+  const db = getDatabase();
+  if (!Array.isArray(db.vip_tables)) db.vip_tables = [];
+
+  const newTable: VipTable = {
+    id: `vip_${Date.now()}`,
+    table_number: table_number.trim(),
+    name: (name || `VIP Table ${table_number}`).trim(),
+    secret_code: secret_code ? secret_code.trim() : undefined,
+    assigned_waiter_id: assigned_waiter_id || null,
+    notes: notes || '',
+    is_active: true,
+    created_at: new Date().toISOString(),
+  };
+
+  db.vip_tables.push(newTable);
+  saveDatabase(db);
+
+  broadcastSseUpdate('tables_updated', db.vip_tables);
+  res.status(201).json(newTable);
+});
+
+// 21. Update VIP Table (Admin - e.g. Assigning Responsible Waiter)
+apiRouter.put('/vip-tables/:id', requireAdmin, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const db = getDatabase();
+  if (!Array.isArray(db.vip_tables)) db.vip_tables = [];
+
+  const index = db.vip_tables.findIndex((t) => t.id === id);
+  if (index === -1) {
+    res.status(404).json({ error: 'VIP Table not found.' });
+    return;
+  }
+
+  const updatedTable: VipTable = {
+    ...db.vip_tables[index],
+    ...req.body,
+    id,
+  };
+
+  db.vip_tables[index] = updatedTable;
+  saveDatabase(db);
+
+  broadcastSseUpdate('tables_updated', db.vip_tables);
+  res.json(updatedTable);
+});
+
+// 22. Delete VIP Table (Admin)
+apiRouter.delete('/vip-tables/:id', requireAdmin, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const db = getDatabase();
+  if (!Array.isArray(db.vip_tables)) db.vip_tables = [];
+
+  db.vip_tables = db.vip_tables.filter((t) => t.id !== id);
+  saveDatabase(db);
+
+  broadcastSseUpdate('tables_updated', db.vip_tables);
+  res.json({ success: true, remaining: db.vip_tables.length });
+});
+
+// ==========================================
+// WAITERS API
+// ==========================================
+
+// 23. Get Waiters
+apiRouter.get('/waiters', (_req: Request, res: Response) => {
+  const db = getDatabase();
+  const waiters = db.waiters || [];
+  res.json(waiters);
+});
+
+// 24. Add Waiter (Admin)
+apiRouter.post('/waiters', requireAdmin, (req: Request, res: Response) => {
+  const { name, pin, phone, is_on_duty } = req.body || {};
+  if (!name || !name.trim()) {
+    res.status(400).json({ error: 'Waiter name is required.' });
+    return;
+  }
+
+  const db = getDatabase();
+  if (!Array.isArray(db.waiters)) db.waiters = [];
+
+  const newWaiter: Waiter = {
+    id: `waiter_${Date.now()}`,
+    name: name.trim(),
+    pin: pin ? pin.trim() : '1234',
+    phone: phone ? phone.trim() : undefined,
+    is_on_duty: is_on_duty !== false,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  };
+
+  db.waiters.push(newWaiter);
+  saveDatabase(db);
+
+  broadcastSseUpdate('waiters_updated', db.waiters);
+  res.status(201).json(newWaiter);
+});
+
+// 25. Update Waiter (Duty Toggle or Admin edit)
+apiRouter.put('/waiters/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const db = getDatabase();
+  if (!Array.isArray(db.waiters)) db.waiters = [];
+
+  const index = db.waiters.findIndex((w) => w.id === id);
+  if (index === -1) {
+    res.status(404).json({ error: 'Waiter not found.' });
+    return;
+  }
+
+  // Allow waiter to toggle own on_duty status without full admin token
+  const updatedWaiter: Waiter = {
+    ...db.waiters[index],
+    ...req.body,
+    id,
+  };
+
+  db.waiters[index] = updatedWaiter;
+  saveDatabase(db);
+
+  broadcastSseUpdate('waiters_updated', db.waiters);
+  res.json(updatedWaiter);
+});
+
+// 26. Delete Waiter (Admin)
+apiRouter.delete('/waiters/:id', requireAdmin, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const db = getDatabase();
+  if (!Array.isArray(db.waiters)) db.waiters = [];
+
+  db.waiters = db.waiters.filter((w) => w.id !== id);
+
+  // Unassign from any VIP tables
+  if (Array.isArray(db.vip_tables)) {
+    db.vip_tables.forEach((t) => {
+      if (t.assigned_waiter_id === id) {
+        t.assigned_waiter_id = null;
+      }
+    });
+  }
+
+  saveDatabase(db);
+
+  broadcastSseUpdate('waiters_updated', db.waiters);
+  broadcastSseUpdate('tables_updated', db.vip_tables);
+  res.json({ success: true, remaining: db.waiters.length });
+});
+
+// ==========================================
+// VIP WAITER CALLS API
+// ==========================================
+
+// 27. Get All Waiter Calls
+apiRouter.get('/waiter-calls', (req: Request, res: Response) => {
+  const { status, table_id, waiter_id } = req.query;
+  const db = getDatabase();
+  let calls = db.waiter_calls || [];
+
+  // Check for any pending calls older than 45 seconds that should be auto-escalated to all waiters
+  const now = Date.now();
+  let escalatedAny = false;
+  for (const call of calls) {
+    if (call.status === 'pending' && !call.is_escalated && call.assigned_waiter_id) {
+      const elapsed = now - new Date(call.created_at).getTime();
+      if (elapsed >= 45000) {
+        call.is_escalated = true;
+        call.original_waiter_id = call.assigned_waiter_id;
+        call.assigned_waiter_id = null; // Escalate to all on-duty waiters!
+        call.escalated_at = new Date().toISOString();
+        escalatedAny = true;
+        broadcastSseUpdate('call_escalated', call);
+        broadcastSseUpdate('call_updated', call);
+      }
+    }
+  }
+  if (escalatedAny) {
+    saveDatabase(db);
+  }
+
+  if (status && typeof status === 'string') {
+    calls = calls.filter((c) => c.status === status);
+  }
+  if (table_id && typeof table_id === 'string') {
+    calls = calls.filter((c) => c.table_id === table_id);
+  }
+  if (waiter_id && typeof waiter_id === 'string') {
+    // If waiter_id specified: show calls where this waiter is assigned OR accepted OR unassigned/escalated calls
+    calls = calls.filter(
+      (c) =>
+        c.is_escalated ||
+        c.assigned_waiter_id === waiter_id ||
+        c.accepted_by_waiter_id === waiter_id ||
+        !c.assigned_waiter_id
+    );
+  }
+
+  res.json(calls);
+});
+
+// 28. VIP Customer Places a Call to the Waiter
+apiRouter.post('/waiter-calls', (req: Request, res: Response) => {
+  const { table_id, call_type = 'general', message = '' } = req.body || {};
+
+  if (!table_id) {
+    res.status(400).json({ error: 'VIP table identification is required.' });
+    return;
+  }
+
+  const db = getDatabase();
+  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+
+  // Look up table in VIP tables
+  const table = (db.vip_tables || []).find(
+    (t) => t.id === table_id || t.table_number.toLowerCase() === String(table_id).toLowerCase()
+  );
+
+  if (!table) {
+    res.status(404).json({ error: `Table '${table_id}' is not recognized as a registered VIP table.` });
+    return;
+  }
+
+  // Prevent spamming if there's already an active pending call for this table
+  const existingPending = db.waiter_calls.find(
+    (c) => c.table_id === table.id && c.status === 'pending'
+  );
+  if (existingPending) {
+    // Update message / type instead of creating duplicates
+    existingPending.call_type = call_type;
+    existingPending.message = message || existingPending.message;
+    saveDatabase(db);
+    broadcastSseUpdate('call_updated', existingPending);
+    res.json({ success: true, call: existingPending, alreadyPending: true });
+    return;
+  }
+
+  const newCall: WaiterCall = {
+    id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    table_id: table.id,
+    table_number: table.table_number,
+    table_name: table.name,
+    call_type: call_type,
+    message: message || undefined,
+    status: 'pending',
+    assigned_waiter_id: table.assigned_waiter_id || null, // Route to responsible waiter!
+    accepted_by_waiter_id: null,
+    accepted_by_name: null,
+    is_escalated: false,
+    original_waiter_id: table.assigned_waiter_id || null,
+    created_at: new Date().toISOString(),
+  };
+
+  db.waiter_calls.unshift(newCall);
+  // Keep last 100 calls in memory/file
+  if (db.waiter_calls.length > 100) {
+    db.waiter_calls = db.waiter_calls.slice(0, 100);
+  }
+  saveDatabase(db);
+
+  // 45-Second Auto-Escalation Timer
+  // If the assigned responsible waiter does not accept within 45s, escalate to all floor waiters
+  if (newCall.assigned_waiter_id) {
+    setTimeout(() => {
+      try {
+        const currentDb = getDatabase();
+        const targetCall = (currentDb.waiter_calls || []).find((c) => c.id === newCall.id);
+        if (targetCall && targetCall.status === 'pending') {
+          targetCall.is_escalated = true;
+          targetCall.original_waiter_id = targetCall.assigned_waiter_id;
+          targetCall.assigned_waiter_id = null; // Broadcast to all on-duty waiters!
+          targetCall.escalated_at = new Date().toISOString();
+          saveDatabase(currentDb);
+          broadcastSseUpdate('call_escalated', targetCall);
+          broadcastSseUpdate('call_updated', targetCall);
+          console.log(`⚡ [AUTO-ESCALATION] VIP Call ${targetCall.id} (${targetCall.table_number}) escalated to all waiters after 45s`);
+        }
+      } catch (err: any) {
+        console.warn('Auto-escalation check failed:', err.message);
+      }
+    }, 45000);
+  }
+
+  // Broadcast to all connected waiters, admin, and VIP customer!
+  broadcastSseUpdate('new_call', newCall);
+  res.status(201).json({ success: true, call: newCall });
+});
+
+// 29. Waiter or Admin Accepts the VIP Call
+apiRouter.put('/waiter-calls/:id/accept', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { waiter_id, waiter_name } = req.body || {};
+
+  const db = getDatabase();
+  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+
+  const call = db.waiter_calls.find((c) => c.id === id);
+  if (!call) {
+    res.status(404).json({ error: 'Call not found.' });
+    return;
+  }
+
+  let finalWaiterName = waiter_name;
+  if (!finalWaiterName && waiter_id && Array.isArray(db.waiters)) {
+    const foundWaiter = db.waiters.find((w) => w.id === waiter_id);
+    if (foundWaiter) finalWaiterName = foundWaiter.name;
+  }
+
+  call.status = 'accepted';
+  call.accepted_by_waiter_id = waiter_id || 'admin';
+  call.accepted_by_name = finalWaiterName || 'Staff Member';
+  call.accepted_at = new Date().toISOString();
+
+  saveDatabase(db);
+  broadcastSseUpdate('call_accepted', call);
+  res.json({ success: true, call });
+});
+
+// 30. Waiter or Admin Marks Call Completed (Customer attended)
+apiRouter.put('/waiter-calls/:id/complete', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const db = getDatabase();
+  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+
+  const call = db.waiter_calls.find((c) => c.id === id);
+  if (!call) {
+    res.status(404).json({ error: 'Call not found.' });
+    return;
+  }
+
+  call.status = 'completed';
+  call.completed_at = new Date().toISOString();
+
+  saveDatabase(db);
+  broadcastSseUpdate('call_completed', call);
+  res.json({ success: true, call });
+});
+
+// 31. VIP Customer or Admin Cancels Call
+apiRouter.put('/waiter-calls/:id/cancel', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const db = getDatabase();
+  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+
+  const call = db.waiter_calls.find((c) => c.id === id);
+  if (!call) {
+    res.status(404).json({ error: 'Call not found.' });
+    return;
+  }
+
+  call.status = 'cancelled';
+  call.completed_at = new Date().toISOString();
+
+  saveDatabase(db);
+  broadcastSseUpdate('call_cancelled', call);
+  res.json({ success: true, call });
+});
+
+// 32. Clear Completed Calls History (Admin)
+apiRouter.delete('/waiter-calls/history', requireAdmin, (_req: Request, res: Response) => {
+  const db = getDatabase();
+  if (Array.isArray(db.waiter_calls)) {
+    db.waiter_calls = db.waiter_calls.filter((c) => c.status === 'pending' || c.status === 'accepted');
+  }
+  saveDatabase(db);
+  broadcastSseUpdate('history_cleared', db.waiter_calls);
+  res.json({ success: true, remaining: db.waiter_calls.length });
+});
+
+// ==========================================
+// NATIVE PUSH NOTIFICATION TOKEN REGISTRY (FCM / APNs)
+// ==========================================
+interface RegisteredPushDevice {
+  waiter_id: string;
+  token: string;
+  platform: 'android' | 'ios';
+  updated_at: string;
+}
+
+const registeredDevices: Map<string, RegisteredPushDevice> = new Map();
+
+// 33. Register Native Waiter Device Token
+apiRouter.post('/waiter-push-tokens', (req: Request, res: Response) => {
+  const { waiter_id, token, platform = 'android' } = req.body || {};
+  if (!waiter_id || !token) {
+    res.status(400).json({ error: 'waiter_id and token are required' });
+    return;
+  }
+
+  registeredDevices.set(`${waiter_id}_${platform}`, {
+    waiter_id,
+    token,
+    platform,
+    updated_at: new Date().toISOString(),
+  });
+
+  res.json({
+    success: true,
+    message: 'Native device registered successfully for high-priority incoming calls',
+    total_registered: registeredDevices.size,
+  });
+});
+
+// 34. List Registered Devices (Admin / Diagnostic)
+apiRouter.get('/waiter-push-tokens', (_req: Request, res: Response) => {
+  res.json(Array.from(registeredDevices.values()));
 });
 
 

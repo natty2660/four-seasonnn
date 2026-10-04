@@ -17,6 +17,8 @@ import {
   Navigation,
   UtensilsCrossed,
   Crop,
+  Crown,
+  Smartphone,
 } from 'lucide-react';
 
 interface PublicMenuProps {
@@ -27,6 +29,8 @@ interface PublicMenuProps {
   onOpenQR: () => void;
   onOpenLogoCropper?: () => void;
   onOpenPhotoEnhancer?: () => void;
+  onOpenVipAccess?: () => void;
+  onOpenWaiterApp?: () => void;
 }
 
 const DEFAULT_HERO_BANNER = '/assets/images/four_season_confidential_wall_1790854372202.jpg';
@@ -39,6 +43,8 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
   onOpenQR,
   onOpenLogoCropper,
   onOpenPhotoEnhancer,
+  onOpenVipAccess,
+  onOpenWaiterApp,
 }) => {
   const [selectedMealTime, setSelectedMealTime] = useState<MealTime | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -159,6 +165,16 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
               >
                 <Camera className="w-4 h-4 text-[#D4AF37]" />
                 <span>Upload Original Photos</span>
+              </button>
+            )}
+            {onOpenVipAccess && (
+              <button
+                onClick={onOpenVipAccess}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-[#0A0A0A] border border-[#080808]/40 shadow-md hover:brightness-110 active:scale-95 transition-all"
+                title="Access Exclusive VIP Table Service with Waiter Call"
+              >
+                <Crown className="w-3.5 h-3.5" />
+                <span>VIP Table</span>
               </button>
             )}
             <button
@@ -505,9 +521,31 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
           <p className="text-[#111111] font-semibold leading-relaxed">
             Contemporary Coffee Lounge · Gourmet Restaurant
           </p>
-          <div className="flex items-center justify-center gap-3 pt-2 text-[11px] text-[#080808] font-semibold">
-            <span>Jijiga, Ethiopia</span>
-            <span>·</span>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-[11px] text-[#080808] font-bold">
+            {onOpenVipAccess && (
+              <>
+                <button
+                  onClick={onOpenVipAccess}
+                  className="inline-flex items-center gap-1 hover:underline cursor-pointer font-black text-black"
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>VIP Table Service</span>
+                </button>
+                <span>·</span>
+              </>
+            )}
+            {onOpenWaiterApp && (
+              <>
+                <button
+                  onClick={onOpenWaiterApp}
+                  className="inline-flex items-center gap-1 hover:underline cursor-pointer font-black text-black"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Waiter Mobile App</span>
+                </button>
+                <span>·</span>
+              </>
+            )}
             <button
               onClick={onOpenAdmin}
               className="text-[#080808] hover:underline cursor-pointer font-extrabold"

@@ -1,12 +1,88 @@
-import { Restaurant, Category, MenuItem, MenuResponse, MealTime } from '../types/index.ts';
+import { Restaurant, Category, MenuItem, MenuResponse, MealTime, VipTable, Waiter, WaiterCall } from '../types/index.ts';
 import { PRIME_CAFE_RESTAURANT, SEED_CATEGORIES, SEED_MENU_ITEMS } from '../data/seedData.ts';
 
-const STORAGE_KEY = 'four_season_cafe_store_v27';
+const STORAGE_KEY = 'four_season_cafe_store_v28';
+
+export const INITIAL_WAITERS: Waiter[] = [
+  {
+    id: 'waiter_1',
+    name: 'Abebe Tsegaye',
+    pin: '1111',
+    phone: '+251 91 123 4567',
+    is_on_duty: true,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'waiter_2',
+    name: 'Sara Mohammed',
+    pin: '2222',
+    phone: '+251 92 234 5678',
+    is_on_duty: true,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'waiter_3',
+    name: 'Dawit Kebede',
+    pin: '3333',
+    phone: '+251 93 345 6789',
+    is_on_duty: false,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  },
+];
+
+export const INITIAL_VIP_TABLES: VipTable[] = [
+  {
+    id: 'vip_1',
+    table_number: 'VIP-1',
+    name: 'Royal Gold Suite',
+    secret_code: '7771',
+    assigned_waiter_id: 'waiter_1', // Responsible waiter: Abebe
+    is_active: true,
+    notes: 'Primary luxury banquet table near private fountain',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'vip_2',
+    table_number: 'VIP-2',
+    name: 'Executive Lounge',
+    secret_code: '7772',
+    assigned_waiter_id: 'waiter_2', // Responsible waiter: Sara
+    is_active: true,
+    notes: 'Leather booths with privacy partition',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'vip_3',
+    table_number: 'VIP-3',
+    name: 'Garden Terrace',
+    secret_code: '7773',
+    assigned_waiter_id: null, // Unassigned: Rings to all available waiters!
+    is_active: true,
+    notes: 'Open outdoor VIP gazebo, unassigned shared pool',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'vip_4',
+    table_number: 'VIP-4',
+    name: 'Penthouse Salon',
+    secret_code: '7774',
+    assigned_waiter_id: 'waiter_1', // Responsible waiter: Abebe
+    is_active: true,
+    notes: 'Panoramic top-floor view table',
+    created_at: new Date().toISOString(),
+  },
+];
 
 export interface DatabaseState {
   restaurant: Restaurant;
   categories: Category[];
   items: MenuItem[];
+  vip_tables: VipTable[];
+  waiters: Waiter[];
+  waiter_calls: WaiterCall[];
   last_updated: string;
   admin_password?: string;
 }
@@ -16,6 +92,9 @@ export function getInitialState(): DatabaseState {
     restaurant: { ...PRIME_CAFE_RESTAURANT },
     categories: [...SEED_CATEGORIES],
     items: SEED_MENU_ITEMS.map(({ price: _p, sizes: _s, ...rest }) => ({ ...rest })),
+    vip_tables: [...INITIAL_VIP_TABLES],
+    waiters: [...INITIAL_WAITERS],
+    waiter_calls: [],
     last_updated: new Date().toISOString(),
   };
 }
@@ -43,6 +122,18 @@ export function loadClientState(): DatabaseState {
     parsed.items = parsed.items
       .filter((i) => validIds.has(i.id) || i.id.startsWith('item_'))
       .map(({ price: _p, sizes: _s, ...rest }) => ({ ...rest }));
+
+    // Ensure VIP tables, waiters, and calls exist
+    if (!Array.isArray(parsed.vip_tables) || parsed.vip_tables.length === 0) {
+      parsed.vip_tables = [...INITIAL_VIP_TABLES];
+    }
+    if (!Array.isArray(parsed.waiters) || parsed.waiters.length === 0) {
+      parsed.waiters = [...INITIAL_WAITERS];
+    }
+    if (!Array.isArray(parsed.waiter_calls)) {
+      parsed.waiter_calls = [];
+    }
+
     return parsed;
   } catch (e) {
     console.warn('Failed reading client state, using fallback:', e);

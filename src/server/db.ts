@@ -123,6 +123,15 @@ export async function initPostgresDatabase(): Promise<boolean> {
           },
           categories: fresh.categories,
           items: syncedItems,
+          vip_tables:
+            Array.isArray(stored.vip_tables) && stored.vip_tables.length > 0
+              ? stored.vip_tables
+              : fresh.vip_tables,
+          waiters:
+            Array.isArray(stored.waiters) && stored.waiters.length > 0
+              ? stored.waiters
+              : fresh.waiters,
+          waiter_calls: Array.isArray(stored.waiter_calls) ? stored.waiter_calls : [],
           last_updated: new Date().toISOString(),
           admin_password: stored.admin_password,
         };
@@ -197,6 +206,15 @@ export function getDatabase(): DatabaseState {
               : '',
           };
         });
+        if (!Array.isArray(parsed.vip_tables) || parsed.vip_tables.length === 0) {
+          parsed.vip_tables = [...fresh.vip_tables];
+        }
+        if (!Array.isArray(parsed.waiters) || parsed.waiters.length === 0) {
+          parsed.waiters = [...fresh.waiters];
+        }
+        if (!Array.isArray(parsed.waiter_calls)) {
+          parsed.waiter_calls = [];
+        }
         inMemoryState = parsed;
         return inMemoryState;
       }

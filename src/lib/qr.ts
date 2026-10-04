@@ -14,6 +14,13 @@ export function getMenuUrl(slug = 'prime-cafe'): string {
   return `https://primecafe.et/menu/${slug}`;
 }
 
+export function getVipTableUrl(tableNumber: string): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/vip?table=${encodeURIComponent(tableNumber)}`;
+  }
+  return `https://primecafe.et/vip?table=${encodeURIComponent(tableNumber)}`;
+}
+
 /**
  * Generates a high-resolution QR code data URL (min 1024x1024px)
  * Encodes strictly the public menu URL, never menu data.

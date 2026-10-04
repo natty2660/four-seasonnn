@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Restaurant, Category, MenuItem, MealTime } from '../types/index.ts';
+import { Restaurant, Category, MenuItem, MealTime, VipTable, Waiter, WaiterCall } from '../types/index.ts';
 import { OWNER_TRANSCRIPTION_FLAGS } from '../data/seedData.ts';
 import { enhanceOriginalDishPhoto, matchFilenameToMenuItems } from '../lib/imageEnhancer.ts';
 import { BrandLogo } from './BrandLogo.tsx';
+import { VipAdminManagement } from './VipAdminManagement.tsx';
 import {
   Plus,
   Edit2,
@@ -37,16 +38,26 @@ import {
   FolderArchive,
   ArrowDownToLine,
   Crop,
+  Crown,
+  BellRing,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   restaurant: Restaurant;
   categories: Category[];
   items: MenuItem[];
+  vipTables?: VipTable[];
+  waiters?: Waiter[];
+  calls?: WaiterCall[];
   token: string;
   onUpdateRestaurant: (updated: Restaurant) => void;
   onUpdateCategories: (categories: Category[]) => void;
   onUpdateItems: (items: MenuItem[]) => void;
+  onUpdateTables?: (tables: VipTable[]) => void;
+  onUpdateWaiters?: (waiters: Waiter[]) => void;
+  onAcceptCall?: (callId: string, waiterId: string, waiterName: string) => Promise<void>;
+  onCompleteCall?: (callId: string) => Promise<void>;
+  onCancelCall?: (callId: string) => Promise<void>;
   onOpenQR: () => void;
   onOpenLogoCropper?: () => void;
   onViewMenu: () => void;
@@ -57,16 +68,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   restaurant,
   categories,
   items,
+  vipTables = [],
+  waiters = [],
+  calls = [],
   token,
   onUpdateRestaurant,
   onUpdateCategories,
   onUpdateItems,
+  onUpdateTables,
+  onUpdateWaiters,
+  onAcceptCall,
+  onCompleteCall,
+  onCancelCall,
   onOpenQR,
   onOpenLogoCropper,
   onViewMenu,
   onLogout,
 }) => {
-  const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'restaurant' | 'flags' | 'gallery'>('items');
+  const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'vip' | 'restaurant' | 'flags' | 'gallery'>('items');
   const [galleryCategory, setGalleryCategory] = useState<string>('all');
   const [gallerySearch, setGallerySearch] = useState<string>('');
   const [previewingPhoto, setPreviewingPhoto] = useState<{ name: string; url: string; item: MenuItem } | null>(null);
@@ -548,6 +567,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             Categories & Meal Times ({categories.length})
           </button>
           <button
+            onClick={() => setActiveTab('vip')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'vip'
+                ? 'bg-shiny-gold text-[#080808]'
+                : 'bg-[#141414] text-[#D4C9B0] hover:text-[#FCF6BA] border border-[#D4AF37]/30'
+            }`}
+          >
+            <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <span>VIP Tables & Waiters</span>
+            {calls.filter((c) => c.status === 'pending').length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[10px] font-black animate-pulse">
+                {calls.filter((c) => c.status === 'pending').length}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab('flags')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5 ${
               activeTab === 'flags'
@@ -580,6 +615,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             Restaurant Settings
           </button>
         </div>
+
+        {/* TAB: VIP & WAITERS */}
+        {activeTab === 'vip' && (
+          <VipAdminManagement
+            vipTables={vipTables}
+            waiters={waiters}
+            calls={calls}
+            token={token}
+            onUpdateTables={onUpdateTables || (() => {})}
+            onUpdateWaiters={onUpdateWaiters || (() => {})}
+            onAcceptCall={onAcceptCall || (async () => {})}
+            onCompleteCall={onCompleteCall || (async () => {})}
+            onCancelCall={onCancelCall || (async () => {})}
+          />
+        )}
 
         {/* TAB 1: MENU ITEMS */}
         {activeTab === 'items' && (

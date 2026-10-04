@@ -1,0 +1,299 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+
+    <defs>
+      <linearGradient id="goldMain" x1="10%" y1="5%" x2="90%" y2="95%">
+        <stop offset="0%" stop-color="#D5B560"/>
+        <stop offset="20%" stop-color="#F2DD96"/>
+        <stop offset="40%" stop-color="#C9A248"/>
+        <stop offset="60%" stop-color="#ECD486"/>
+        <stop offset="80%" stop-color="#DFC06C"/>
+        <stop offset="100%" stop-color="#B68E36"/>
+      </linearGradient>
+      <linearGradient id="goldBand" x1="0%" y1="20%" x2="100%" y2="80%">
+        <stop offset="0%" stop-color="#C8A349"/>
+        <stop offset="25%" stop-color="#EAD080"/>
+        <stop offset="50%" stop-color="#F3DF98"/>
+        <stop offset="75%" stop-color="#E4C675"/>
+        <stop offset="100%" stop-color="#BA933B"/>
+      </linearGradient>
+      <radialGradient id="goldCenter" cx="52%" cy="48%" r="55%">
+        <stop offset="0%" stop-color="#F7E6A6"/>
+        <stop offset="55%" stop-color="#E7CB7B"/>
+        <stop offset="100%" stop-color="#B58E35"/>
+      </radialGradient>
+      <radialGradient id="darkField" cx="50%" cy="45%" r="60%">
+        <stop offset="0%" stop-color="#342A27"/>
+        <stop offset="75%" stop-color="#281F1D"/>
+        <stop offset="100%" stop-color="#1D1513"/>
+      </radialGradient>
+      <radialGradient id="glint" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95"/>
+        <stop offset="40%" stop-color="#FFF7C2" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="#E8C86B" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    
+<rect width="1600" height="900" fill="#060708"/>
+<rect x="-42.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="-16.6" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="-42.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="-13.6" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="0.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="25.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="0.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="28.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="42.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="68.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="42.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="71.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="85.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="110.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="85.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="113.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="127.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="153.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="127.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="156.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="170.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="195.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="170.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="198.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="212.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="238.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="212.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="241.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="255.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="280.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="255.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="283.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="297.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="323.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="297.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="326.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="340.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="365.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="340.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="368.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="382.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="408.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="382.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="411.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="425.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="450.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="425.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="453.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="467.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="493.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="467.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="496.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="510.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="535.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="510.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="538.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="552.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="578.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="552.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="581.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="595.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="620.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="595.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="623.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="637.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="663.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="637.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="666.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="680.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="705.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="680.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="708.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="722.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="748.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="722.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="751.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="765.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="790.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="765.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="793.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="807.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="833.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="807.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="836.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="850.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="875.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="850.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="878.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="892.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="918.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="892.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="921.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="935.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="960.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="935.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="963.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="977.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1003.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="977.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1006.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1020.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1045.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1020.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1048.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1062.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1088.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1062.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1091.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1105.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1130.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1105.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1133.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1147.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1173.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1147.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1176.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1190.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1215.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1190.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1218.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1232.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1258.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1232.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1261.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1275.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1300.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1275.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1303.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1317.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1343.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1317.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1346.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1360.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1385.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1360.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1388.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1402.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1428.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1402.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1431.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1445.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1470.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1445.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1473.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1487.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1513.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1487.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1516.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1530.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1555.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1530.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1558.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1572.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1598.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1572.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1601.4" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1615.0" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1640.9" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1615.0" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1643.9" y="0" width="13.6" height="900" fill="#030405"/>
+<rect x="1657.5" y="0" width="28.9" height="900" fill="#17191B"/>
+<rect x="1683.4" y="0" width="2.4" height="900" fill="#3E4246" opacity="0.75"/>
+<rect x="1657.5" y="0" width="1.8" height="900" fill="#2A2D30" opacity="0.55"/>
+<rect x="1686.4" y="0" width="13.6" height="900" fill="#030405"/>
+<circle cx="800.0" cy="450.0" r="364.5" fill="#040303" opacity="0.72"/>
+<g transform="translate(800.0,450.0) scale(0.75) rotate(-2.2)">
+<path d="M 468.0 0.0 L 454.7 17.0 L 434.8 32.6 L 452.2 50.9 L 462.8 69.8 L 447.1 84.6 L 425.1 97.0 L 439.5 117.8 L 447.2 137.9 L 429.5 150.3 L 405.9 159.3 L 417.1 182.0 L 421.7 203.1 L 402.3 212.6 L 377.6 218.0 L 385.3 242.1 L 386.7 263.6 L 366.1 270.2 L 340.9 271.8 L 344.9 296.8 L 343.1 318.3 L 321.8 321.8 L 296.6 319.6 L 296.8 344.9 L 291.8 365.9 L 270.2 366.1 L 245.6 360.2 L 242.1 385.3 L 234.0 405.3 L 212.6 402.3 L 189.2 392.8 L 182.0 417.1 L 171.0 435.6 L 150.3 429.5 L 128.5 416.6 L 117.8 439.5 L 104.1 456.3 L 84.6 447.1 L 65.0 431.1 L 50.9 452.2 L 35.0 466.7 L 17.0 454.7 L 0.0 436.0 L -17.0 454.7 L -35.0 466.7 L -50.9 452.2 L -65.0 431.1 L -84.6 447.1 L -104.1 456.3 L -117.8 439.5 L -128.5 416.6 L -150.3 429.5 L -171.0 435.6 L -182.0 417.1 L -189.2 392.8 L -212.6 402.3 L -234.0 405.3 L -242.1 385.3 L -245.6 360.2 L -270.2 366.1 L -291.8 365.9 L -296.8 344.9 L -296.6 319.6 L -321.8 321.8 L -343.1 318.3 L -344.9 296.8 L -340.9 271.8 L -366.1 270.2 L -386.7 263.6 L -385.3 242.1 L -377.6 218.0 L -402.3 212.6 L -421.7 203.1 L -417.1 182.0 L -405.9 159.3 L -429.5 150.3 L -447.2 137.9 L -439.5 117.8 L -425.1 97.0 L -447.1 84.6 L -462.8 69.8 L -452.2 50.9 L -434.8 32.6 L -454.7 17.0 L -468.0 0.0 L -454.7 -17.0 L -434.8 -32.6 L -452.2 -50.9 L -462.8 -69.8 L -447.1 -84.6 L -425.1 -97.0 L -439.5 -117.8 L -447.2 -137.9 L -429.5 -150.3 L -405.9 -159.3 L -417.1 -182.0 L -421.7 -203.1 L -402.3 -212.6 L -377.6 -218.0 L -385.3 -242.1 L -386.7 -263.6 L -366.1 -270.2 L -340.9 -271.8 L -344.9 -296.8 L -343.1 -318.3 L -321.8 -321.8 L -296.6 -319.6 L -296.8 -344.9 L -291.8 -365.9 L -270.2 -366.1 L -245.6 -360.2 L -242.1 -385.3 L -234.0 -405.3 L -212.6 -402.3 L -189.2 -392.8 L -182.0 -417.1 L -171.0 -435.6 L -150.3 -429.5 L -128.5 -416.6 L -117.8 -439.5 L -104.1 -456.3 L -84.6 -447.1 L -65.0 -431.1 L -50.9 -452.2 L -35.0 -466.7 L -17.0 -454.7 L -0.0 -436.0 L 17.0 -454.7 L 35.0 -466.7 L 50.9 -452.2 L 65.0 -431.1 L 84.6 -447.1 L 104.1 -456.3 L 117.8 -439.5 L 128.5 -416.6 L 150.3 -429.5 L 171.0 -435.6 L 182.0 -417.1 L 189.2 -392.8 L 212.6 -402.3 L 234.0 -405.3 L 242.1 -385.3 L 245.6 -360.2 L 270.2 -366.1 L 291.8 -365.9 L 296.8 -344.9 L 296.6 -319.6 L 321.8 -321.8 L 343.1 -318.3 L 344.9 -296.8 L 340.9 -271.8 L 366.1 -270.2 L 386.7 -263.6 L 385.3 -242.1 L 377.6 -218.0 L 402.3 -212.6 L 421.7 -203.1 L 417.1 -182.0 L 405.9 -159.3 L 429.5 -150.3 L 447.2 -137.9 L 439.5 -117.8 L 425.1 -97.0 L 447.1 -84.6 L 462.8 -69.8 L 452.2 -50.9 L 434.8 -32.6 L 454.7 -17.0 Z" transform="translate(-9, 6)" fill="#1D150C" opacity="0.95"/>
+<path d="M 468.0 0.0 L 454.7 17.0 L 434.8 32.6 L 452.2 50.9 L 462.8 69.8 L 447.1 84.6 L 425.1 97.0 L 439.5 117.8 L 447.2 137.9 L 429.5 150.3 L 405.9 159.3 L 417.1 182.0 L 421.7 203.1 L 402.3 212.6 L 377.6 218.0 L 385.3 242.1 L 386.7 263.6 L 366.1 270.2 L 340.9 271.8 L 344.9 296.8 L 343.1 318.3 L 321.8 321.8 L 296.6 319.6 L 296.8 344.9 L 291.8 365.9 L 270.2 366.1 L 245.6 360.2 L 242.1 385.3 L 234.0 405.3 L 212.6 402.3 L 189.2 392.8 L 182.0 417.1 L 171.0 435.6 L 150.3 429.5 L 128.5 416.6 L 117.8 439.5 L 104.1 456.3 L 84.6 447.1 L 65.0 431.1 L 50.9 452.2 L 35.0 466.7 L 17.0 454.7 L 0.0 436.0 L -17.0 454.7 L -35.0 466.7 L -50.9 452.2 L -65.0 431.1 L -84.6 447.1 L -104.1 456.3 L -117.8 439.5 L -128.5 416.6 L -150.3 429.5 L -171.0 435.6 L -182.0 417.1 L -189.2 392.8 L -212.6 402.3 L -234.0 405.3 L -242.1 385.3 L -245.6 360.2 L -270.2 366.1 L -291.8 365.9 L -296.8 344.9 L -296.6 319.6 L -321.8 321.8 L -343.1 318.3 L -344.9 296.8 L -340.9 271.8 L -366.1 270.2 L -386.7 263.6 L -385.3 242.1 L -377.6 218.0 L -402.3 212.6 L -421.7 203.1 L -417.1 182.0 L -405.9 159.3 L -429.5 150.3 L -447.2 137.9 L -439.5 117.8 L -425.1 97.0 L -447.1 84.6 L -462.8 69.8 L -452.2 50.9 L -434.8 32.6 L -454.7 17.0 L -468.0 0.0 L -454.7 -17.0 L -434.8 -32.6 L -452.2 -50.9 L -462.8 -69.8 L -447.1 -84.6 L -425.1 -97.0 L -439.5 -117.8 L -447.2 -137.9 L -429.5 -150.3 L -405.9 -159.3 L -417.1 -182.0 L -421.7 -203.1 L -402.3 -212.6 L -377.6 -218.0 L -385.3 -242.1 L -386.7 -263.6 L -366.1 -270.2 L -340.9 -271.8 L -344.9 -296.8 L -343.1 -318.3 L -321.8 -321.8 L -296.6 -319.6 L -296.8 -344.9 L -291.8 -365.9 L -270.2 -366.1 L -245.6 -360.2 L -242.1 -385.3 L -234.0 -405.3 L -212.6 -402.3 L -189.2 -392.8 L -182.0 -417.1 L -171.0 -435.6 L -150.3 -429.5 L -128.5 -416.6 L -117.8 -439.5 L -104.1 -456.3 L -84.6 -447.1 L -65.0 -431.1 L -50.9 -452.2 L -35.0 -466.7 L -17.0 -454.7 L -0.0 -436.0 L 17.0 -454.7 L 35.0 -466.7 L 50.9 -452.2 L 65.0 -431.1 L 84.6 -447.1 L 104.1 -456.3 L 117.8 -439.5 L 128.5 -416.6 L 150.3 -429.5 L 171.0 -435.6 L 182.0 -417.1 L 189.2 -392.8 L 212.6 -402.3 L 234.0 -405.3 L 242.1 -385.3 L 245.6 -360.2 L 270.2 -366.1 L 291.8 -365.9 L 296.8 -344.9 L 296.6 -319.6 L 321.8 -321.8 L 343.1 -318.3 L 344.9 -296.8 L 340.9 -271.8 L 366.1 -270.2 L 386.7 -263.6 L 385.3 -242.1 L 377.6 -218.0 L 402.3 -212.6 L 421.7 -203.1 L 417.1 -182.0 L 405.9 -159.3 L 429.5 -150.3 L 447.2 -137.9 L 439.5 -117.8 L 425.1 -97.0 L 447.1 -84.6 L 462.8 -69.8 L 452.2 -50.9 L 434.8 -32.6 L 454.7 -17.0 Z" transform="translate(-4, 3)" fill="#5A431B" opacity="0.9"/>
+<path d="M 468.0 0.0 L 454.7 17.0 L 434.8 32.6 L 452.2 50.9 L 462.8 69.8 L 447.1 84.6 L 425.1 97.0 L 439.5 117.8 L 447.2 137.9 L 429.5 150.3 L 405.9 159.3 L 417.1 182.0 L 421.7 203.1 L 402.3 212.6 L 377.6 218.0 L 385.3 242.1 L 386.7 263.6 L 366.1 270.2 L 340.9 271.8 L 344.9 296.8 L 343.1 318.3 L 321.8 321.8 L 296.6 319.6 L 296.8 344.9 L 291.8 365.9 L 270.2 366.1 L 245.6 360.2 L 242.1 385.3 L 234.0 405.3 L 212.6 402.3 L 189.2 392.8 L 182.0 417.1 L 171.0 435.6 L 150.3 429.5 L 128.5 416.6 L 117.8 439.5 L 104.1 456.3 L 84.6 447.1 L 65.0 431.1 L 50.9 452.2 L 35.0 466.7 L 17.0 454.7 L 0.0 436.0 L -17.0 454.7 L -35.0 466.7 L -50.9 452.2 L -65.0 431.1 L -84.6 447.1 L -104.1 456.3 L -117.8 439.5 L -128.5 416.6 L -150.3 429.5 L -171.0 435.6 L -182.0 417.1 L -189.2 392.8 L -212.6 402.3 L -234.0 405.3 L -242.1 385.3 L -245.6 360.2 L -270.2 366.1 L -291.8 365.9 L -296.8 344.9 L -296.6 319.6 L -321.8 321.8 L -343.1 318.3 L -344.9 296.8 L -340.9 271.8 L -366.1 270.2 L -386.7 263.6 L -385.3 242.1 L -377.6 218.0 L -402.3 212.6 L -421.7 203.1 L -417.1 182.0 L -405.9 159.3 L -429.5 150.3 L -447.2 137.9 L -439.5 117.8 L -425.1 97.0 L -447.1 84.6 L -462.8 69.8 L -452.2 50.9 L -434.8 32.6 L -454.7 17.0 L -468.0 0.0 L -454.7 -17.0 L -434.8 -32.6 L -452.2 -50.9 L -462.8 -69.8 L -447.1 -84.6 L -425.1 -97.0 L -439.5 -117.8 L -447.2 -137.9 L -429.5 -150.3 L -405.9 -159.3 L -417.1 -182.0 L -421.7 -203.1 L -402.3 -212.6 L -377.6 -218.0 L -385.3 -242.1 L -386.7 -263.6 L -366.1 -270.2 L -340.9 -271.8 L -344.9 -296.8 L -343.1 -318.3 L -321.8 -321.8 L -296.6 -319.6 L -296.8 -344.9 L -291.8 -365.9 L -270.2 -366.1 L -245.6 -360.2 L -242.1 -385.3 L -234.0 -405.3 L -212.6 -402.3 L -189.2 -392.8 L -182.0 -417.1 L -171.0 -435.6 L -150.3 -429.5 L -128.5 -416.6 L -117.8 -439.5 L -104.1 -456.3 L -84.6 -447.1 L -65.0 -431.1 L -50.9 -452.2 L -35.0 -466.7 L -17.0 -454.7 L -0.0 -436.0 L 17.0 -454.7 L 35.0 -466.7 L 50.9 -452.2 L 65.0 -431.1 L 84.6 -447.1 L 104.1 -456.3 L 117.8 -439.5 L 128.5 -416.6 L 150.3 -429.5 L 171.0 -435.6 L 182.0 -417.1 L 189.2 -392.8 L 212.6 -402.3 L 234.0 -405.3 L 242.1 -385.3 L 245.6 -360.2 L 270.2 -366.1 L 291.8 -365.9 L 296.8 -344.9 L 296.6 -319.6 L 321.8 -321.8 L 343.1 -318.3 L 344.9 -296.8 L 340.9 -271.8 L 366.1 -270.2 L 386.7 -263.6 L 385.3 -242.1 L 377.6 -218.0 L 402.3 -212.6 L 421.7 -203.1 L 417.1 -182.0 L 405.9 -159.3 L 429.5 -150.3 L 447.2 -137.9 L 439.5 -117.8 L 425.1 -97.0 L 447.1 -84.6 L 462.8 -69.8 L 452.2 -50.9 L 434.8 -32.6 L 454.7 -17.0 Z" fill="url(#goldMain)" stroke="#9C7A2E" stroke-width="2"/>
+<circle cx="0" cy="0" r="412" fill="#251C18"/>
+<circle cx="0" cy="0" r="398" fill="url(#goldMain)"/>
+<circle cx="0" cy="0" r="374" fill="#221916"/>
+<circle cx="0" cy="0" r="366" fill="url(#darkField)"/>
+<path d="M -364 -91 L 364 -91 L 364 91 L -364 91 Z" fill="#221916"/>
+<path d="M -365 -82 L 365 -82 L 365 82 L -365 82 Z" fill="url(#goldBand)"/>
+<path d="M -362 -68 Q -321.0 -74, -280 -65" stroke="#3A2B14" stroke-width="5" fill="none" opacity="0.55"/>
+<path d="M -362 -51 Q -335.5 -57, -309 -48" stroke="#3A2B14" stroke-width="5" fill="none" opacity="0.55"/>
+<path d="M -362 -34 Q -319.5 -40, -277 -31" stroke="#3A2B14" stroke-width="5" fill="none" opacity="0.55"/>
+<path d="M -362 -17 Q -324.5 -23, -287 -14" stroke="#3A2B14" stroke-width="5" fill="none" opacity="0.55"/>
+<path d="M -362 0 Q -337.0 -6, -312 3" stroke="#3A2B14" stroke-width="5" fill="none" opacity="0.55"/>
+<path d="M -362 17 Q -337.5 11, -313 20" stroke="#3A2B14" stroke-width="5" fill="none" opacity="0.55"/>
+<path d="M -362 34 Q -335.5 28, -309 37" stroke="#3A2B14" stroke-width="5" fill="none" opacity="0.55"/>
+<path d="M -362 51 Q -331.5 45, -301 54" stroke="#3A2B14" stroke-width="5" fill="none" opacity="0.55"/>
+<path d="M -362 68 Q -331.0 62, -300 71" stroke="#3A2B14" stroke-width="5" fill="none" opacity="0.55"/>
+<circle cx="0" cy="0" r="386" fill="none" stroke="url(#goldMain)" stroke-width="24"/>
+<circle cx="0" cy="0" r="370" fill="none" stroke="#221916" stroke-width="8"/>
+<path d="M -268.0 -42.0 L -258.3 -13.3 L -228.1 -13.0 L -252.3 5.1 L -243.3 34.0 L -268.0 16.5 L -292.7 34.0 L -283.7 5.1 L -307.9 -13.0 L -277.7 -13.3 Z" fill="#2B211E" stroke="#5E4924" stroke-width="1.5"/>
+<path d="M 268.0 -42.0 L 277.7 -13.3 L 307.9 -13.0 L 283.7 5.1 L 292.7 34.0 L 268.0 16.5 L 243.3 34.0 L 252.3 5.1 L 228.1 -13.0 L 258.3 -13.3 Z" fill="#2B211E" stroke="#5E4924" stroke-width="1.5"/>
+<circle cx="0" cy="0" r="192" fill="#231A17"/>
+<circle cx="0" cy="0" r="180" fill="url(#goldMain)"/>
+<circle cx="0" cy="0" r="158" fill="#231A17"/>
+<circle cx="0" cy="0" r="150" fill="url(#goldCenter)"/>
+<g fill="#2C221F" stroke="#4A3820" stroke-width="1">
+<path d="M -132 -12 C -118 -42, -55 -68, 32 -72 C 45 -72, 52 -65, 48 -57 C 43 -48, 22 -50, -8 -46 C -45 -41, -85 -25, -116 2 C -126 10, -136 2, -132 -12 Z"/>
+<path d="M -68 -44 C -52 -46, -42 -36, -44 -18 L -46 48 C -46 62, -54 68, -66 64 C -78 60, -82 46, -80 26 L -78 -8 L -98 -2 C -106 0, -110 -8, -102 -15 L -76 -26 Z"/>
+<path d="M -55 -6 C -38 -10, -24 -10, -18 -4 C -14 1, -20 8, -32 9 L -56 10 Z"/>
+<path d="M 48 -30 C 52 -42, 34 -48, 12 -42 C -12 -35, -26 -16, -16 2 C -8 16, 18 20, 22 34 C 25 46, 8 56, -12 52 C -26 49, -32 40, -38 44 C -44 48, -36 64, -12 68 C 18 72, 48 54, 48 28 C 48 6, 14 0, 10 -14 C 7 -24, 20 -32, 34 -26 C 42 -22, 46 -22, 48 -30 Z"/>
+<path d="M 55 -84 C 98 -88, 126 -62, 116 -18 C 104 34, 42 86, -48 106 C -68 110, -82 106, -76 98 C -70 92, -48 92, -22 84 C 44 64, 88 18, 94 -24 C 98 -50, 82 -68, 52 -74 C 44 -76, 46 -83, 55 -84 Z"/>
+</g>
+<ellipse cx="42" cy="14" rx="28" ry="18" transform="rotate(-25 42 14)" fill="url(#glint)" opacity="0.75"/>
+<text x="0" y="0" transform="translate(-218.9,-165.7) rotate(-52.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="0" y="0" transform="translate(-215.9,-168.7) rotate(-52.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="0" y="0" transform="translate(-184.9,-201.9) rotate(-41.6)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="0" y="0" transform="translate(-181.9,-204.9) rotate(-41.6)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="0" y="0" transform="translate(-144.9,-231.4) rotate(-31.2)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="0" y="0" transform="translate(-141.9,-234.4) rotate(-31.2)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="0" y="0" transform="translate(-100.3,-253.1) rotate(-20.8)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="0" y="0" transform="translate(-97.3,-256.1) rotate(-20.8)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="0" y="0" transform="translate(-52.5,-266.5) rotate(-10.4)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central"> </text>
+<text x="0" y="0" transform="translate(-49.5,-269.5) rotate(-10.4)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central"> </text>
+<text x="0" y="0" transform="translate(-3.0,-271.0) rotate(0.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="0" y="0" transform="translate(0.0,-274.0) rotate(0.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="0" y="0" transform="translate(46.5,-266.5) rotate(10.4)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="0" y="0" transform="translate(49.5,-269.5) rotate(10.4)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="0" y="0" transform="translate(94.3,-253.1) rotate(20.8)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="0" y="0" transform="translate(97.3,-256.1) rotate(20.8)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="0" y="0" transform="translate(138.9,-231.4) rotate(31.2)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="0" y="0" transform="translate(141.9,-234.4) rotate(31.2)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="0" y="0" transform="translate(178.9,-201.9) rotate(41.6)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="0" y="0" transform="translate(181.9,-204.9) rotate(41.6)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="0" y="0" transform="translate(212.9,-165.7) rotate(52.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="0" y="0" transform="translate(215.9,-168.7) rotate(52.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="66" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="0" y="0" transform="translate(-233.5,158.5) rotate(56.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="0" y="0" transform="translate(-230.5,155.5) rotate(56.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="0" y="0" transform="translate(-212.8,185.4) rotate(49.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">a</text>
+<text x="0" y="0" transform="translate(-209.8,182.4) rotate(49.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">a</text>
+<text x="0" y="0" transform="translate(-189.0,209.6) rotate(42.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">f</text>
+<text x="0" y="0" transform="translate(-186.0,206.6) rotate(42.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">f</text>
+<text x="0" y="0" transform="translate(-162.5,230.7) rotate(35.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">e</text>
+<text x="0" y="0" transform="translate(-159.5,227.7) rotate(35.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">e</text>
+<text x="0" y="0" transform="translate(-133.5,248.5) rotate(28.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central"> </text>
+<text x="0" y="0" transform="translate(-130.5,245.5) rotate(28.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central"> </text>
+<text x="0" y="0" transform="translate(-102.6,262.5) rotate(21.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">&amp;</text>
+<text x="0" y="0" transform="translate(-99.6,259.5) rotate(21.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">&amp;</text>
+<text x="0" y="0" transform="translate(-70.3,272.7) rotate(14.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central"> </text>
+<text x="0" y="0" transform="translate(-67.3,269.7) rotate(14.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central"> </text>
+<text x="0" y="0" transform="translate(-36.9,278.9) rotate(7.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="0" y="0" transform="translate(-33.9,275.9) rotate(7.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="0" y="0" transform="translate(-3.0,281.0) rotate(0.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">e</text>
+<text x="0" y="0" transform="translate(0.0,278.0) rotate(0.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">e</text>
+<text x="0" y="0" transform="translate(30.9,278.9) rotate(-7.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">s</text>
+<text x="0" y="0" transform="translate(33.9,275.9) rotate(-7.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">s</text>
+<text x="0" y="0" transform="translate(64.3,272.7) rotate(-14.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">t</text>
+<text x="0" y="0" transform="translate(67.3,269.7) rotate(-14.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">t</text>
+<text x="0" y="0" transform="translate(96.6,262.5) rotate(-21.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">a</text>
+<text x="0" y="0" transform="translate(99.6,259.5) rotate(-21.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">a</text>
+<text x="0" y="0" transform="translate(127.5,248.5) rotate(-28.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">u</text>
+<text x="0" y="0" transform="translate(130.5,245.5) rotate(-28.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">u</text>
+<text x="0" y="0" transform="translate(156.5,230.7) rotate(-35.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">r</text>
+<text x="0" y="0" transform="translate(159.5,227.7) rotate(-35.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">r</text>
+<text x="0" y="0" transform="translate(183.0,209.6) rotate(-42.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">a</text>
+<text x="0" y="0" transform="translate(186.0,206.6) rotate(-42.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">a</text>
+<text x="0" y="0" transform="translate(206.8,185.4) rotate(-49.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">n</text>
+<text x="0" y="0" transform="translate(209.8,182.4) rotate(-49.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">n</text>
+<text x="0" y="0" transform="translate(227.5,158.5) rotate(-56.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="#18110E" text-anchor="middle" dominant-baseline="central">t</text>
+<text x="0" y="0" transform="translate(230.5,155.5) rotate(-56.0)" font-family="Liberation Serif, Times New Roman, Georgia, serif" font-size="56" font-weight="bold" fill="url(#goldMain)" stroke="#8B6B23" stroke-width="0.8" text-anchor="middle" dominant-baseline="central">t</text>
+<circle cx="-175" cy="215" r="32" fill="#251D1A" opacity="0.48"/>
+<circle cx="38" cy="336" r="9" fill="none" stroke="#C8A654" stroke-width="2.5" opacity="0.85"/>
+<circle cx="215" cy="-385" r="26" fill="url(#glint)"/>
+<circle cx="408" cy="8" r="22" fill="url(#glint)"/>
+<circle cx="210" cy="395" r="24" fill="url(#glint)"/>
+</g>
+</svg>
