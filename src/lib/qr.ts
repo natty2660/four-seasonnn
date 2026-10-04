@@ -49,7 +49,7 @@ export async function generateQRCodeDataUrl(options: QROptions): Promise<string>
  */
 export async function downloadQRPNG(
   slug = 'prime-cafe',
-  cafeName = 'Four Season Cafe and Restaurant',
+  _cafeName = 'Four Season Cafe and Restaurant',
   darkColor = '#0A0A0A',
   lightColor = '#FBF5B7'
 ): Promise<void> {

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { VipTable } from '../types/index.ts';
 import { Crown, Sparkles, X, ArrowRight, ShieldCheck } from 'lucide-react';
-import { BrandLogo } from './BrandLogo.tsx';
 
 interface VipTableSelectorModalProps {
   isOpen: boolean;

@@ -13,17 +13,16 @@ import {
   saveClientState,
   DatabaseState,
 } from './lib/storage.ts';
-import { getApiUrl } from './lib/apiConfig.ts';
 import { PublicMenu } from './components/PublicMenu.tsx';
-import { VipTableCustomerView } from './components/VipTableCustomerView.tsx';
-import { WaiterMobileApp } from './components/WaiterMobileApp.tsx';
-import { VipTableSelectorModal } from './components/VipTableSelectorModal.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { AdminLoginModal } from './components/AdminLoginModal.tsx';
 import { QRModal } from './components/QRModal.tsx';
 import { BrandLogo } from './components/BrandLogo.tsx';
 import { ConfidentialLogoCropModal } from './components/ConfidentialLogoCropModal.tsx';
 import { OriginalPhotoEnhancerModal } from './components/OriginalPhotoEnhancerModal.tsx';
+import { VipTableCustomerView } from './components/VipTableCustomerView.tsx';
+import { VipTableSelectorModal } from './components/VipTableSelectorModal.tsx';
+import { WaiterMobileApp } from './components/WaiterMobileApp.tsx';
 
 export default function App() {
   const [dbState, setDbState] = useState<DatabaseState>(() => loadClientState());
@@ -32,6 +31,8 @@ export default function App() {
   const [isLogoCropperOpen, setIsLogoCropperOpen] = useState(false);
   const [isPhotoEnhancerOpen, setIsPhotoEnhancerOpen] = useState(false);
   const [isVipSelectorOpen, setIsVipSelectorOpen] = useState(false);
+  const [selectedVipTable, setSelectedVipTable] = useState<VipTable | null>(null);
+
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('prime_cafe_admin_token');
@@ -39,18 +40,6 @@ export default function App() {
     return null;
   });
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
-
-  // Active VIP Table ID (from URL query, or localStorage)
-  const [selectedVipTableId, setSelectedVipTableId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const queryTable = params.get('table') || params.get('vip');
-      if (queryTable) return queryTable;
-      return localStorage.getItem('four_season_selected_vip_table');
-    }
-    return null;
-  });
-
   const [currentPath, setCurrentPath] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.location.pathname;
@@ -58,28 +47,33 @@ export default function App() {
     return '/menu/prime-cafe';
   });
 
-  // Keep route synced with browser navigation
+  // Keep route synced with browser history
   useEffect(() => {
     const handlePopState = () => {
       setCurrentPath(window.location.pathname);
-      const params = new URLSearchParams(window.location.search);
-      const queryTable = params.get('table') || params.get('vip');
-      if (queryTable) setSelectedVipTableId(queryTable);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Fetch / revalidate menu, tables, and waiters from backend API
+  const navigateTo = (path: string) => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', path);
+      setCurrentPath(path);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Fetch / revalidate menu from backend API (Graceful revalidation)
   const refreshFromAPI = useCallback(async () => {
     try {
-      const res = await fetch(getApiUrl('/api/menu/prime-cafe'));
+      const res = await fetch('/api/menu/prime-cafe');
       if (res.ok) {
         const data = await res.json();
         if (data.restaurant && data.categories && data.items) {
-          setDbState((prev) => {
+          setDbState((prevState) => {
             const freshState: DatabaseState = {
-              ...prev,
+              ...prevState,
               restaurant: data.restaurant,
               categories: data.categories,
               items: data.items,
@@ -90,28 +84,8 @@ export default function App() {
           });
         }
       }
-
-      // Also fetch VIP tables, waiters, and calls
-      const [tablesRes, waitersRes, callsRes] = await Promise.all([
-        fetch(getApiUrl('/api/vip-tables')).catch(() => null),
-        fetch(getApiUrl('/api/waiters')).catch(() => null),
-        fetch(getApiUrl('/api/waiter-calls')).catch(() => null),
-      ]);
-
-      if (tablesRes && tablesRes.ok) {
-        const tables = await tablesRes.json();
-        setDbState((prev) => ({ ...prev, vip_tables: tables }));
-      }
-      if (waitersRes && waitersRes.ok) {
-        const waiters = await waitersRes.json();
-        setDbState((prev) => ({ ...prev, waiters }));
-      }
-      if (callsRes && callsRes.ok) {
-        const calls = await callsRes.json();
-        setDbState((prev) => ({ ...prev, waiter_calls: calls }));
-      }
     } catch {
-      // Offline / serverless cold boot fallback
+      // Offline / serverless cold boot fallback: local client state already loaded
     }
   }, []);
 
@@ -119,132 +93,35 @@ export default function App() {
     refreshFromAPI();
   }, [refreshFromAPI]);
 
-  // Real-time Server-Sent Events (SSE) Listener for instant call alerts & ringing
+  // Real-time polling for live VIP waiter calls
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let eventSource: EventSource | null = null;
-    let reconnectTimeout: number | null = null;
-
-    function connectSSE() {
+    const pollCalls = async () => {
       try {
-        eventSource = new EventSource(getApiUrl('/api/waiter-calls/stream'));
-
-        eventSource.addEventListener('init', (e: MessageEvent) => {
-          try {
-            const data = JSON.parse(e.data);
-            setDbState((prev) => ({
-              ...prev,
-              waiter_calls: data.calls || prev.waiter_calls,
-              vip_tables: data.tables || prev.vip_tables,
-              waiters: data.waiters || prev.waiters,
-            }));
-          } catch {}
-        });
-
-        eventSource.addEventListener('new_call', (e: MessageEvent) => {
-          try {
-            const newCall: WaiterCall = JSON.parse(e.data);
-            setDbState((prev) => {
-              const existingIdx = prev.waiter_calls.findIndex((c) => c.id === newCall.id);
-              let updatedCalls: WaiterCall[];
-              if (existingIdx !== -1) {
-                updatedCalls = prev.waiter_calls.map((c) => (c.id === newCall.id ? newCall : c));
-              } else {
-                updatedCalls = [newCall, ...prev.waiter_calls];
-              }
-              const next = { ...prev, waiter_calls: updatedCalls };
-              saveClientState(next);
-              return next;
-            });
-          } catch {}
-        });
-
-        const handleCallUpdate = (e: MessageEvent) => {
-          try {
-            const updatedCall: WaiterCall = JSON.parse(e.data);
-            setDbState((prev) => {
-              const updatedCalls = prev.waiter_calls.map((c) =>
-                c.id === updatedCall.id ? updatedCall : c
-              );
-              const next = { ...prev, waiter_calls: updatedCalls };
-              saveClientState(next);
-              return next;
-            });
-          } catch {}
-        };
-
-        eventSource.addEventListener('call_accepted', handleCallUpdate);
-        eventSource.addEventListener('call_completed', handleCallUpdate);
-        eventSource.addEventListener('call_cancelled', handleCallUpdate);
-        eventSource.addEventListener('call_updated', handleCallUpdate);
-
-        eventSource.addEventListener('tables_updated', (e: MessageEvent) => {
-          try {
-            const tables: VipTable[] = JSON.parse(e.data);
-            setDbState((prev) => ({ ...prev, vip_tables: tables }));
-          } catch {}
-        });
-
-        eventSource.addEventListener('waiters_updated', (e: MessageEvent) => {
-          try {
-            const waiters: Waiter[] = JSON.parse(e.data);
-            setDbState((prev) => ({ ...prev, waiters }));
-          } catch {}
-        });
-
-        eventSource.addEventListener('history_cleared', (e: MessageEvent) => {
-          try {
-            const remaining: WaiterCall[] = JSON.parse(e.data);
-            setDbState((prev) => ({ ...prev, waiter_calls: remaining }));
-          } catch {}
-        });
-
-        eventSource.onerror = () => {
-          eventSource?.close();
-          // Reconnect after 4s
-          reconnectTimeout = window.setTimeout(connectSSE, 4000);
-        };
-      } catch {
-        reconnectTimeout = window.setTimeout(connectSSE, 4000);
-      }
-    }
-
-    connectSSE();
-
-    // Fallback high-speed polling every 4 seconds to guarantee zero missed calls
-    const pollInterval = window.setInterval(async () => {
-      try {
-        const res = await fetch(getApiUrl('/api/waiter-calls'));
+        const res = await fetch('/api/waiter-calls');
         if (res.ok) {
-          const calls: WaiterCall[] = await res.json();
-          setDbState((prev) => {
-            // Check if call count or statuses changed
-            if (JSON.stringify(prev.waiter_calls) !== JSON.stringify(calls)) {
-              return { ...prev, waiter_calls: calls };
-            }
-            return prev;
-          });
+          const calls = await res.json();
+          if (Array.isArray(calls)) {
+            setDbState((prev) => {
+              if (JSON.stringify(prev.waiter_calls) !== JSON.stringify(calls)) {
+                const next = { ...prev, waiter_calls: calls };
+                saveClientState(next);
+                return next;
+              }
+              return prev;
+            });
+          }
         }
-      } catch {}
-    }, 4000);
-
-    return () => {
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (eventSource) eventSource.close();
-      clearInterval(pollInterval);
+      } catch {
+        // Silent catch for offline or initial boot
+      }
     };
+
+    pollCalls();
+    const interval = setInterval(pollCalls, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Handle URL navigation
-  const navigateTo = (path: string) => {
-    if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', path);
-      setCurrentPath(path);
-    }
-  };
-
-  // State update handlers
+  // State update handlers that persist immediately to localStorage & server
   const handleUpdateRestaurant = (updated: Restaurant) => {
     const next: DatabaseState = {
       ...dbState,
@@ -308,150 +185,162 @@ export default function App() {
     }
   };
 
-  const handleUpdateVipTables = (tables: VipTable[]) => {
-    const next = { ...dbState, vip_tables: tables };
+  const handleUpdateTables = (tables: VipTable[]) => {
+    const next: DatabaseState = {
+      ...dbState,
+      vip_tables: tables,
+      last_updated: new Date().toISOString(),
+    };
     setDbState(next);
     saveClientState(next);
   };
 
   const handleUpdateWaiters = (waiters: Waiter[]) => {
-    const next = { ...dbState, waiters };
+    const next: DatabaseState = {
+      ...dbState,
+      waiters,
+      last_updated: new Date().toISOString(),
+    };
     setDbState(next);
     saveClientState(next);
   };
 
-  // Place a call from VIP Customer Table
-  const handlePlaceVipCall = async (
+  // VIP Customer: Place Call
+  const handlePlaceCall = async (
     tableId: string,
-    callType: CallType = 'general',
+    callType: CallType,
     message?: string
   ): Promise<boolean> => {
     try {
-      const res = await fetch(getApiUrl('/api/waiter-calls'), {
+      const res = await fetch('/api/waiter-calls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ table_id: tableId, call_type: callType, message }),
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data.call) {
-          setDbState((prev) => {
-            const existing = prev.waiter_calls.find((c) => c.id === data.call.id);
-            if (existing) {
-              return {
-                ...prev,
-                waiter_calls: prev.waiter_calls.map((c) =>
-                  c.id === data.call.id ? data.call : c
-                ),
-              };
-            }
-            return {
-              ...prev,
-              waiter_calls: [data.call, ...prev.waiter_calls],
-            };
-          });
-        }
+        const call = await res.json();
+        setDbState((prev) => {
+          const next = {
+            ...prev,
+            waiter_calls: [call, ...(prev.waiter_calls || [])],
+          };
+          saveClientState(next);
+          return next;
+        });
         return true;
       }
-      return false;
-    } catch {
-      return false;
+    } catch (e) {
+      console.warn('Fallback offline place call:', e);
     }
+    return false;
   };
 
-  // Waiter or Admin accepts call
-  const handleAcceptCall = async (callId: string, waiterId: string, waiterName: string) => {
+  // Waiter & Admin: Accept Call
+  const handleAcceptCall = async (
+    callId: string,
+    waiterId: string,
+    waiterName: string
+  ): Promise<void> => {
     try {
-      const res = await fetch(getApiUrl(`/api/waiter-calls/${callId}/accept`), {
-        method: 'PUT',
+      await fetch(`/api/waiter-calls/${callId}/accept`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.call) {
-          setDbState((prev) => ({
-            ...prev,
-            waiter_calls: prev.waiter_calls.map((c) =>
-              c.id === callId ? data.call : c
-            ),
-          }));
-        }
-      }
-    } catch (err) {
-      console.error('Failed to accept call:', err);
+    } catch (e) {
+      console.warn(e);
     }
+    setDbState((prev) => {
+      const next = {
+        ...prev,
+        waiter_calls: (prev.waiter_calls || []).map((c) =>
+          c.id === callId
+            ? {
+                ...c,
+                status: 'accepted' as const,
+                accepted_by_waiter_id: waiterId,
+                accepted_by_name: waiterName,
+                accepted_at: new Date().toISOString(),
+              }
+            : c
+        ),
+      };
+      saveClientState(next);
+      return next;
+    });
   };
 
-  // Complete call
-  const handleCompleteCall = async (callId: string) => {
+  // Waiter & Admin: Complete Call
+  const handleCompleteCall = async (callId: string): Promise<void> => {
     try {
-      const res = await fetch(getApiUrl(`/api/waiter-calls/${callId}/complete`), {
-        method: 'PUT',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.call) {
-          setDbState((prev) => ({
-            ...prev,
-            waiter_calls: prev.waiter_calls.map((c) =>
-              c.id === callId ? data.call : c
-            ),
-          }));
-        }
-      }
-    } catch (err) {
-      console.error('Failed to complete call:', err);
+      await fetch(`/api/waiter-calls/${callId}/complete`, { method: 'POST' });
+    } catch (e) {
+      console.warn(e);
     }
+    setDbState((prev) => {
+      const next = {
+        ...prev,
+        waiter_calls: (prev.waiter_calls || []).map((c) =>
+          c.id === callId
+            ? {
+                ...c,
+                status: 'completed' as const,
+                completed_at: new Date().toISOString(),
+              }
+            : c
+        ),
+      };
+      saveClientState(next);
+      return next;
+    });
   };
 
-  // Cancel call
-  const handleCancelCall = async (callId: string) => {
+  // Customer & Admin: Cancel Call
+  const handleCancelCall = async (callId: string): Promise<void> => {
     try {
-      const res = await fetch(getApiUrl(`/api/waiter-calls/${callId}/cancel`), {
-        method: 'PUT',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.call) {
-          setDbState((prev) => ({
-            ...prev,
-            waiter_calls: prev.waiter_calls.map((c) =>
-              c.id === callId ? data.call : c
-            ),
-          }));
-        }
-      }
-    } catch (err) {
-      console.error('Failed to cancel call:', err);
+      await fetch(`/api/waiter-calls/${callId}/cancel`, { method: 'POST' });
+    } catch (e) {
+      console.warn(e);
     }
+    setDbState((prev) => {
+      const next = {
+        ...prev,
+        waiter_calls: (prev.waiter_calls || []).map((c) =>
+          c.id === callId
+            ? {
+                ...c,
+                status: 'cancelled' as const,
+                completed_at: new Date().toISOString(),
+              }
+            : c
+        ),
+      };
+      saveClientState(next);
+      return next;
+    });
   };
 
-  // Toggle waiter duty
-  const handleToggleWaiterDuty = async (waiterId: string, onDuty: boolean) => {
+  // Waiter: Toggle duty status
+  const handleToggleDuty = async (waiterId: string, onDuty: boolean): Promise<void> => {
     try {
-      const res = await fetch(getApiUrl(`/api/waiters/${waiterId}`), {
+      await fetch(`/api/waiters/${waiterId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_on_duty: onDuty }),
       });
-      if (res.ok) {
-        const updated = await res.json();
-        setDbState((prev) => ({
-          ...prev,
-          waiters: prev.waiters.map((w) => (w.id === waiterId ? updated : w)),
-        }));
-      }
-    } catch (err) {
-      console.error('Failed to toggle duty:', err);
+    } catch (e) {
+      console.warn(e);
     }
-  };
-
-  // Handle VIP Table selection
-  const handleSelectVipTable = (table: VipTable) => {
-    setSelectedVipTableId(table.id);
-    localStorage.setItem('four_season_selected_vip_table', table.id);
-    navigateTo(`/vip?table=${encodeURIComponent(table.table_number)}`);
+    setDbState((prev) => {
+      const next = {
+        ...prev,
+        waiters: (prev.waiters || []).map((w) =>
+          w.id === waiterId ? { ...w, is_on_duty: onDuty } : w
+        ),
+      };
+      saveClientState(next);
+      return next;
+    });
   };
 
   const handleAdminLoginSuccess = (token: string) => {
@@ -475,148 +364,146 @@ export default function App() {
     }
   };
 
-  // Check route destination
+  // Route matching
   const isWaiterRoute = currentPath === '/waiter' || currentPath.startsWith('/waiter/');
-  const isVipRoute = currentPath === '/vip' || currentPath.startsWith('/vip/');
+  const isVipRoute =
+    currentPath === '/vip' ||
+    currentPath.startsWith('/vip/') ||
+    currentPath.startsWith('/table/');
 
-  // Active VIP table lookup
-  const activeVipTable =
-    dbState.vip_tables.find(
-      (t) =>
-        t.id === selectedVipTableId ||
-        t.table_number.toLowerCase() === String(selectedVipTableId).toLowerCase()
-    ) || dbState.vip_tables[0];
+  // Resolve VIP Table from URL or selection
+  const vipTableFromUrl = (() => {
+    if (!isVipRoute) return null;
+    const parts = currentPath.split('/').filter(Boolean);
+    if (parts.length >= 2) {
+      const param = decodeURIComponent(parts[1]).toLowerCase();
+      return (
+        dbState.vip_tables.find(
+          (t) =>
+            t.id.toLowerCase() === param ||
+            t.table_number.toLowerCase() === param ||
+            t.name.toLowerCase().includes(param)
+        ) || null
+      );
+    }
+    return null;
+  })();
 
-  // ==========================================
-  // VIEW 1: WAITER MOBILE APP
-  // ==========================================
-  if (isWaiterRoute) {
+  const activeVipTable = selectedVipTable || vipTableFromUrl || dbState.vip_tables[0];
+  const pendingCallsCount = (dbState.waiter_calls || []).filter(
+    (c) => c.status === 'pending'
+  ).length;
+
+  // Check 404 for unknown menu slugs
+  const isMenuRoute = currentPath.startsWith('/menu/');
+  const requestedSlug = isMenuRoute
+    ? currentPath.replace('/menu/', '').split('/')[0]
+    : 'prime-cafe';
+  const isSlugValid =
+    requestedSlug === 'prime-cafe' || requestedSlug === dbState.restaurant.slug;
+
+  if (isMenuRoute && !isSlugValid) {
     return (
-      <WaiterMobileApp
-        waiters={dbState.waiters}
-        vipTables={dbState.vip_tables}
-        activeCalls={dbState.waiter_calls}
-        onAcceptCall={handleAcceptCall}
-        onCompleteCall={handleCompleteCall}
-        onToggleDuty={handleToggleWaiterDuty}
-        onBackToMenu={() => navigateTo('/menu/prime-cafe')}
-      />
+      <div className="min-h-screen bg-[#D4AF37] bg-gold-canvas text-[#080808] flex items-center justify-center p-6 text-center">
+        <div className="max-w-md bg-gold-surface p-8 rounded-2xl border-2 border-[#080808]/40 shadow-2xl">
+          <BrandLogo size="lg" className="justify-center mb-4" showSubtitle={false} />
+          <h1 className="text-2xl font-extrabold text-[#080808] font-display mb-2">
+            Menu Not Found
+          </h1>
+          <p className="text-sm text-[#1A1A1A] font-medium mb-6">
+            We couldn't find a digital menu for &ldquo;{requestedSlug}&rdquo;.
+          </p>
+          <button
+            onClick={() => navigateTo('/menu/prime-cafe')}
+            className="px-5 py-2.5 rounded-lg bg-[#080808] text-[#FCF6BA] font-bold text-xs hover:bg-[#1A1A1A] shadow-md transition-all cursor-pointer"
+          >
+            View Four Season Cafe and Restaurant Menu
+          </button>
+        </div>
+      </div>
     );
   }
 
-  // ==========================================
-  // VIEW 2: VIP TABLE CUSTOMER EXPERIENCE
-  // ==========================================
-  if (isVipRoute) {
-    return (
-      <>
+  return (
+    <div className="min-h-screen bg-[#D4AF37] bg-gold-canvas font-sans selection:bg-[#080808] selection:text-[#FCF6BA]">
+      {/* 1. Waiter Mobile Application View */}
+      {isWaiterRoute ? (
+        <WaiterMobileApp
+          waiters={dbState.waiters}
+          vipTables={dbState.vip_tables}
+          activeCalls={dbState.waiter_calls || []}
+          onAcceptCall={handleAcceptCall}
+          onCompleteCall={handleCompleteCall}
+          onToggleDuty={handleToggleDuty}
+          onBackToMenu={() => navigateTo('/menu/prime-cafe')}
+        />
+      ) : isVipRoute && activeVipTable ? (
+        /* 2. VIP Table Customer View */
         <VipTableCustomerView
           restaurant={dbState.restaurant}
           categories={dbState.categories}
           items={dbState.items}
           table={activeVipTable}
           waiters={dbState.waiters}
-          activeCalls={dbState.waiter_calls}
-          onPlaceCall={handlePlaceVipCall}
+          activeCalls={dbState.waiter_calls || []}
+          onPlaceCall={handlePlaceCall}
           onCancelCall={handleCancelCall}
           onChangeTable={() => setIsVipSelectorOpen(true)}
           onExitVip={() => navigateTo('/menu/prime-cafe')}
           onOpenQR={() => setIsQRModalOpen(true)}
         />
-
-        <VipTableSelectorModal
-          isOpen={isVipSelectorOpen}
-          onClose={() => setIsVipSelectorOpen(false)}
-          vipTables={dbState.vip_tables}
-          onSelectTable={handleSelectVipTable}
-        />
-
-        <QRModal
-          isOpen={isQRModalOpen}
-          onClose={() => setIsQRModalOpen(false)}
-          slug={dbState.restaurant.slug}
-          cafeName={dbState.restaurant.name}
-        />
-      </>
-    );
-  }
-
-  // ==========================================
-  // VIEW 3: ADMIN DASHBOARD (STAFF PORTAL)
-  // ==========================================
-  if (isAdminOpen && adminToken) {
-    return (
-      <div className="min-h-screen bg-[#D4AF37] bg-gold-canvas font-sans selection:bg-[#080808] selection:text-[#FCF6BA]">
+      ) : isAdminOpen && adminToken ? (
+        /* 3. Admin Dashboard with VIP Table & Waiter Management */
         <AdminDashboard
           restaurant={dbState.restaurant}
           categories={dbState.categories}
           items={dbState.items}
           vipTables={dbState.vip_tables}
           waiters={dbState.waiters}
-          calls={dbState.waiter_calls}
+          calls={dbState.waiter_calls || []}
           token={adminToken}
           onUpdateRestaurant={handleUpdateRestaurant}
           onUpdateCategories={handleUpdateCategories}
           onUpdateItems={handleUpdateItems}
-          onUpdateTables={handleUpdateVipTables}
+          onUpdateTables={handleUpdateTables}
           onUpdateWaiters={handleUpdateWaiters}
           onAcceptCall={handleAcceptCall}
           onCompleteCall={handleCompleteCall}
           onCancelCall={handleCancelCall}
           onOpenQR={() => setIsQRModalOpen(true)}
           onOpenLogoCropper={() => setIsLogoCropperOpen(true)}
+          onOpenPhotoEnhancer={() => setIsPhotoEnhancerOpen(true)}
           onViewMenu={() => {
             setIsAdminOpen(false);
             navigateTo('/menu/prime-cafe');
           }}
           onLogout={handleAdminLogout}
         />
-
-        <QRModal
-          isOpen={isQRModalOpen}
-          onClose={() => setIsQRModalOpen(false)}
-          slug={dbState.restaurant.slug}
-          cafeName={dbState.restaurant.name}
-        />
-
-        <ConfidentialLogoCropModal
-          isOpen={isLogoCropperOpen}
-          onClose={() => setIsLogoCropperOpen(false)}
+      ) : (
+        /* 4. Public Luxury Menu */
+        <PublicMenu
           restaurant={dbState.restaurant}
-          onUpdateRestaurant={handleUpdateRestaurant}
+          categories={dbState.categories}
+          items={dbState.items}
+          onOpenAdmin={handleOpenAdminTrigger}
+          onOpenQR={() => setIsQRModalOpen(true)}
+          onOpenLogoCropper={() => setIsLogoCropperOpen(true)}
+          onOpenPhotoEnhancer={() => setIsPhotoEnhancerOpen(true)}
+          onOpenVipTable={() => setIsVipSelectorOpen(true)}
+          onOpenWaiterApp={() => navigateTo('/waiter')}
+          activeCallsCount={pendingCallsCount}
         />
-      </div>
-    );
-  }
+      )}
 
-  // ==========================================
-  // VIEW 4: NORMAL CUSTOMER DIGITAL MENU
-  // (Separated: No VIP call button on normal menu)
-  // ==========================================
-  return (
-    <div className="min-h-screen bg-[#D4AF37] bg-gold-canvas font-sans selection:bg-[#080808] selection:text-[#FCF6BA]">
-      <PublicMenu
-        restaurant={dbState.restaurant}
-        categories={dbState.categories}
-        items={dbState.items}
-        onOpenAdmin={handleOpenAdminTrigger}
-        onOpenQR={() => setIsQRModalOpen(true)}
-        onOpenLogoCropper={() => setIsLogoCropperOpen(true)}
-        onOpenPhotoEnhancer={() => setIsPhotoEnhancerOpen(true)}
-        onOpenVipAccess={() => {
-          setIsVipSelectorOpen(true);
-        }}
-        onOpenWaiterApp={() => {
-          navigateTo('/waiter');
-        }}
-      />
-
-      {/* VIP Table Selection Modal */}
+      {/* VIP Table Pin & Selection Modal */}
       <VipTableSelectorModal
         isOpen={isVipSelectorOpen}
         onClose={() => setIsVipSelectorOpen(false)}
         vipTables={dbState.vip_tables}
-        onSelectTable={handleSelectVipTable}
+        onSelectTable={(table) => {
+          setSelectedVipTable(table);
+          navigateTo(`/vip/${table.table_number}`);
+        }}
       />
 
       {/* Original Named Dish Photos Studio Enhancer Modal */}

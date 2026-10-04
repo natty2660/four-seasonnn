@@ -14,20 +14,15 @@ import {
   CheckCircle2,
   Clock,
   User,
-  ShieldCheck,
   ChevronRight,
   LogOut,
-  Sparkles,
   Crown,
   AlertTriangle,
   Utensils,
   Droplets,
   Receipt,
-  Play,
-  RotateCcw,
   Check,
   Smartphone,
-  Download,
   Settings,
 } from 'lucide-react';
 
@@ -112,7 +107,6 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   const assignedTables = vipTables.filter(
     (t) => t.assigned_waiter_id === selectedWaiterId
   );
-  const assignedTableIds = new Set(assignedTables.map((t) => t.id));
 
   // Determine which pending calls should RING THIS WAITER'S PHONE
   // Rule:
@@ -289,7 +283,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                         setSelectedWaiterId(w.id);
                       }
                     }}
-                    className="w-full p-3.5 rounded-xl bg-[#1c1c1c] hover:bg-[#252525] border border-white/10 hover:border-[#D4AF37] flex items-center justify-between transition-all text-left"
+                    className="w-full p-3.5 rounded-xl bg-[#1c1c1c] hover:bg-[#252525] border border-white/10 hover:border-[#D4AF37] flex items-center justify-between transition-all text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#FCF6BA] font-bold flex items-center justify-center">
@@ -329,13 +323,13 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
           <div className="pt-2 border-t border-white/10 flex justify-between items-center">
             <button
               onClick={onBackToMenu}
-              className="text-xs text-[#D4AF37]/80 hover:text-[#FCF6BA] transition-colors"
+              className="text-xs text-[#D4AF37]/80 hover:text-[#FCF6BA] transition-colors cursor-pointer"
             >
               ← Back to Digital Menu
             </button>
             <button
               onClick={() => setIsServerModalOpen(true)}
-              className="text-xs text-white/50 hover:text-[#FCF6BA] flex items-center gap-1 transition-colors"
+              className="text-xs text-white/50 hover:text-[#FCF6BA] flex items-center gap-1 transition-colors cursor-pointer"
               title="Configure Server URL"
             >
               <Settings className="w-3.5 h-3.5" />
@@ -358,7 +352,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                     setIsServerModalOpen(false);
                     setServerSavedSuccess(false);
                   }}
-                  className="text-white/40 hover:text-white text-lg font-bold"
+                  className="text-white/40 hover:text-white text-lg font-bold cursor-pointer"
                 >
                   ✕
                 </button>
@@ -385,14 +379,14 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                 <button
                   type="button"
                   onClick={() => setServerUrlInput(window.location.origin)}
-                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"
+                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 cursor-pointer"
                 >
                   Current Origin
                 </button>
                 <button
                   type="button"
                   onClick={() => setServerUrlInput('http://10.0.2.2:3000')}
-                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"
+                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 cursor-pointer"
                 >
                   Android Emulator
                 </button>
@@ -411,7 +405,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                     setIsServerModalOpen(false);
                     setServerSavedSuccess(false);
                   }}
-                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold"
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold cursor-pointer"
                 >
                   Close
                 </button>
@@ -425,7 +419,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                       setServerSavedSuccess(false);
                     }, 1000);
                   }}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black text-xs font-black shadow-lg"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black text-xs font-black shadow-lg cursor-pointer"
                 >
                   Save URL
                 </button>
@@ -467,7 +461,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
             {/* Server Settings button */}
             <button
               onClick={() => setIsServerModalOpen(true)}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/20 transition-colors"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/20 transition-colors cursor-pointer"
               title="Backend Server Connection"
             >
               <Settings className="w-4 h-4" />
@@ -476,7 +470,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
             {/* Install Native APK button */}
             <button
               onClick={() => setIsInstallModalOpen(true)}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-[#D4AF37] border border-[#D4AF37]/30 transition-colors"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-[#D4AF37] border border-[#D4AF37]/30 transition-colors cursor-pointer"
               title="Download Android APK & Native Info"
             >
               <Smartphone className="w-4 h-4" />
@@ -485,7 +479,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
             {/* Duty Status Switcher */}
             <button
               onClick={() => onToggleDuty(currentWaiter.id, !currentWaiter.is_on_duty)}
-              className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow ${
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow cursor-pointer ${
                 currentWaiter.is_on_duty
                   ? 'bg-emerald-500 text-black hover:bg-emerald-400'
                   : 'bg-white/10 text-white/70 hover:bg-white/20'
@@ -502,7 +496,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
             {/* Switch Waiter Profile */}
             <button
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
               title="Switch Waiter Profile"
             >
               <LogOut className="w-4 h-4" />
@@ -547,7 +541,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                   setIsServerModalOpen(false);
                   setServerSavedSuccess(false);
                 }}
-                className="text-white/40 hover:text-white text-lg font-bold"
+                className="text-white/40 hover:text-white text-lg font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -574,14 +568,14 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
               <button
                 type="button"
                 onClick={() => setServerUrlInput(window.location.origin)}
-                className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"
+                className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 cursor-pointer"
               >
                 Current Origin
               </button>
               <button
                 type="button"
                 onClick={() => setServerUrlInput('http://10.0.2.2:3000')}
-                className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"
+                className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 cursor-pointer"
               >
                 Android Emulator
               </button>
@@ -600,7 +594,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                   setIsServerModalOpen(false);
                   setServerSavedSuccess(false);
                 }}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold"
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold cursor-pointer"
               >
                 Close
               </button>
@@ -617,7 +611,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                     setServerSavedSuccess(false);
                   }, 1000);
                 }}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black text-xs font-black shadow-lg"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black text-xs font-black shadow-lg cursor-pointer"
               >
                 Save & Connect
               </button>
@@ -654,7 +648,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
           <div className="flex items-center gap-2 self-end sm:self-center">
             <button
               onClick={handleTestRing}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
                 testRinging
                   ? 'bg-amber-500 text-black border-amber-400 animate-pulse'
                   : 'bg-[#1e1e1e] text-[#FCF6BA] border-white/10 hover:border-[#D4AF37]'
@@ -666,7 +660,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
 
             <button
               onClick={() => setIsMuted(!isMuted)}
-              className={`p-1.5 rounded-lg border transition-all ${
+              className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                 isMuted
                   ? 'bg-red-500/20 text-red-300 border-red-500/40'
                   : 'bg-[#1e1e1e] text-white/70 border-white/10'
@@ -912,7 +906,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
       <footer className="max-w-3xl mx-auto w-full px-4 pt-6 text-center">
         <button
           onClick={onBackToMenu}
-          className="text-xs text-[#D4AF37]/80 hover:text-[#FCF6BA] hover:underline"
+          className="text-xs text-[#D4AF37]/80 hover:text-[#FCF6BA] hover:underline cursor-pointer"
         >
           ← Return to Customer Digital Menu
         </button>

@@ -8,11 +8,11 @@
     "google_maps_url": "https://maps.app.goo.gl/Tnb9gLs98u4fihhC9",
     "opening_hours": "8:30 AM – 10:00 PM Daily",
     "wifi_available": false,
-    "logo_url": "/assets/images/four_season_confidential_logo_1791048361881.jpg",
-    "cover_url": "/assets/images/four_season_confidential_wall_1791048361881.jpg",
+    "logo_url": "/assets/images/four_season_confidential_logo_1791112084749.jpg",
+    "cover_url": "/assets/images/four_season_confidential_wall_1791112084749.jpg",
     "is_active": true,
     "created_at": "2026-09-24T06:36:50.156Z",
-    "updated_at": "2026-10-03T17:26:01.883Z"
+    "updated_at": "2026-10-04T11:08:04.750Z"
   },
   "categories": [
     {
@@ -104,7 +104,7 @@
       "category_id": "cat_breakfast",
       "name": "Normal Fuul",
       "description": "Slow-simmered fava beans mashed with cumin, olive oil, fresh diced tomatoes, onions, and green peppers. Served with warm bread.",
-      "image_url": "/assets/images/normal_fuul_1791047613682.jpg",
+      "image_url": "/assets/images/normal fuul.jpg",
       "is_available": true,
       "display_order": 1,
       "is_popular": true,
@@ -148,7 +148,7 @@
       "is_available": true,
       "display_order": 4,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.328Z"
     },
     {
       "id": "bf_special_fatira",
@@ -198,7 +198,7 @@
       "is_available": true,
       "display_order": 8,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "bf_07",
@@ -261,7 +261,7 @@
       "is_available": true,
       "display_order": 13,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "bf_chachbsa",
@@ -269,11 +269,11 @@
       "category_id": "cat_breakfast",
       "name": "Chechebsa",
       "description": "Traditional shredded flatbread tossed in spiced clarified butter and berbere, served warm with honey.",
-      "image_url": "/assets/images/chechebsa_1791047592467.jpg",
+      "image_url": "/assets/images/chechebsa.jpg",
       "is_available": true,
       "display_order": 14,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "dn_03",
@@ -300,7 +300,7 @@
       "display_order": 2,
       "is_local_specialty": true,
       "created_at": "2026-09-24T06:36:50.156Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "ln_special_rice",
@@ -324,7 +324,7 @@
       "is_available": true,
       "display_order": 4,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "ln_chicken_tips",
@@ -332,11 +332,11 @@
       "category_id": "cat_launch",
       "name": "Chicken Tibs",
       "description": "Sautéed tender chicken breast cubes with onions, bell peppers, garlic, and rosemary.",
-      "image_url": "/assets/images/chicken_tibs_1791047571088.jpg",
+      "image_url": "/assets/images/chicken tibs.jpg",
       "is_available": true,
       "display_order": 5,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "ln_normal_tibs",
@@ -368,8 +368,8 @@
       "restaurant_id": "rest_prime_cafe",
       "category_id": "cat_launch",
       "name": "Normal Rice",
-      "description": "Steamed fragrant long-grain basmati rice served with savory house sauce.",
-      "image_url": "/assets/images/normal_rice_1791047581145.jpg",
+      "description": "Steamed aromatic basmati rice served with savory house sauce.",
+      "image_url": "/assets/images/item_normal_rice.jpg",
       "is_available": true,
       "display_order": 8,
       "created_at": "2026-10-01T12:00:00.000Z",
@@ -381,7 +381,7 @@
       "category_id": "cat_launch",
       "name": "Normal Shiro",
       "description": "Smooth slow-simmered roasted chickpea stew seasoned with garlic, onions, and spices.",
-      "image_url": "/assets/images/normal_shiro_1791047603414.jpg",
+      "image_url": "/assets/images/item_normal_shiro.jpg",
       "is_available": true,
       "display_order": 9,
       "created_at": "2026-10-01T12:00:00.000Z",
@@ -472,19 +472,19 @@
       "is_available": true,
       "display_order": 16,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "ln_pasta_with_tuna",
       "restaurant_id": "rest_prime_cafe",
       "category_id": "cat_launch",
       "name": "Pasta with Tuna",
-      "description": "Savory pasta tossed with flaked tuna, onions, garlic, and rich herb tomato sauce.",
-      "image_url": "/assets/images/pasta_with_tuna_1791047560097.jpg",
+      "description": "Savory pasta tossed with flaked tuna, onions, garlic, and rich tomato sauce.",
+      "image_url": "/assets/images/pasta with tuna.jpg",
       "is_available": true,
       "display_order": 17,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "ln_rice_with_tuna",
@@ -615,11 +615,11 @@
       "category_id": "cat_launch",
       "name": "Half Mandi",
       "description": "Half portion of slow-roasted tender meat served over aromatic Mandi basmati rice.",
-      "image_url": "/assets/images/half_mandi_1791047549274.jpg",
+      "image_url": "/assets/images/half mandi.jpg",
       "is_available": true,
       "display_order": 28,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "ln_full_burma",
@@ -656,7 +656,7 @@
       "display_order": 31,
       "is_popular": true,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "ln_half_zurbiyan",
@@ -668,7 +668,7 @@
       "is_available": true,
       "display_order": 32,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "ff_01",
@@ -705,7 +705,7 @@
       "is_available": true,
       "display_order": 3,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "bs_beef_burger",
@@ -729,7 +729,7 @@
       "is_available": true,
       "display_order": 5,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "bs_beef_sandwich",
@@ -737,11 +737,11 @@
       "category_id": "cat_lunch_mains",
       "name": "Beef Sandwich",
       "description": "Warm toasted sandwich packed with tender sautéed beef strips, peppers, onions, and sauce.",
-      "image_url": "/assets/images/beef_sandwich_1791047538235.jpg",
+      "image_url": "/assets/images/beef sandwich.jpg",
       "is_available": true,
       "display_order": 6,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "bs_tuna_sandwich",
@@ -779,7 +779,7 @@
       "display_order": 9,
       "is_popular": true,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "ff_05",
@@ -813,11 +813,11 @@
       "category_id": "cat_lunch_mains",
       "name": "Chicken Shawarma",
       "description": "Spiced rotisserie chicken strips wrapped in toasted flatbread with garlic toum and pickles.",
-      "image_url": "/assets/images/chicken_shawarma_1791047526323.jpg",
+      "image_url": "/assets/images/chicken shawarma.jpg",
       "is_available": true,
       "display_order": 12,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "bs_beef_shwarma",
@@ -825,11 +825,11 @@
       "category_id": "cat_lunch_mains",
       "name": "Beef Shawarma",
       "description": "Marinated roasted beef shawarma wrap with tahini garlic sauce, tomatoes, and onions.",
-      "image_url": "/assets/images/beerf shawarma.jpg",
+      "image_url": "/assets/images/beef shawarma.jpg",
       "is_available": true,
       "display_order": 13,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "bs_tuna_shwarma",
@@ -854,7 +854,7 @@
       "display_order": 1,
       "is_popular": true,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "pz_new_pizza",
@@ -866,7 +866,7 @@
       "is_available": true,
       "display_order": 2,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "pz_chicken_pizza",
@@ -878,7 +878,7 @@
       "is_available": true,
       "display_order": 3,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "pz_beef_pizza",
@@ -890,7 +890,7 @@
       "is_available": true,
       "display_order": 4,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "pz_margrita_pizza",
@@ -902,7 +902,7 @@
       "is_available": true,
       "display_order": 5,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "pz_tuna_pizza",
@@ -914,7 +914,7 @@
       "is_available": true,
       "display_order": 6,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "tea_01",
@@ -1002,7 +1002,7 @@
       "is_available": true,
       "display_order": 7,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "id_ice_chocolate",
@@ -1114,7 +1114,7 @@
       "is_available": true,
       "display_order": 3,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "jce_01",
@@ -1127,7 +1127,7 @@
       "display_order": 4,
       "is_popular": true,
       "created_at": "2026-09-24T06:36:50.159Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "jce_04",
@@ -1225,7 +1225,7 @@
       "is_available": true,
       "display_order": 12,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "jc_oogsir_juss",
@@ -1249,7 +1249,7 @@
       "is_available": true,
       "display_order": 14,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "moj_04",
@@ -1297,7 +1297,7 @@
       "is_available": true,
       "display_order": 4,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "moj_05",
@@ -1333,7 +1333,7 @@
       "is_available": true,
       "display_order": 7,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.329Z"
     },
     {
       "id": "mj_passion_fruit_mojito",
@@ -1358,7 +1358,7 @@
       "is_available": true,
       "display_order": 9,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.330Z"
     },
     {
       "id": "mj_guva_mojito",
@@ -1378,11 +1378,11 @@
       "category_id": "cat_mojito",
       "name": "Tropical Blue Mojito",
       "description": "Tropical citrus and blue lagoon syrup muddled with mint, lime, and sparkling soda.",
-      "image_url": "/assets/images/tropical_blue_mojito_1791047516397.jpg",
+      "image_url": "/assets/images/tropical blue mojito.jpg",
       "is_available": true,
       "display_order": 11,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.330Z"
     },
     {
       "id": "moj_01",
@@ -1407,7 +1407,7 @@
       "is_available": true,
       "display_order": 13,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.330Z"
     },
     {
       "id": "moj_03",
@@ -1432,7 +1432,7 @@
       "is_available": true,
       "display_order": 1,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.330Z"
     },
     {
       "id": "sd_water_05",
@@ -1440,133 +1440,118 @@
       "category_id": "cat_soft_drink",
       "name": "Water 0.5",
       "description": "Chilled 0.5L purified natural spring bottled water.",
-      "image_url": "/assets/images/water_half_liter_1791047500109.jpg",
+      "image_url": "/assets/images/water 0.5.jpg",
       "is_available": true,
       "display_order": 2,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-03T11:49:25.330Z"
     }
   ],
+  "last_updated": "2026-10-03T12:17:32.350Z",
   "vip_tables": [
     {
       "id": "vip_1",
-      "name": "Royal Gold Suite",
-      "notes": "Primary luxury banquet table near private fountain",
-      "is_active": true,
-      "created_at": "2026-10-04T02:55:10.891Z",
-      "secret_code": "7771",
       "table_number": "VIP-1",
-      "assigned_waiter_id": "waiter_1"
+      "name": "Royal Gold Suite",
+      "secret_code": "7771",
+      "assigned_waiter_id": "waiter_1",
+      "is_active": true,
+      "notes": "Primary luxury banquet table near private fountain",
+      "created_at": "2026-10-04T08:37:18.775Z"
     },
     {
       "id": "vip_2",
-      "name": "Executive Lounge",
-      "notes": "Leather booths with privacy partition",
-      "is_active": true,
-      "created_at": "2026-10-04T02:55:10.891Z",
-      "secret_code": "7772",
       "table_number": "VIP-2",
-      "assigned_waiter_id": "waiter_2"
+      "name": "Executive Lounge",
+      "secret_code": "7772",
+      "assigned_waiter_id": "waiter_2",
+      "is_active": true,
+      "notes": "Leather booths with privacy partition",
+      "created_at": "2026-10-04T08:37:18.775Z"
     },
     {
       "id": "vip_3",
-      "name": "Garden Terrace",
-      "notes": "Open outdoor VIP gazebo, unassigned shared pool",
-      "is_active": true,
-      "created_at": "2026-10-04T02:55:10.891Z",
-      "secret_code": "7773",
       "table_number": "VIP-3",
-      "assigned_waiter_id": null
+      "name": "Garden Terrace",
+      "secret_code": "7773",
+      "assigned_waiter_id": null,
+      "is_active": true,
+      "notes": "Open outdoor VIP gazebo, unassigned shared pool",
+      "created_at": "2026-10-04T08:37:18.775Z"
     },
     {
       "id": "vip_4",
-      "name": "Penthouse Salon",
-      "notes": "Panoramic top-floor view table",
-      "is_active": true,
-      "created_at": "2026-10-04T02:55:10.891Z",
-      "secret_code": "7774",
       "table_number": "VIP-4",
-      "assigned_waiter_id": "waiter_1"
+      "name": "Penthouse Salon",
+      "secret_code": "7774",
+      "assigned_waiter_id": "waiter_1",
+      "is_active": true,
+      "notes": "Panoramic top-floor view table",
+      "created_at": "2026-10-04T08:37:18.775Z"
     }
   ],
   "waiters": [
     {
       "id": "waiter_1",
-      "pin": "1111",
       "name": "Abebe Tsegaye",
+      "pin": "1111",
       "phone": "+251 91 123 4567",
+      "is_on_duty": true,
       "is_active": true,
-      "created_at": "2026-10-04T02:55:10.890Z",
-      "is_on_duty": true
+      "created_at": "2026-10-04T08:37:18.774Z"
     },
     {
       "id": "waiter_2",
-      "pin": "2222",
       "name": "Sara Mohammed",
+      "pin": "2222",
       "phone": "+251 92 234 5678",
+      "is_on_duty": true,
       "is_active": true,
-      "created_at": "2026-10-04T02:55:10.891Z",
-      "is_on_duty": true
+      "created_at": "2026-10-04T08:37:18.775Z"
     },
     {
       "id": "waiter_3",
-      "pin": "3333",
       "name": "Dawit Kebede",
+      "pin": "3333",
       "phone": "+251 93 345 6789",
+      "is_on_duty": false,
       "is_active": true,
-      "created_at": "2026-10-04T02:55:10.891Z",
-      "is_on_duty": false
+      "created_at": "2026-10-04T08:37:18.775Z"
     }
   ],
   "waiter_calls": [
     {
-      "id": "call_1791084607049_42e6",
+      "id": "call_1791103046925_239",
       "table_id": "vip_1",
       "table_number": "VIP-1",
       "table_name": "Royal Gold Suite",
       "call_type": "water",
-      "message": "Need water refill",
-      "status": "completed",
-      "assigned_waiter_id": null,
-      "accepted_by_waiter_id": null,
-      "accepted_by_name": null,
-      "is_escalated": true,
-      "original_waiter_id": "waiter_1",
-      "created_at": "2026-10-04T03:30:07.049Z",
-      "escalated_at": "2026-10-04T03:30:52.050Z",
-      "completed_at": "2026-10-04T03:31:07.193Z"
-    },
-    {
-      "id": "call_1791084593935_020p",
-      "table_id": "vip_1",
-      "table_number": "VIP-1",
-      "table_name": "Royal Gold Suite",
-      "call_type": "urgent",
-      "message": "Need sparkling water and manager",
+      "message": "Cold bottled water please",
       "status": "completed",
       "assigned_waiter_id": "waiter_1",
-      "accepted_by_waiter_id": "waiter_1",
-      "accepted_by_name": "Abebe Bikila",
       "is_escalated": false,
       "original_waiter_id": "waiter_1",
-      "created_at": "2026-10-04T03:29:53.935Z",
-      "accepted_at": "2026-10-04T03:29:57.689Z",
-      "completed_at": "2026-10-04T03:30:02.226Z"
+      "created_at": "2026-10-04T08:37:26.925Z",
+      "accepted_by_waiter_id": "waiter_1",
+      "accepted_by_name": "Abebe Tsegaye",
+      "accepted_at": "2026-10-04T08:37:30.136Z",
+      "completed_at": "2026-10-04T08:37:33.111Z"
     },
     {
-      "id": "call_1791082520724_h3ku",
-      "status": "cancelled",
-      "message": "VIP test call",
+      "id": "call_1791103580492_802",
       "table_id": "vip_1",
-      "call_type": "general",
-      "created_at": "2026-10-04T02:55:20.724Z",
-      "table_name": "Royal Gold Suite",
-      "completed_at": "2026-10-04T02:55:25.096Z",
       "table_number": "VIP-1",
-      "accepted_by_name": null,
+      "table_name": "Royal Gold Suite",
+      "call_type": "general",
+      "message": "",
+      "status": "accepted",
       "assigned_waiter_id": "waiter_1",
-      "accepted_by_waiter_id": null
+      "is_escalated": false,
+      "original_waiter_id": "waiter_1",
+      "created_at": "2026-10-04T08:46:20.492Z",
+      "accepted_by_waiter_id": "waiter_1",
+      "accepted_by_name": "Abebe Tsegaye",
+      "accepted_at": "2026-10-04T08:46:40.087Z"
     }
-  ],
-  "last_updated": "2026-10-04T03:29:46.975Z"
+  ]
 }

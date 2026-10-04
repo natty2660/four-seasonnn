@@ -29,8 +29,9 @@ interface PublicMenuProps {
   onOpenQR: () => void;
   onOpenLogoCropper?: () => void;
   onOpenPhotoEnhancer?: () => void;
-  onOpenVipAccess?: () => void;
+  onOpenVipTable?: () => void;
   onOpenWaiterApp?: () => void;
+  activeCallsCount?: number;
 }
 
 const DEFAULT_HERO_BANNER = '/assets/images/four_season_confidential_wall_1790854372202.jpg';
@@ -43,8 +44,9 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
   onOpenQR,
   onOpenLogoCropper,
   onOpenPhotoEnhancer,
-  onOpenVipAccess,
+  onOpenVipTable,
   onOpenWaiterApp,
+  activeCallsCount = 0,
 }) => {
   const [selectedMealTime, setSelectedMealTime] = useState<MealTime | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,24 +159,40 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenVipTable && (
+              <button
+                onClick={onOpenVipTable}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#080808] hover:bg-[#1A1A1A] text-[#FCF6BA] border border-[#080808] transition-all shadow-sm cursor-pointer"
+                title="VIP Table service & waiter call"
+              >
+                <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span className="font-extrabold">VIP Table</span>
+              </button>
+            )}
+            {onOpenWaiterApp && (
+              <button
+                onClick={onOpenWaiterApp}
+                className="relative inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#080808] hover:bg-[#1A1A1A] text-[#FCF6BA] border border-[#080808] transition-all shadow-sm cursor-pointer"
+                title="Waiter mobile app portal"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span className="hidden sm:inline">Waiter App</span>
+                {activeCallsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 bg-red-600 text-white rounded-full text-[9px] font-black flex items-center justify-center animate-pulse">
+                    {activeCallsCount}
+                  </span>
+                )}
+              </button>
+            )}
             {onOpenPhotoEnhancer && (
               <button
                 onClick={onOpenPhotoEnhancer}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#080808] hover:bg-[#1A1A1A] text-[#D4AF37] border border-[#080808] transition-all shadow-sm"
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg bg-[#080808] hover:bg-[#1A1A1A] text-[#D4AF37] border border-[#080808] transition-all shadow-sm"
                 title="Upload your original named dish & drink photos with studio quality enhancement and zero ingredient changes"
               >
                 <Camera className="w-4 h-4 text-[#D4AF37]" />
-                <span>Upload Original Photos</span>
-              </button>
-            )}
-            {onOpenVipAccess && (
-              <button
-                onClick={onOpenVipAccess}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-[#0A0A0A] border border-[#080808]/40 shadow-md hover:brightness-110 active:scale-95 transition-all"
-                title="Access Exclusive VIP Table Service with Waiter Call"
-              >
-                <Crown className="w-3.5 h-3.5" />
-                <span>VIP Table</span>
+                <span className="hidden sm:inline">Upload Photos</span>
+                <span className="inline sm:hidden">Photos</span>
               </button>
             )}
             <button
@@ -229,6 +247,50 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
               <span>Use / Crop Provided Photo</span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* VIP Table Service & Waiter Callout Banner */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-4">
+        <div className="bg-gradient-to-r from-[#17140B] via-[#0E0C07] to-[#17140B] border-2 border-[#D4AF37] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-white shadow-xl">
+          <div className="flex items-center gap-3.5 text-center sm:text-left">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37] to-[#996515] flex items-center justify-center shrink-0 shadow-lg border border-[#FCF6BA]/40">
+              <Crown className="w-6 h-6 text-[#080808]" />
+            </div>
+            <div>
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <h4 className="text-sm sm:text-base font-extrabold text-[#FCF6BA] font-display">
+                  VIP Table Service &amp; Live Waiter Calls
+                </h4>
+                <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37] text-[10px] font-black text-[#D4AF37] uppercase tracking-wider">
+                  Exclusive
+                </span>
+              </div>
+              <p className="text-xs text-[#D4C9B0] mt-0.5 leading-relaxed">
+                Seated at a VIP table or lounge? Tap to call your personal assigned waiter, order, or request bills &amp; drinks with real-time restaurant chime.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-center">
+            {onOpenVipTable && (
+              <button
+                onClick={onOpenVipTable}
+                className="flex-1 sm:flex-none px-4 py-2.5 bg-[#D4AF37] text-[#080808] text-xs font-black rounded-xl hover:bg-[#FBF5B7] shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Crown className="w-4 h-4 text-[#080808]" />
+                <span>Enter VIP Table</span>
+              </button>
+            )}
+            {onOpenWaiterApp && (
+              <button
+                onClick={onOpenWaiterApp}
+                className="flex-1 sm:flex-none px-3.5 py-2.5 bg-[#1F1E1A] border border-[#D4AF37]/60 text-[#FCF6BA] text-xs font-bold rounded-xl hover:bg-[#2A2720] shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Smartphone className="w-4 h-4 text-[#D4AF37]" />
+                <span>Waiter App</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -521,15 +583,17 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
           <p className="text-[#111111] font-semibold leading-relaxed">
             Contemporary Coffee Lounge · Gourmet Restaurant
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-[11px] text-[#080808] font-bold">
-            {onOpenVipAccess && (
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-[11px] text-[#080808] font-semibold">
+            <span>Jijiga, Ethiopia</span>
+            <span>·</span>
+            {onOpenVipTable && (
               <>
                 <button
-                  onClick={onOpenVipAccess}
-                  className="inline-flex items-center gap-1 hover:underline cursor-pointer font-black text-black"
+                  onClick={onOpenVipTable}
+                  className="text-[#080808] hover:underline cursor-pointer font-extrabold flex items-center gap-1"
                 >
-                  <Crown className="w-3.5 h-3.5" />
-                  <span>VIP Table Service</span>
+                  <Crown className="w-3 h-3" />
+                  <span>VIP Tables</span>
                 </button>
                 <span>·</span>
               </>
@@ -538,9 +602,9 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
               <>
                 <button
                   onClick={onOpenWaiterApp}
-                  className="inline-flex items-center gap-1 hover:underline cursor-pointer font-black text-black"
+                  className="text-[#080808] hover:underline cursor-pointer font-extrabold flex items-center gap-1"
                 >
-                  <Smartphone className="w-3.5 h-3.5" />
+                  <Smartphone className="w-3 h-3" />
                   <span>Waiter Mobile App</span>
                 </button>
                 <span>·</span>

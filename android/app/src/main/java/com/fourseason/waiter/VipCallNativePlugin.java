@@ -13,15 +13,12 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class VipCallNativePlugin extends Plugin {
 
     @PluginMethod
-    public void startVipCallService(PluginCall call) {
-        String waiterId = call.getString("waiterId", "");
-        String waiterName = call.getString("waiterName", "Waiter");
-        String serverUrl = call.getString("serverUrl", "http://10.0.2.2:3000");
-
+    public void startMonitoring(PluginCall call) {
+        String serverUrl = call.getString("serverUrl", "https://ais-dev-f3z7xsgo4gzakdpxzf5ir5-912680925196.europe-west2.run.app");
         Context context = getContext();
+
         Intent serviceIntent = new Intent(context, VipCallService.class);
-        serviceIntent.putExtra("waiter_id", waiterId);
-        serviceIntent.putExtra("waiter_name", waiterName);
+        serviceIntent.setAction(VipCallService.ACTION_START_LISTENING);
         serviceIntent.putExtra("server_url", serverUrl);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -31,75 +28,59 @@ public class VipCallNativePlugin extends Plugin {
         }
 
         JSObject ret = new JSObject();
-        ret.put("started", true);
+        ret.put("status", "running");
         call.resolve(ret);
     }
 
     @PluginMethod
-    public void stopVipCallService(PluginCall call) {
+    public void stopMonitoring(PluginCall call) {
         Context context = getContext();
         Intent serviceIntent = new Intent(context, VipCallService.class);
+        serviceIntent.setAction(VipCallService.ACTION_STOP_LISTENING);
         context.stopService(serviceIntent);
-        VipCallService.stopCallAlert(context);
 
         JSObject ret = new JSObject();
-        ret.put("stopped", true);
+        ret.put("status", "stopped");
         call.resolve(ret);
     }
 
     @PluginMethod
-    public void triggerCallAlert(PluginCall call) {
-        String callId = call.getString("callId", "test_call");
+    public void testIncomingCall(PluginCall call) {
+        Context context = getContext();
+        String callId = call.getString("callId", "test-" + System.currentTimeMillis());
         String tableNumber = call.getString("tableNumber", "VIP-1");
-        String tableName = call.getString("tableName", "VIP Table");
-        String callType = call.getString("callType", "general");
-        boolean isEscalated = Boolean.TRUE.equals(call.getBoolean("isEscalated", false));
+        String customerName = call.getString("customerName", "VIP Customer");
+        String notes = call.getString("notes", "Urgent test call");
 
-        VipCallService.triggerCallAlert(
-            getContext(),
-            callId,
-            tableNumber,
-            tableName,
-            callType,
-            isEscalated
-        );
+        Intent alarmIntent = new Intent(context, VipCallService.class);
+        alarmIntent.setAction(VipCallService.ACTION_TRIGGER_ALARM);
+        alarmIntent.putExtra("call_id", callId);
+        alarmIntent.putExtra("table_number", tableNumber);
+        alarmIntent.putExtra("customer_name", customerName);
+        alarmIntent.putExtra("notes", notes);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(alarmIntent);
+        } else {
+            context.startService(alarmIntent);
+        }
 
         JSObject ret = new JSObject();
-        ret.put("triggered", true);
+        ret.put("status", "triggered");
         call.resolve(ret);
     }
 
     @PluginMethod
-    public void stopCallAlert(PluginCall call) {
-        VipCallService.stopCallAlert(getContext());
+    public void stopRinging(PluginCall call) {
+        Context context = getContext();
+        VipCallService.stopAlarmAudio(context);
+
+        Intent stopIntent = new Intent(context, VipCallService.class);
+        stopIntent.setAction(VipCallService.ACTION_STOP_ALARM);
+        context.startService(stopIntent);
 
         JSObject ret = new JSObject();
-        ret.put("stopped", true);
-        call.resolve(ret);
-    }
-
-    @PluginMethod
-    public void muteSound(PluginCall call) {
-        VipCallService.muteSound(getContext());
-
-        JSObject ret = new JSObject();
-        ret.put("muted", true);
-        call.resolve(ret);
-    }
-
-    @PluginMethod
-    public void testAlarmRinging(PluginCall call) {
-        VipCallService.triggerCallAlert(
-            getContext(),
-            "test_" + System.currentTimeMillis(),
-            "VIP-TEST",
-            "Hardware Sound & Vibration Test",
-            "urgent",
-            false
-        );
-
-        JSObject ret = new JSObject();
-        ret.put("testing", true);
+        ret.put("status", "silenced");
         call.resolve(ret);
     }
 }

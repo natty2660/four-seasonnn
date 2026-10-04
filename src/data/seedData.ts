@@ -1,4 +1,4 @@
-import { Restaurant, Category, MenuItem } from '../types/index.ts';
+import { Restaurant, Category, MenuItem } from "../types/index.ts";
 
 export const PRIME_CAFE_RESTAURANT: Restaurant = {
   "id": "rest_prime_cafe",
@@ -101,14 +101,13 @@ export const SEED_CATEGORIES: Category[] = [
 ];
 
 export const SEED_MENU_ITEMS: MenuItem[] = [
-  // ================= BREAK FAST (14 items) =================
   {
     "id": "bf_04",
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_breakfast",
     "name": "Normal Fuul",
     "description": "Slow-simmered fava beans mashed with cumin, olive oil, fresh diced tomatoes, onions, and green peppers. Served with warm bread.",
-    "image_url": "/assets/images/normal_fuul_1791047613682.jpg",
+    "image_url": "/assets/images/normal fuul.jpg",
     "is_available": true,
     "display_order": 1,
     "is_popular": true,
@@ -152,7 +151,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 4,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.328Z"
   },
   {
     "id": "bf_special_fatira",
@@ -202,7 +201,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 8,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "bf_07",
@@ -265,7 +264,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 13,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "bf_chachbsa",
@@ -273,14 +272,12 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_breakfast",
     "name": "Chechebsa",
     "description": "Traditional shredded flatbread tossed in spiced clarified butter and berbere, served warm with honey.",
-    "image_url": "/assets/images/chechebsa_1791047592467.jpg",
+    "image_url": "/assets/images/chechebsa.jpg",
     "is_available": true,
     "display_order": 14,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
-
-  // ================= LAUNCH (32 items) =================
   {
     "id": "dn_03",
     "restaurant_id": "rest_prime_cafe",
@@ -306,7 +303,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "display_order": 2,
     "is_local_specialty": true,
     "created_at": "2026-09-24T06:36:50.156Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "ln_special_rice",
@@ -330,7 +327,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 4,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "ln_chicken_tips",
@@ -338,11 +335,11 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_launch",
     "name": "Chicken Tibs",
     "description": "Sautéed tender chicken breast cubes with onions, bell peppers, garlic, and rosemary.",
-    "image_url": "/assets/images/chicken_tibs_1791047571088.jpg",
+    "image_url": "/assets/images/chicken tibs.jpg",
     "is_available": true,
     "display_order": 5,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "ln_normal_tibs",
@@ -374,8 +371,8 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_launch",
     "name": "Normal Rice",
-    "description": "Steamed fragrant long-grain basmati rice served with savory house sauce.",
-    "image_url": "/assets/images/normal_rice_1791047581145.jpg",
+    "description": "Steamed aromatic basmati rice served with savory house sauce.",
+    "image_url": "/assets/images/item_normal_rice.jpg",
     "is_available": true,
     "display_order": 8,
     "created_at": "2026-10-01T12:00:00.000Z",
@@ -387,7 +384,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_launch",
     "name": "Normal Shiro",
     "description": "Smooth slow-simmered roasted chickpea stew seasoned with garlic, onions, and spices.",
-    "image_url": "/assets/images/normal_shiro_1791047603414.jpg",
+    "image_url": "/assets/images/item_normal_shiro.jpg",
     "is_available": true,
     "display_order": 9,
     "created_at": "2026-10-01T12:00:00.000Z",
@@ -478,19 +475,19 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 16,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "ln_pasta_with_tuna",
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_launch",
     "name": "Pasta with Tuna",
-    "description": "Savory pasta tossed with flaked tuna, onions, garlic, and rich herb tomato sauce.",
-    "image_url": "/assets/images/pasta_with_tuna_1791047560097.jpg",
+    "description": "Savory pasta tossed with flaked tuna, onions, garlic, and rich tomato sauce.",
+    "image_url": "/assets/images/pasta with tuna.jpg",
     "is_available": true,
     "display_order": 17,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "ln_rice_with_tuna",
@@ -621,11 +618,11 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_launch",
     "name": "Half Mandi",
     "description": "Half portion of slow-roasted tender meat served over aromatic Mandi basmati rice.",
-    "image_url": "/assets/images/half_mandi_1791047549274.jpg",
+    "image_url": "/assets/images/half mandi.jpg",
     "is_available": true,
     "display_order": 28,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "ln_full_burma",
@@ -662,7 +659,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "display_order": 31,
     "is_popular": true,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "ln_half_zurbiyan",
@@ -674,10 +671,8 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 32,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
-
-  // ================= BURGER & SHWARMA (14 items) =================
   {
     "id": "ff_01",
     "restaurant_id": "rest_prime_cafe",
@@ -713,7 +708,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 3,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "bs_beef_burger",
@@ -737,7 +732,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 5,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "bs_beef_sandwich",
@@ -745,11 +740,11 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_lunch_mains",
     "name": "Beef Sandwich",
     "description": "Warm toasted sandwich packed with tender sautéed beef strips, peppers, onions, and sauce.",
-    "image_url": "/assets/images/beef_sandwich_1791047538235.jpg",
+    "image_url": "/assets/images/beef sandwich.jpg",
     "is_available": true,
     "display_order": 6,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "bs_tuna_sandwich",
@@ -787,7 +782,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "display_order": 9,
     "is_popular": true,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "ff_05",
@@ -821,11 +816,11 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_lunch_mains",
     "name": "Chicken Shawarma",
     "description": "Spiced rotisserie chicken strips wrapped in toasted flatbread with garlic toum and pickles.",
-    "image_url": "/assets/images/chicken_shawarma_1791047526323.jpg",
+    "image_url": "/assets/images/chicken shawarma.jpg",
     "is_available": true,
     "display_order": 12,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "bs_beef_shwarma",
@@ -833,11 +828,11 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_lunch_mains",
     "name": "Beef Shawarma",
     "description": "Marinated roasted beef shawarma wrap with tahini garlic sauce, tomatoes, and onions.",
-    "image_url": "/assets/images/beerf shawarma.jpg",
+    "image_url": "/assets/images/beef shawarma.jpg",
     "is_available": true,
     "display_order": 13,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "bs_tuna_shwarma",
@@ -851,8 +846,6 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "created_at": "2026-10-01T12:00:00.000Z",
     "updated_at": "2026-10-01T12:00:00.000Z"
   },
-
-  // ================= PIZZA (6 items) =================
   {
     "id": "pz_special_pizza",
     "restaurant_id": "rest_prime_cafe",
@@ -864,7 +857,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "display_order": 1,
     "is_popular": true,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "pz_new_pizza",
@@ -876,7 +869,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 2,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "pz_chicken_pizza",
@@ -888,7 +881,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 3,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "pz_beef_pizza",
@@ -900,7 +893,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 4,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "pz_margrita_pizza",
@@ -912,7 +905,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 5,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "pz_tuna_pizza",
@@ -924,10 +917,8 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 6,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
-
-  // ================= HOT DRINK (7 items) =================
   {
     "id": "tea_01",
     "restaurant_id": "rest_prime_cafe",
@@ -1014,10 +1005,8 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 7,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
-
-  // ================= ICE DRINK (6 items) =================
   {
     "id": "id_ice_chocolate",
     "restaurant_id": "rest_prime_cafe",
@@ -1093,8 +1082,6 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "created_at": "2026-10-01T12:00:00.000Z",
     "updated_at": "2026-10-01T12:00:00.000Z"
   },
-
-  // ================= JUICE (14 items: 10 printed + 4 handwritten) =================
   {
     "id": "jc_special_juice",
     "restaurant_id": "rest_prime_cafe",
@@ -1130,7 +1117,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 3,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "jce_01",
@@ -1143,7 +1130,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "display_order": 4,
     "is_popular": true,
     "created_at": "2026-09-24T06:36:50.159Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "jce_04",
@@ -1241,7 +1228,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 12,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "jc_oogsir_juss",
@@ -1265,10 +1252,8 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 14,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
-
-  // ================= MOJITO (14 items from handwritten sheet) =================
   {
     "id": "moj_04",
     "restaurant_id": "rest_prime_cafe",
@@ -1315,7 +1300,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 4,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "moj_05",
@@ -1351,7 +1336,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 7,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.329Z"
   },
   {
     "id": "mj_passion_fruit_mojito",
@@ -1376,7 +1361,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 9,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.330Z"
   },
   {
     "id": "mj_guva_mojito",
@@ -1396,11 +1381,11 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_mojito",
     "name": "Tropical Blue Mojito",
     "description": "Tropical citrus and blue lagoon syrup muddled with mint, lime, and sparkling soda.",
-    "image_url": "/assets/images/tropical_blue_mojito_1791047516397.jpg",
+    "image_url": "/assets/images/tropical blue mojito.jpg",
     "is_available": true,
     "display_order": 11,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.330Z"
   },
   {
     "id": "moj_01",
@@ -1425,7 +1410,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 13,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.330Z"
   },
   {
     "id": "moj_03",
@@ -1440,8 +1425,6 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "created_at": "2026-09-24T06:36:50.159Z",
     "updated_at": "2026-10-01T12:00:00.000Z"
   },
-
-  // ================= SOFT DRINK (2 items) =================
   {
     "id": "sd_soft_drink",
     "restaurant_id": "rest_prime_cafe",
@@ -1452,7 +1435,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "is_available": true,
     "display_order": 1,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.330Z"
   },
   {
     "id": "sd_water_05",
@@ -1460,27 +1443,55 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_soft_drink",
     "name": "Water 0.5",
     "description": "Chilled 0.5L purified natural spring bottled water.",
-    "image_url": "/assets/images/water_half_liter_1791047500109.jpg",
+    "image_url": "/assets/images/water 0.5.jpg",
     "is_available": true,
     "display_order": 2,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-03T11:49:25.330Z"
   }
 ];
 
 export const OWNER_TRANSCRIPTION_FLAGS = [
   {
-    id: 'flag_01',
-    term: 'Talba juss / Boso juss / Oogsir juss / Zayitun juss',
-    transcription: 'Handwritten Juice additions added under Juice category',
-    note: 'Transcribed directly from the handwritten menu sheet and added to the Juice category.',
-    status: 'confirmed_added',
+    id: "flag_01",
+    term: "PENIS / PENIS SPECIAL (350 / 500 Birr)",
+    transcription: "Listed under Special Dishes as \"PENIS\" and \"PENIS SPECIAL\"",
+    note: "Appears on the physical laminated menu board under Special Dishes. Retained as transcribed on the menu card, with direct rename capability in admin.",
+    status: "owner_review_recommended",
   },
   {
-    id: 'flag_02',
-    term: '14 Handwritten Mojitos',
-    transcription: 'Kiwi, Orange, Pinaple, Ment, Lemon, Watermelon, Apple, Passion firut, Mango, Guva, Tropical Blue, Strwbary, Tropical firut, Bule Ocean',
-    note: 'Transcribed directly from the handwritten Mojito sheet. Existing mojitos were preserved and non-matching items were removed.',
-    status: 'confirmed_added',
+    id: "flag_02",
+    term: "LAWS (150 / 300 / 500 Birr)",
+    transcription: "Lotus Biscoff flavor ice cream & milkshake",
+    note: "The menu lists \"LAWS\" in the Ice Cream section and \"LOTUS MILKSHAKE\" in milkshakes. Standardized as Lotus Biscoff (Laws).",
+    status: "confirmed_lotus",
+  },
+  {
+    id: "flag_03",
+    term: "PANANA (150 / 300 / 500 Birr)",
+    transcription: "Banana ice cream flavor",
+    note: "Menu board spelled as \"PANANA\". Standardized as Banana Cream Gelato (Panana).",
+    status: "confirmed_banana",
+  },
+  {
+    id: "flag_04",
+    term: "BEER (500 Birr)",
+    transcription: "Regional term for fresh sautéed Liver",
+    note: "In the local regional dialect, \"Beer\" refers to beef liver (Beer / Beer Sauté). Listed in Breakfast (500 Birr) and Special Dishes (500 Birr).",
+    status: "confirmed_liver",
+  },
+  {
+    id: "flag_05",
+    term: "BASTO LASANY (700 Birr)",
+    transcription: "Pasta Lasagne (Baked Lasagna)",
+    note: "Listed as \"BASTO LASANY\" in Pasta & Mains.",
+    status: "confirmed_lasagna",
+  },
+  {
+    id: "flag_06",
+    term: "DJJBS (650 Birr)",
+    transcription: "Dibs / Tibs beef sauté",
+    note: "Regional transliteration \"DJJBS\" in Dinner & Special Dishes.",
+    status: "confirmed_dibs",
   },
 ];

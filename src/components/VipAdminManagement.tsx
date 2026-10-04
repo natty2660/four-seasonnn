@@ -3,23 +3,16 @@ import { VipTable, Waiter, WaiterCall } from '../types/index.ts';
 import { generateQRCodeDataUrl, getVipTableUrl } from '../lib/qr.ts';
 import {
   Crown,
-  Bell,
   BellRing,
   UserCheck,
   UserPlus,
   Plus,
   Trash2,
-  Edit2,
   CheckCircle2,
   Clock,
   QrCode,
   Download,
   Printer,
-  Shield,
-  Phone,
-  RefreshCw,
-  ExternalLink,
-  ChevronDown,
   X,
 } from 'lucide-react';
 
@@ -248,7 +241,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('calls')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'calls'
                 ? 'bg-[#D4AF37] text-black shadow-md'
                 : 'bg-[#181818] text-[#FCF6BA] hover:bg-[#222]'
@@ -266,7 +259,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('tables')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'tables'
                 ? 'bg-[#D4AF37] text-black shadow-md'
                 : 'bg-[#181818] text-[#FCF6BA] hover:bg-[#222]'
@@ -279,7 +272,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('waiters')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'waiters'
                 ? 'bg-[#D4AF37] text-black shadow-md'
                 : 'bg-[#181818] text-[#FCF6BA] hover:bg-[#222]'
@@ -293,7 +286,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
         {activeTab === 'tables' && (
           <button
             onClick={() => setIsAddTableOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs flex items-center gap-1.5 shadow"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs flex items-center gap-1.5 shadow cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add VIP Table</span>
@@ -303,7 +296,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
         {activeTab === 'waiters' && (
           <button
             onClick={() => setIsAddWaiterOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs flex items-center gap-1.5 shadow"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs flex items-center gap-1.5 shadow cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             <span>Add Waiter</span>
@@ -313,7 +306,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
         {activeTab === 'calls' && pastCalls.length > 0 && (
           <button
             onClick={handleClearHistory}
-            className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs border border-white/10 transition-colors"
+            className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs border border-white/10 transition-colors cursor-pointer"
           >
             Clear Completed History
           </button>
@@ -521,7 +514,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                         {t.notes && <div className="text-[10px] text-white/50">{t.notes}</div>}
                       </td>
                       <td className="p-3.5">
-                        {/* Dropdown to change responsible waiter on the fly! */}
+                        {/* Dropdown to change responsible waiter on the fly */}
                         <select
                           value={t.assigned_waiter_id || ''}
                           onChange={(e) => handleUpdateTableWaiter(t.id, e.target.value || null)}
@@ -541,7 +534,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                       <td className="p-3.5 text-center">
                         <button
                           onClick={() => handleOpenTableQR(t)}
-                          className="p-1.5 rounded-lg bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#D4AF37] border border-[#D4AF37]/40 transition-colors inline-flex items-center gap-1 text-[11px] font-bold"
+                          className="p-1.5 rounded-lg bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#D4AF37] border border-[#D4AF37]/40 transition-colors inline-flex items-center gap-1 text-[11px] font-bold cursor-pointer"
                           title="Generate Table QR Code"
                         >
                           <QrCode className="w-3.5 h-3.5" />
@@ -551,7 +544,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                       <td className="p-3.5 text-right">
                         <button
                           onClick={() => handleDeleteTable(t.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors cursor-pointer"
                           title="Delete Table"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -600,7 +593,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
 
                       <button
                         onClick={() => handleDeleteWaiter(w.id)}
-                        className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors cursor-pointer"
                         title="Delete Waiter"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -633,7 +626,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                     <span className="text-[11px] text-white/60">Duty Status:</span>
                     <button
                       onClick={() => handleToggleWaiterDuty(w.id, w.is_on_duty)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                         w.is_on_duty
                           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                           : 'bg-white/10 text-white/50'
@@ -660,7 +653,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
               </h3>
               <button
                 onClick={() => setIsAddTableOpen(false)}
-                className="p-1 rounded-lg text-white/60 hover:text-white"
+                className="p-1 rounded-lg text-white/60 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -729,13 +722,13 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddTableOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white"
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#D4AF37] hover:brightness-110 text-black font-extrabold text-xs shadow"
+                  className="px-5 py-2 rounded-xl bg-[#D4AF37] hover:brightness-110 text-black font-extrabold text-xs shadow cursor-pointer"
                 >
                   Save VIP Table
                 </button>
@@ -756,7 +749,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
               </h3>
               <button
                 onClick={() => setIsAddWaiterOpen(false)}
-                className="p-1 rounded-lg text-white/60 hover:text-white"
+                className="p-1 rounded-lg text-white/60 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -807,13 +800,13 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddWaiterOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white"
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#D4AF37] hover:brightness-110 text-black font-extrabold text-xs shadow"
+                  className="px-5 py-2 rounded-xl bg-[#D4AF37] hover:brightness-110 text-black font-extrabold text-xs shadow cursor-pointer"
                 >
                   Create Waiter Profile
                 </button>
@@ -830,7 +823,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
             <div className="flex justify-end">
               <button
                 onClick={() => setSelectedQRTable(null)}
-                className="p-1 rounded-lg text-white/60 hover:text-white"
+                className="p-1 rounded-lg text-white/60 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -861,14 +854,14 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
               <a
                 href={qrModalDataUrl}
                 download={`${selectedQRTable.table_number}-qr-code.png`}
-                className="flex-1 py-2.5 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs shadow flex items-center justify-center gap-1.5 hover:brightness-110"
+                className="flex-1 py-2.5 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs shadow flex items-center justify-center gap-1.5 hover:brightness-110 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
                 <span>Download PNG</span>
               </a>
               <button
                 onClick={() => window.print()}
-                className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center gap-1"
+                className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
               </button>

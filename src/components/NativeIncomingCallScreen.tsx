@@ -12,7 +12,6 @@ import {
   Droplets,
   Receipt,
   PhoneCall,
-  User,
 } from 'lucide-react';
 
 interface NativeIncomingCallScreenProps {

@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Restaurant, Category, MenuItem, VipTable, Waiter, WaiterCall, CallType } from '../types/index.ts';
-import { BrandLogo } from './BrandLogo.tsx';
 import { ItemCard } from './ItemCard.tsx';
 import { callSound } from '../lib/callSound.ts';
 import {
@@ -14,13 +13,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  UserCheck,
-  ChevronRight,
-  X,
-  Volume2,
   Share2,
   ArrowLeft,
   Search,
+  X,
 } from 'lucide-react';
 
 interface VipTableCustomerViewProps {
@@ -38,7 +34,6 @@ interface VipTableCustomerViewProps {
 }
 
 export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
-  restaurant,
   categories,
   items,
   table,

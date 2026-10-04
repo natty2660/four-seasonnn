@@ -39,7 +39,6 @@ import {
   ArrowDownToLine,
   Crop,
   Crown,
-  BellRing,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -60,6 +59,7 @@ interface AdminDashboardProps {
   onCancelCall?: (callId: string) => Promise<void>;
   onOpenQR: () => void;
   onOpenLogoCropper?: () => void;
+  onOpenPhotoEnhancer?: () => void;
   onViewMenu: () => void;
   onLogout: () => void;
 }
@@ -75,17 +75,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateRestaurant,
   onUpdateCategories,
   onUpdateItems,
-  onUpdateTables,
-  onUpdateWaiters,
-  onAcceptCall,
-  onCompleteCall,
-  onCancelCall,
+  onUpdateTables = () => {},
+  onUpdateWaiters = () => {},
+  onAcceptCall = async () => {},
+  onCompleteCall = async () => {},
+  onCancelCall = async () => {},
   onOpenQR,
   onOpenLogoCropper,
+  onOpenPhotoEnhancer,
   onViewMenu,
   onLogout,
 }) => {
-  const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'vip' | 'restaurant' | 'flags' | 'gallery'>('items');
+  const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'restaurant' | 'flags' | 'gallery' | 'vip'>('items');
   const [galleryCategory, setGalleryCategory] = useState<string>('all');
   const [gallerySearch, setGallerySearch] = useState<string>('');
   const [previewingPhoto, setPreviewingPhoto] = useState<{ name: string; url: string; item: MenuItem } | null>(null);
@@ -387,31 +388,104 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // --- IMAGE UPLOAD HANDLING ---
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate type & size (<= 2MB)
+    // Validate type & size (<= 10MB)
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       showNotification('Please upload a JPEG, PNG, or WebP image.', true);
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      showNotification('Image file size must be 2MB or smaller.', true);
-      return;
-    }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.result && editingItem) {
-        setEditingItem({
-          ...editingItem,
-          image_url: reader.result as string,
-        });
-        showNotification('Image loaded preview. Save dish to apply.');
+    try {
+      showNotification('Enhancing and saving photo...');
+      const base64Data = await enhanceOriginalDishPhoto(file, {
+        cropMode: '4:3-studio',
+        applyLightingAndClarity: true,
+        applyWarmthAndVibrancy: true,
+        applyVignette: true,
+      });
+
+      const itemId = editingItem?.id || `item_${Date.now()}`;
+      const res = await fetch('/api/upload-dish-photo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          itemId,
+          fileName: `${file.name.replace(/\.[^/.]+$/, '')}_${itemId}.jpg`,
+          dataBase64: base64Data,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (editingItem) {
+          setEditingItem({
+            ...editingItem,
+            image_url: data.image_url,
+          });
+        }
+        showNotification('Dish photo uploaded and saved directly to menu!');
+      } else {
+        if (editingItem) {
+          setEditingItem({
+            ...editingItem,
+            image_url: base64Data,
+          });
+        }
+        showNotification('Photo preview loaded.');
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error('Error uploading dish photo:', err);
+      showNotification('Error processing photo: ' + (err?.message || 'unknown error'), true);
+    }
+  };
+
+  // 1-Click single item photo replacement from table
+  const handleSingleItemPhotoUpload = async (itemId: string, file: File | undefined) => {
+    if (!file) return;
+    const targetItem = items.find((i) => i.id === itemId);
+    if (!targetItem) return;
+
+    try {
+      showNotification(`Uploading photo for "${targetItem.name}"...`);
+      const base64Data = await enhanceOriginalDishPhoto(file, {
+        cropMode: '4:3-studio',
+        applyLightingAndClarity: true,
+        applyWarmthAndVibrancy: true,
+        applyVignette: true,
+      });
+
+      const res = await fetch('/api/upload-dish-photo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          itemId: targetItem.id,
+          fileName: `${file.name.replace(/\.[^/.]+$/, '')}_${targetItem.id}.jpg`,
+          dataBase64: base64Data,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const updatedItems = items.map((it) =>
+          it.id === targetItem.id ? { ...it, image_url: data.image_url } : it
+        );
+        onUpdateItems(updatedItems);
+        showNotification(`Photo updated for "${targetItem.name}"!`);
+      } else {
+        showNotification('Failed to upload photo to server.', true);
+      }
+    } catch (err: any) {
+      showNotification('Error updating photo: ' + (err?.message || 'unknown error'), true);
+    }
   };
 
   // --- BULK ORIGINAL DISH PHOTO IMPORT ---
@@ -493,6 +567,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenPhotoEnhancer && (
+              <button
+                onClick={onOpenPhotoEnhancer}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141414] hover:bg-[#1E1C14] text-[#D4AF37] border border-[#D4AF37]/50 text-xs font-bold transition-all shadow-sm"
+                title="Studio dish photo enhancer & bulk uploader"
+              >
+                <Camera className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span className="hidden sm:inline">Upload Dish Photos</span>
+                <span className="inline sm:hidden">Photos</span>
+              </button>
+            )}
             {onOpenLogoCropper && (
               <button
                 onClick={onOpenLogoCropper}
@@ -567,22 +652,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             Categories & Meal Times ({categories.length})
           </button>
           <button
-            onClick={() => setActiveTab('vip')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5 ${
-              activeTab === 'vip'
-                ? 'bg-shiny-gold text-[#080808]'
-                : 'bg-[#141414] text-[#D4C9B0] hover:text-[#FCF6BA] border border-[#D4AF37]/30'
-            }`}
-          >
-            <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
-            <span>VIP Tables & Waiters</span>
-            {calls.filter((c) => c.status === 'pending').length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[10px] font-black animate-pulse">
-                {calls.filter((c) => c.status === 'pending').length}
-              </span>
-            )}
-          </button>
-          <button
             onClick={() => setActiveTab('flags')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5 ${
               activeTab === 'flags'
@@ -605,6 +674,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span>Food Photography & Downloads (60 Items)</span>
           </button>
           <button
+            onClick={() => setActiveTab('vip')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'vip'
+                ? 'bg-shiny-gold text-[#080808]'
+                : 'bg-[#141414] text-[#D4C9B0] hover:text-[#FCF6BA] border border-[#D4AF37]/30'
+            }`}
+          >
+            <Crown className="w-3.5 h-3.5" />
+            <span>VIP Tables & Waiters ({vipTables.length} Tables, {waiters.length} Staff)</span>
+          </button>
+          <button
             onClick={() => setActiveTab('restaurant')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shrink-0 ${
               activeTab === 'restaurant'
@@ -615,21 +695,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             Restaurant Settings
           </button>
         </div>
-
-        {/* TAB: VIP & WAITERS */}
-        {activeTab === 'vip' && (
-          <VipAdminManagement
-            vipTables={vipTables}
-            waiters={waiters}
-            calls={calls}
-            token={token}
-            onUpdateTables={onUpdateTables || (() => {})}
-            onUpdateWaiters={onUpdateWaiters || (() => {})}
-            onAcceptCall={onAcceptCall || (async () => {})}
-            onCompleteCall={onCompleteCall || (async () => {})}
-            onCancelCall={onCancelCall || (async () => {})}
-          />
-        )}
 
         {/* TAB 1: MENU ITEMS */}
         {activeTab === 'items' && (
@@ -651,30 +716,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </select>
               </div>
 
-              <button
-                onClick={() => {
-                  setEditingItem({
-                    id: '',
-                    restaurant_id: restaurant.id,
-                    category_id: categories[0]?.id || '',
-                    name: '',
-                    description: '',
-                    image_url: '',
-                    is_available: true,
-                    display_order: items.length + 1,
-                    available_from: null,
-                    available_until: null,
-                    is_popular: false,
-                    is_spicy: false,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                  });
-                  setIsNewItemModal(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-shiny-gold text-[#080808] text-xs font-extrabold hover:brightness-110 transition-all shrink-0 shadow-md"
-              >
-                <Plus className="w-4 h-4" /> Add Menu Item
-              </button>
+              <div className="flex items-center gap-2">
+                {onOpenPhotoEnhancer && (
+                  <button
+                    onClick={onOpenPhotoEnhancer}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#1A1A1A] hover:bg-[#262112] text-[#D4AF37] border border-[#D4AF37]/50 text-xs font-bold transition-all shadow-sm"
+                    title="Upload & enhance original food photography"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Upload &amp; Enhance Photos</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setEditingItem({
+                      id: '',
+                      restaurant_id: restaurant.id,
+                      category_id: categories[0]?.id || '',
+                      name: '',
+                      description: '',
+                      image_url: '',
+                      is_available: true,
+                      display_order: items.length + 1,
+                      available_from: null,
+                      available_until: null,
+                      is_popular: false,
+                      is_spicy: false,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    });
+                    setIsNewItemModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-shiny-gold text-[#080808] text-xs font-extrabold hover:brightness-110 transition-all shrink-0 shadow-md"
+                >
+                  <Plus className="w-4 h-4" /> Add Menu Item
+                </button>
+              </div>
             </div>
 
             {/* Dishes Table */}
@@ -698,18 +775,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <tr key={item.id} className="hover:bg-[#1A1812] transition-colors">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              {item.image_url ? (
-                                <img
-                                  src={item.image_url}
-                                  alt={item.name}
-                                  referrerPolicy="no-referrer"
-                                  className="w-10 h-10 rounded-md object-cover border border-[#D4AF37]/40"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-md bg-[#080808] border border-[#D4AF37]/30 flex flex-col items-center justify-center text-[#9E947A] text-[8px] text-center font-medium p-0.5" title="No photo uploaded yet">
-                                  <span>No photo</span>
-                                </div>
-                              )}
+                              <div className="relative group/thumb shrink-0 w-11 h-11 rounded-md overflow-hidden bg-[#080808] border border-[#D4AF37]/40">
+                                {item.image_url ? (
+                                  <img
+                                    src={item.image_url}
+                                    alt={item.name}
+                                    referrerPolicy="no-referrer"
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex flex-col items-center justify-center text-[#9E947A] text-[8px] text-center font-medium p-0.5" title="No photo uploaded yet">
+                                    <span>No photo</span>
+                                  </div>
+                                )}
+                                <label
+                                  className="absolute inset-0 bg-black/75 opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity text-[8px] text-[#FCF6BA] font-bold"
+                                  title="Click to replace photo for this dish"
+                                >
+                                  <Camera className="w-4 h-4 text-[#D4AF37] mb-0.5" />
+                                  <span>Update</span>
+                                  <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    className="hidden"
+                                    onChange={(e) => handleSingleItemPhotoUpload(item.id, e.target.files?.[0])}
+                                  />
+                                </label>
+                              </div>
                               <div>
                                 <span className="font-semibold text-[#F9F6F0] block text-sm">
                                   {item.name}
@@ -749,7 +841,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </button>
                           </td>
 
-                          {/* Reorder Arrows */}
+                          {/* Reorder Up/Down */}
                           <td className="py-3 px-4 whitespace-nowrap">
                             <div className="flex items-center gap-1">
                               <button
@@ -772,6 +864,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           {/* Actions */}
                           <td className="py-3 px-4 text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* 1-Click Update Photo Button */}
+                              <label
+                                className="p-1.5 rounded-lg bg-[#1A1A1A] hover:bg-[#262112] text-[#D4AF37] border border-[#D4AF37]/30 cursor-pointer inline-flex items-center justify-center transition-colors"
+                                title="Update Dish Photo"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  className="hidden"
+                                  onChange={(e) => handleSingleItemPhotoUpload(item.id, e.target.files?.[0])}
+                                />
+                              </label>
                               <button
                                 onClick={() => {
                                   setEditingItem({ ...item });
@@ -1572,6 +1677,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 })}
             </div>
           </div>
+        )}
+
+        {/* TAB 6: VIP TABLES & WAITER MANAGEMENT */}
+        {activeTab === 'vip' && (
+          <VipAdminManagement
+            vipTables={vipTables}
+            waiters={waiters}
+            calls={calls}
+            token={token}
+            onUpdateTables={onUpdateTables}
+            onUpdateWaiters={onUpdateWaiters}
+            onAcceptCall={onAcceptCall}
+            onCompleteCall={onCompleteCall}
+            onCancelCall={onCancelCall}
+          />
         )}
       </main>
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Smartphone, CheckCircle2, QrCode, Terminal, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { X, Smartphone, CheckCircle2, Terminal } from 'lucide-react';
 
 interface NativeAppInstallModalProps {
   isOpen: boolean;
