@@ -14,11 +14,24 @@ export function getMenuUrl(slug = 'prime-cafe'): string {
   return `https://primecafe.et/menu/${slug}`;
 }
 
-export function getVipTableUrl(tableNumber: string): string {
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}/vip?table=${encodeURIComponent(tableNumber)}`;
+export function getVipTableUrl(
+  tableNumber: string,
+  pin?: string | null,
+  grantAccess = true
+): string {
+  const origin =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://fourseason.et';
+  const params = new URLSearchParams();
+  params.set('table', tableNumber);
+  if (pin && pin.trim()) {
+    params.set('pin', pin.trim());
   }
-  return `https://primecafe.et/vip?table=${encodeURIComponent(tableNumber)}`;
+  if (grantAccess) {
+    params.set('access', 'granted');
+  }
+  return `${origin}/vip?${params.toString()}`;
 }
 
 /**
@@ -64,6 +77,31 @@ export async function downloadQRPNG(
   const link = document.createElement('a');
   link.href = dataUrl;
   link.download = `${slug}-qr-menu-1200px.png`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/**
+ * Downloads a high-resolution VIP Table QR Code with automatic access token embedded.
+ */
+export async function downloadVipQRPNG(
+  tableNumber: string,
+  pin?: string | null,
+  darkColor = '#0A0A0A',
+  lightColor = '#FBF5B7'
+): Promise<void> {
+  const url = getVipTableUrl(tableNumber, pin, true);
+  const dataUrl = await generateQRCodeDataUrl({
+    url,
+    size: 1200,
+    darkColor,
+    lightColor,
+  });
+
+  const link = document.createElement('a');
+  link.href = dataUrl;
+  link.download = `FourSeason-${tableNumber}-VIP-Access-QR.png`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

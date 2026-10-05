@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VipTable, Waiter, WaiterCall } from '../types/index.ts';
-import { generateQRCodeDataUrl, getVipTableUrl } from '../lib/qr.ts';
+import { generateQRCodeDataUrl, getVipTableUrl, downloadVipQRPNG } from '../lib/qr.ts';
+import { BrandLogo } from './BrandLogo.tsx';
 import {
   Crown,
   BellRing,
@@ -14,6 +15,14 @@ import {
   Download,
   Printer,
   X,
+  Copy,
+  Check,
+  ExternalLink,
+  Sparkles,
+  ShieldCheck,
+  ArrowRight,
+  Eye,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface VipAdminManagementProps {
@@ -21,6 +30,7 @@ interface VipAdminManagementProps {
   waiters: Waiter[];
   calls: WaiterCall[];
   token: string;
+  initialTab?: 'calls' | 'tables' | 'waiters' | 'qr_system';
   onUpdateTables: (tables: VipTable[]) => void;
   onUpdateWaiters: (waiters: Waiter[]) => void;
   onAcceptCall: (callId: string, waiterId: string, waiterName: string) => Promise<void>;
@@ -33,19 +43,126 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
   waiters,
   calls,
   token,
+  initialTab,
   onUpdateTables,
   onUpdateWaiters,
   onAcceptCall,
   onCompleteCall,
   onCancelCall,
 }) => {
-  const [activeTab, setActiveTab] = useState<'calls' | 'tables' | 'waiters'>('calls');
+  const [activeTab, setActiveTab] = useState<'calls' | 'tables' | 'waiters' | 'qr_system'>(
+    initialTab || 'calls'
+  );
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Modal states
   const [isAddTableOpen, setIsAddTableOpen] = useState(false);
   const [isAddWaiterOpen, setIsAddWaiterOpen] = useState(false);
   const [selectedQRTable, setSelectedQRTable] = useState<VipTable | null>(null);
   const [qrModalDataUrl, setQrModalDataUrl] = useState<string>('');
+
+  // VIP QR Studio states
+  const [selectedStudioTableId, setSelectedStudioTableId] = useState<string>(
+    vipTables[0]?.id || ''
+  );
+  const [directAccessMode, setDirectAccessMode] = useState<boolean>(true);
+  const [embedPin, setEmbedPin] = useState<boolean>(true);
+  const [qrTheme, setQrTheme] = useState<'gold_luxury' | 'obsidian_dark' | 'minimal_white'>(
+    'gold_luxury'
+  );
+  const [studioQrDataUrl, setStudioQrDataUrl] = useState<string>('');
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const [batchPrintMode, setBatchPrintMode] = useState<boolean>(false);
+  const [batchQrMap, setBatchQrMap] = useState<Record<string, string>>({});
+
+  // Ensure selectedStudioTableId is always valid
+  useEffect(() => {
+    if (vipTables.length > 0 && !vipTables.some((t) => t.id === selectedStudioTableId)) {
+      setSelectedStudioTableId(vipTables[0].id);
+    }
+  }, [vipTables, selectedStudioTableId]);
+
+  const currentStudioTable =
+    vipTables.find((t) => t.id === selectedStudioTableId) || vipTables[0] || null;
+  const currentStudioWaiter = waiters.find(
+    (w) => w.id === currentStudioTable?.assigned_waiter_id
+  );
+
+  // Generate QR for Studio Preview
+  useEffect(() => {
+    if (!currentStudioTable) return;
+    const url = getVipTableUrl(
+      currentStudioTable.table_number,
+      embedPin ? currentStudioTable.secret_code : null,
+      directAccessMode
+    );
+
+    let darkColor = '#0A0A0A';
+    let lightColor = '#FBF5B7';
+    if (qrTheme === 'obsidian_dark') {
+      darkColor = '#D4AF37';
+      lightColor = '#0A0A0A';
+    } else if (qrTheme === 'minimal_white') {
+      darkColor = '#000000';
+      lightColor = '#FFFFFF';
+    }
+
+    generateQRCodeDataUrl({
+      url,
+      size: 1024,
+      darkColor,
+      lightColor,
+    })
+      .then((dataUrl) => setStudioQrDataUrl(dataUrl))
+      .catch((err) => console.error('Failed generating studio QR:', err));
+  }, [currentStudioTable, directAccessMode, embedPin, qrTheme]);
+
+  const handleCopyStudioLink = async () => {
+    if (!currentStudioTable) return;
+    const url = getVipTableUrl(
+      currentStudioTable.table_number,
+      embedPin ? currentStudioTable.secret_code : null,
+      directAccessMode
+    );
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {}
+  };
+
+  const handleDownloadStudioPNG = async () => {
+    if (!currentStudioTable) return;
+    await downloadVipQRPNG(
+      currentStudioTable.table_number,
+      embedPin ? currentStudioTable.secret_code : null
+    );
+  };
+
+  const handlePrepareBatchPrint = async () => {
+    const map: Record<string, string> = {};
+    for (const t of vipTables) {
+      const url = getVipTableUrl(t.table_number, t.secret_code, true);
+      try {
+        const dUrl = await generateQRCodeDataUrl({
+          url,
+          size: 1024,
+          darkColor: '#0A0A0A',
+          lightColor: '#FBF5B7',
+        });
+        map[t.id] = dUrl;
+      } catch (err) {
+        console.error('Batch QR err:', err);
+      }
+    }
+    setBatchQrMap(map);
+    setBatchPrintMode(true);
+  };
 
   // Table form state
   const [newTableNumber, setNewTableNumber] = useState('');
@@ -281,7 +398,32 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
             <UserCheck className="w-4 h-4" />
             <span>Staff Waiters ({waiters.length})</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('qr_system')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'qr_system'
+                ? 'bg-[#D4AF37] text-black shadow-md'
+                : 'bg-[#181818] text-[#FCF6BA] hover:bg-[#222]'
+            }`}
+          >
+            <QrCode className="w-4 h-4" />
+            <span>VIP QR Code System</span>
+          </button>
         </div>
+
+        {activeTab === 'qr_system' && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrepareBatchPrint}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs flex items-center gap-1.5 shadow cursor-pointer hover:brightness-110 transition-all"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print All Stands ({vipTables.length})</span>
+            </button>
+          </div>
+        )}
 
         {activeTab === 'tables' && (
           <button
@@ -642,6 +784,306 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
         </div>
       )}
 
+      {/* 4. VIP QR CODE GENERATION & ACCESS SYSTEM TAB */}
+      {activeTab === 'qr_system' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-[#18160E] via-[#121212] to-[#1C180A] border-2 border-[#D4AF37]/40 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#D4AF37]/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#FCF6BA] text-xs font-bold uppercase tracking-wider mb-2">
+                  <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  Four Season VIP Table QR Access Engine
+                </div>
+                <h3 className="text-xl font-black text-[#FCF6BA] font-display">
+                  VIP Table QR Code Generator &amp; Direct Access System
+                </h3>
+                <p className="text-xs text-[#D4AF37]/80 mt-1 max-w-2xl leading-relaxed">
+                  Generate scannable QR codes for your physical table stands. When a VIP customer scans the code with their smartphone camera, they automatically gain VIP table access, view their dedicated waiter, and unlock one-tap waiter calling without manual PIN hassle.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handlePrepareBatchPrint}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs flex items-center gap-2 shadow-lg hover:brightness-110 transition-all cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Batch Print All Tables ({vipTables.length})</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Table Selector Cards */}
+          <div className="bg-[#111] p-3.5 rounded-2xl border border-white/10">
+            <label className="block text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider mb-2.5">
+              Select VIP Table to Configure &amp; Generate:
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {vipTables.map((t) => {
+                const isSelected = t.id === selectedStudioTableId;
+                const assignedWaiter = waiters.find((w) => w.id === t.assigned_waiter_id);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedStudioTableId(t.id)}
+                    className={`p-3 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between ${
+                      isSelected
+                        ? 'bg-gradient-to-br from-[#241F10] to-[#171408] border-[#D4AF37] shadow-lg shadow-[#D4AF37]/15 ring-1 ring-[#D4AF37]'
+                        : 'bg-[#161616] border-white/10 hover:border-white/20 text-white/80'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono font-black text-sm text-[#FCF6BA]">
+                        {t.table_number}
+                      </span>
+                      <Crown className={`w-3.5 h-3.5 ${isSelected ? 'text-[#D4AF37]' : 'text-white/30'}`} />
+                    </div>
+                    <div className="text-xs font-bold text-white truncate">{t.name}</div>
+                    <div className="text-[10px] text-white/50 mt-1 flex items-center justify-between">
+                      <span>{assignedWaiter ? `Staff: ${assignedWaiter.name}` : 'Pool Waiter'}</span>
+                      <span className="font-mono text-amber-300/80">PIN: {t.secret_code || 'None'}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Two-Column Studio: Configuration & Live Stand Preview */}
+          {currentStudioTable && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column: Generator Controls */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="bg-[#141414] border border-white/10 rounded-2xl p-5 shadow-xl space-y-4">
+                  <h4 className="text-sm font-extrabold text-[#FCF6BA] flex items-center gap-2 border-b border-white/10 pb-3">
+                    <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+                    VIP Access &amp; QR Settings for {currentStudioTable.table_number}
+                  </h4>
+
+                  {/* Mode 1: Instant VIP Access Toggle */}
+                  <div className="bg-[#1A1810] border border-[#D4AF37]/30 rounded-xl p-3.5">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={directAccessMode}
+                        onChange={(e) => setDirectAccessMode(e.target.checked)}
+                        className="mt-1 w-4 h-4 rounded text-[#D4AF37] focus:ring-[#D4AF37] accent-[#D4AF37]"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-[#FCF6BA] flex items-center gap-1.5">
+                          <span>Instant VIP Access Mode</span>
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                            RECOMMENDED
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-white/60 mt-0.5 leading-relaxed">
+                          When checked, scanning the QR code immediately authenticates the customer and unlocks the VIP Lounge without requesting a PIN.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Mode 2: Embed Table PIN Toggle */}
+                  <div className="bg-[#161616] border border-white/10 rounded-xl p-3.5">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={embedPin}
+                        onChange={(e) => setEmbedPin(e.target.checked)}
+                        className="mt-1 w-4 h-4 rounded text-[#D4AF37] focus:ring-[#D4AF37] accent-[#D4AF37]"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-white">Embed Verified PIN in QR Link</div>
+                        <p className="text-[11px] text-white/60 mt-0.5 leading-relaxed">
+                          Encodes the table access key ({currentStudioTable.secret_code || 'None'}) so guest devices are automatically recognized even on network drops.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Visual Style Theme */}
+                  <div>
+                    <label className="block text-xs font-bold text-white mb-2">QR Visual Color Style</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setQrTheme('gold_luxury')}
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
+                          qrTheme === 'gold_luxury'
+                            ? 'bg-[#FBF5B7] text-[#0A0A0A] border-[#D4AF37] ring-2 ring-[#D4AF37]'
+                            : 'bg-[#181818] text-white/70 border-white/10'
+                        }`}
+                      >
+                        <div className="w-5 h-5 rounded bg-[#0A0A0A] border border-[#D4AF37]" />
+                        <span>Luxury Gold</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setQrTheme('obsidian_dark')}
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
+                          qrTheme === 'obsidian_dark'
+                            ? 'bg-[#0A0A0A] text-[#D4AF37] border-[#D4AF37] ring-2 ring-[#D4AF37]'
+                            : 'bg-[#181818] text-white/70 border-white/10'
+                        }`}
+                      >
+                        <div className="w-5 h-5 rounded bg-[#D4AF37]" />
+                        <span>Obsidian Dark</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setQrTheme('minimal_white')}
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
+                          qrTheme === 'minimal_white'
+                            ? 'bg-white text-black border-white ring-2 ring-white'
+                            : 'bg-[#181818] text-white/70 border-white/10'
+                        }`}
+                      >
+                        <div className="w-5 h-5 rounded bg-white border border-gray-400" />
+                        <span>Clean White</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Direct VIP URL Display */}
+                  <div className="pt-2">
+                    <label className="block text-[11px] font-bold text-white/60 mb-1">
+                      Direct VIP Access URL (Encoded in QR)
+                    </label>
+                    <div className="flex items-center gap-2 bg-[#0c0c0c] border border-white/10 rounded-xl p-2 font-mono text-[11px] text-[#FCF6BA]">
+                      <span className="truncate flex-1">
+                        {getVipTableUrl(
+                          currentStudioTable.table_number,
+                          embedPin ? currentStudioTable.secret_code : null,
+                          directAccessMode
+                        )}
+                      </span>
+                      <button
+                        onClick={handleCopyStudioLink}
+                        className="px-2 py-1 rounded bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#D4AF37] text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+                        title="Copy Link"
+                      >
+                        {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedLink ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Actions Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                    <button
+                      onClick={handleDownloadStudioPNG}
+                      className="py-2.5 px-3 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs shadow flex items-center justify-center gap-1.5 hover:brightness-110 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download PNG (1200px)</span>
+                    </button>
+
+                    <button
+                      onClick={() => window.print()}
+                      className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print Stand Card</span>
+                    </button>
+                  </div>
+
+                  {/* Test link */}
+                  <div className="pt-1 text-center">
+                    <a
+                      href={getVipTableUrl(
+                        currentStudioTable.table_number,
+                        embedPin ? currentStudioTable.secret_code : null,
+                        directAccessMode
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-[#D4AF37] hover:underline font-bold"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Test Guest VIP Access In New Tab</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Live Table Stand Card (Printable) */}
+              <div className="lg:col-span-6 flex flex-col items-center">
+                <div className="w-full max-w-sm bg-gradient-to-b from-[#FAF4B7] via-[#F4E99B] to-[#E9D97E] border-4 border-[#080808] rounded-3xl p-6 sm:p-7 text-[#080808] shadow-2xl text-center relative overflow-hidden">
+                  {/* Subtle inner gold border */}
+                  <div className="absolute inset-2 rounded-2xl border border-dashed border-[#080808]/40 pointer-events-none" />
+
+                  {/* Top Branding */}
+                  <div className="flex flex-col items-center mb-3">
+                    <BrandLogo size="md" showSubtitle={false} />
+                    <h3 className="text-base font-black font-display tracking-wider uppercase mt-1 text-[#080808]">
+                      Four Season VIP Lounge
+                    </h3>
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#080808] text-[#FCF6BA] text-[10px] font-extrabold uppercase tracking-widest mt-1 shadow">
+                      <Crown className="w-3 h-3 text-[#D4AF37]" />
+                      Exclusive Guest Table
+                    </div>
+                  </div>
+
+                  {/* Table Identifier */}
+                  <div className="my-2 py-1.5 border-y border-[#080808]/30">
+                    <div className="text-2xl font-black font-mono tracking-tight text-[#080808]">
+                      {currentStudioTable.table_number}
+                    </div>
+                    <div className="text-xs font-extrabold text-[#222]">
+                      {currentStudioTable.name}
+                    </div>
+                  </div>
+
+                  {/* High-Resolution Scannable QR Container */}
+                  <div className="my-3 flex flex-col items-center justify-center">
+                    <div className="p-3 bg-white rounded-2xl border-2 border-[#080808] shadow-inner inline-block">
+                      {studioQrDataUrl ? (
+                        <img
+                          src={studioQrDataUrl}
+                          alt={`QR for ${currentStudioTable.table_number}`}
+                          className="w-48 h-48 sm:w-52 sm:h-52 object-contain"
+                        />
+                      ) : (
+                        <div className="w-48 h-48 flex items-center justify-center text-xs">Generating QR...</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Scan Instructions */}
+                  <div className="space-y-1">
+                    <div className="bg-[#080808] text-[#FCF6BA] py-1 px-3 rounded-full text-xs font-black uppercase tracking-wider inline-block shadow">
+                      Point Camera to Scan
+                    </div>
+                    <p className="text-[11px] font-bold text-[#111] leading-tight pt-1">
+                      Direct VIP Access · Call Assigned Waiter · Full Menu
+                    </p>
+                    <div className="text-[10px] text-[#333] font-semibold pt-0.5">
+                      {currentStudioWaiter
+                        ? `Dedicated Waiter: ${currentStudioWaiter.name}`
+                        : 'Dedicated Priority Waiter Service'}
+                    </div>
+                    {currentStudioTable.secret_code && (
+                      <div className="text-[9px] font-mono text-[#555] pt-0.5">
+                        Table PIN: {currentStudioTable.secret_code}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-white/50 text-center mt-3 max-w-xs">
+                  This card represents the standard A6 acrylic stand size placed on VIP tables.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ADD VIP TABLE MODAL */}
       {isAddTableOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
@@ -846,26 +1288,112 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
               />
             </div>
 
-            <p className="text-[11px] text-white/60 mb-4 font-mono">
-              {getVipTableUrl(selectedQRTable.table_number)}
+            <p className="text-[11px] text-white/60 mb-4 font-mono break-all">
+              {getVipTableUrl(selectedQRTable.table_number, selectedQRTable.secret_code, true)}
             </p>
 
             <div className="flex gap-2">
               <a
                 href={qrModalDataUrl}
-                download={`${selectedQRTable.table_number}-qr-code.png`}
+                download={`FourSeason-${selectedQRTable.table_number}-VIP-Access-QR.png`}
                 className="flex-1 py-2.5 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs shadow flex items-center justify-center gap-1.5 hover:brightness-110 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
                 <span>Download PNG</span>
               </a>
               <button
+                onClick={() => {
+                  setSelectedStudioTableId(selectedQRTable.id);
+                  setSelectedQRTable(null);
+                  setActiveTab('qr_system');
+                }}
+                className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-[#FCF6BA] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                title="Open in Full VIP QR Studio"
+              >
+                <QrCode className="w-4 h-4 text-[#D4AF37]" />
+                <span className="hidden sm:inline">Studio</span>
+              </button>
+              <button
                 onClick={() => window.print()}
                 className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                title="Print Stand Card"
               >
                 <Printer className="w-4 h-4" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* BATCH PRINT ALL STANDS OVERLAY */}
+      {batchPrintMode && (
+        <div className="fixed inset-0 z-50 bg-[#080808]/95 backdrop-blur-md overflow-y-auto p-4 sm:p-8 flex flex-col items-center">
+          <div className="w-full max-w-4xl flex items-center justify-between mb-6 print:hidden">
+            <button
+              onClick={() => setBatchPrintMode(false)}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to VIP Studio</span>
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs flex items-center gap-2 shadow-lg hover:brightness-110 cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print All {vipTables.length} VIP Table Stands</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl pb-16">
+            {vipTables.map((t) => {
+              const dUrl = batchQrMap[t.id];
+              const waiter = waiters.find((w) => w.id === t.assigned_waiter_id);
+              return (
+                <div
+                  key={t.id}
+                  className="bg-gradient-to-b from-[#FAF4B7] via-[#F4E99B] to-[#E9D97E] border-4 border-[#080808] rounded-3xl p-6 text-[#080808] shadow-2xl text-center relative overflow-hidden break-inside-avoid"
+                  style={{ minHeight: '440px' }}
+                >
+                  <div className="flex flex-col items-center mb-2">
+                    <BrandLogo size="md" showSubtitle={false} />
+                    <h3 className="text-base font-black font-display tracking-wider uppercase mt-1">
+                      Four Season VIP Lounge
+                    </h3>
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#080808] text-[#FCF6BA] text-[10px] font-black uppercase tracking-widest mt-0.5">
+                      <Crown className="w-3 h-3 text-[#D4AF37]" />
+                      Exclusive VIP Stand
+                    </div>
+                  </div>
+
+                  <div className="my-2 py-1.5 border-y border-[#080808]/30">
+                    <div className="text-2xl font-black font-mono tracking-tight">{t.table_number}</div>
+                    <div className="text-xs font-bold text-[#222]">{t.name}</div>
+                  </div>
+
+                  <div className="my-3 flex justify-center">
+                    <div className="p-3 bg-white rounded-2xl border-2 border-[#080808] shadow-inner inline-block">
+                      {dUrl ? (
+                        <img src={dUrl} alt={`QR for ${t.table_number}`} className="w-44 h-44 object-contain" />
+                      ) : (
+                        <div className="w-44 h-44 flex items-center justify-center text-xs">Generating QR...</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-[#080808] text-[#FCF6BA] py-1 px-3.5 rounded-full text-xs font-black uppercase tracking-wider inline-block mb-1 shadow">
+                    Scan for Direct VIP Access
+                  </div>
+                  <p className="text-[11px] font-bold text-[#111] leading-tight">
+                    Instant Table Call · Dedicated Waiter · Full Menu
+                  </p>
+                  <div className="text-[10px] font-semibold text-[#333] pt-0.5">
+                    {waiter ? `Dedicated Waiter: ${waiter.name}` : 'Priority Table Service'}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

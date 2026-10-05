@@ -680,6 +680,35 @@ apiRouter.get('/waiter-calls', (_req: Request, res: Response) => {
   res.json(calls);
 });
 
+// 20.1b Waiter Calls Active Endpoint (used by Android native background polling)
+apiRouter.get(['/waiter/calls/active', '/waiter-calls/active'], (_req: Request, res: Response) => {
+  const db = getDatabase();
+  const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
+  const activeCalls = calls.filter((c) => c.status === 'pending');
+  res.json({ calls: activeCalls });
+});
+
+// 20.3b Native Android call accept / dismiss aliases
+apiRouter.post(['/waiter/calls/:id/accept', '/waiter/calls/:id/dismiss', '/waiter-calls/:id/dismiss'], (req: Request, res: Response) => {
+  const { id } = req.params;
+  const isDismiss = req.path.includes('dismiss');
+  const db = getDatabase();
+  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+  const call = db.waiter_calls.find((c) => c.id === id);
+  if (!call) {
+    res.json({ success: true, message: 'Call already cleared' });
+    return;
+  }
+  if (isDismiss) {
+    call.status = 'cancelled';
+  } else {
+    call.status = 'accepted';
+    call.accepted_at = new Date().toISOString();
+  }
+  saveDatabase(db);
+  res.json(call);
+});
+
 // 20.2 Place Call from VIP Table
 apiRouter.post('/waiter-calls', (req: Request, res: Response) => {
   const { table_id, call_type = 'general', message = '' } = req.body;

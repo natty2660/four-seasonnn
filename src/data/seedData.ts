@@ -9,11 +9,11 @@ export const PRIME_CAFE_RESTAURANT: Restaurant = {
   "google_maps_url": "https://maps.app.goo.gl/Tnb9gLs98u4fihhC9",
   "opening_hours": "8:30 AM – 10:00 PM Daily",
   "wifi_available": false,
-  "logo_url": "/assets/images/four_season_confidential_logo_1790854372202.jpg",
-  "cover_url": "/assets/images/four_season_confidential_wall_1790854372202.jpg",
+  "logo_url": "/assets/images/four_season_confidential_logo_1791112084749.jpg",
+  "cover_url": "/assets/images/four_season_confidential_wall_1791112084749.jpg",
   "is_active": true,
   "created_at": "2026-09-24T06:36:50.156Z",
-  "updated_at": "2026-10-01T12:00:00.000Z"
+  "updated_at": "2026-10-05T03:57:43.031Z"
 };
 
 export const SEED_CATEGORIES: Category[] = [
@@ -30,35 +30,26 @@ export const SEED_CATEGORIES: Category[] = [
     "id": "cat_launch",
     "restaurant_id": "rest_prime_cafe",
     "name": "Lunch",
-    "meal_time": "lunch_dinner",
+    "meal_time": "lunch",
     "display_order": 2,
     "created_at": "2026-10-01T12:00:00.000Z",
     "updated_at": "2026-10-01T12:00:00.000Z"
   },
   {
-    "id": "cat_lunch_mains",
+    "id": "cat_fast_food",
     "restaurant_id": "rest_prime_cafe",
-    "name": "Burger & Shawarma",
-    "meal_time": "lunch_dinner",
+    "name": "Fast Food",
+    "meal_time": "fast_food",
     "display_order": 3,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
-  },
-  {
-    "id": "cat_pizza",
-    "restaurant_id": "rest_prime_cafe",
-    "name": "Pizza",
-    "meal_time": "lunch_dinner",
-    "display_order": 4,
-    "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-05T04:52:25.849Z"
   },
   {
     "id": "cat_hot_cold_coffee",
     "restaurant_id": "rest_prime_cafe",
     "name": "Hot Drink",
     "meal_time": "drinks",
-    "display_order": 5,
+    "display_order": 4,
     "created_at": "2026-10-01T12:00:00.000Z",
     "updated_at": "2026-10-01T12:00:00.000Z"
   },
@@ -67,7 +58,7 @@ export const SEED_CATEGORIES: Category[] = [
     "restaurant_id": "rest_prime_cafe",
     "name": "Ice Drink",
     "meal_time": "drinks",
-    "display_order": 6,
+    "display_order": 5,
     "created_at": "2026-10-01T12:00:00.000Z",
     "updated_at": "2026-10-01T12:00:00.000Z"
   },
@@ -76,7 +67,7 @@ export const SEED_CATEGORIES: Category[] = [
     "restaurant_id": "rest_prime_cafe",
     "name": "Juice",
     "meal_time": "drinks",
-    "display_order": 7,
+    "display_order": 6,
     "created_at": "2026-10-01T12:00:00.000Z",
     "updated_at": "2026-10-01T12:00:00.000Z"
   },
@@ -85,7 +76,7 @@ export const SEED_CATEGORIES: Category[] = [
     "restaurant_id": "rest_prime_cafe",
     "name": "Mojito",
     "meal_time": "drinks",
-    "display_order": 8,
+    "display_order": 7,
     "created_at": "2026-10-01T12:00:00.000Z",
     "updated_at": "2026-10-01T12:00:00.000Z"
   },
@@ -94,7 +85,7 @@ export const SEED_CATEGORIES: Category[] = [
     "restaurant_id": "rest_prime_cafe",
     "name": "Soft Drink",
     "meal_time": "drinks",
-    "display_order": 9,
+    "display_order": 8,
     "created_at": "2026-10-01T12:00:00.000Z",
     "updated_at": "2026-10-01T12:00:00.000Z"
   }
@@ -272,7 +263,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_breakfast",
     "name": "Chechebsa",
     "description": "Traditional shredded flatbread tossed in spiced clarified butter and berbere, served warm with honey.",
-    "image_url": "/assets/images/chechebsa.jpg",
+    "image_url": "/assets/images/chechebsa_honey_butter_1791172617536.jpg",
     "is_available": true,
     "display_order": 14,
     "created_at": "2026-10-01T12:00:00.000Z",
@@ -335,7 +326,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_launch",
     "name": "Chicken Tibs",
     "description": "Sautéed tender chicken breast cubes with onions, bell peppers, garlic, and rosemary.",
-    "image_url": "/assets/images/chicken tibs.jpg",
+    "image_url": "/assets/images/chicken_tibs_sizzle_1791172594954.jpg",
     "is_available": true,
     "display_order": 5,
     "created_at": "2026-10-01T12:00:00.000Z",
@@ -507,7 +498,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_launch",
     "name": "Mahbarawi",
     "description": "Assorted combination platter of traditional stews, meats, and sides served over injera.",
-    "image_url": "/assets/images/item_mahbarawi.jpg",
+    "image_url": "/assets/images/mahbarawi_grand_platter_1791172606539.jpg",
     "is_available": true,
     "display_order": 19,
     "is_popular": true,
@@ -604,25 +595,25 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_launch",
     "name": "Full Mandi",
-    "description": "Full platter of slow-roasted tender meat over fragrant spiced Mandi basmati rice.",
-    "image_url": "/assets/images/item_full_mandi.jpg",
+    "description": "Generous full platter of slow-roasted tender ox meat over fragrant spiced Mandi basmati rice with side salad.",
+    "image_url": "/assets/images/full_mandi_ox_1791174749519.jpg",
     "is_available": true,
     "display_order": 27,
     "is_popular": true,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-05T04:32:57.984Z"
   },
   {
     "id": "ln_half_mandi",
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_launch",
     "name": "Half Mandi",
-    "description": "Half portion of slow-roasted tender meat served over aromatic Mandi basmati rice.",
-    "image_url": "/assets/images/half mandi.jpg",
+    "description": "Generous half portion of slow-roasted tender ox meat served over aromatic spiced Mandi basmati rice with side salad.",
+    "image_url": "/assets/images/half_mandi_ox_1791174759205.jpg",
     "is_available": true,
     "display_order": 28,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-03T11:49:25.329Z"
+    "updated_at": "2026-10-05T04:32:57.985Z"
   },
   {
     "id": "ln_full_burma",
@@ -676,7 +667,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "ff_01",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Special Burger",
     "description": "Double-layered house special burger with melted cheese, egg, crisp lettuce, tomato, and signature sauce.",
     "image_url": "/assets/images/item_special_burger.jpg",
@@ -689,7 +680,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_chiss_burger",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Cheese Burger",
     "description": "Juicy grilled beef patty topped with melted cheddar cheese, lettuce, tomato, and house burger sauce.",
     "image_url": "/assets/images/gourmet_burger_fries_1790216748392.jpg",
@@ -701,7 +692,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_new_burger",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "New Burger",
     "description": "Chef signature burger stacked with premium toppings, cheese, and savory house dressing.",
     "image_url": "/assets/images/new burger.jpg",
@@ -713,7 +704,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_beef_burger",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Beef Burger",
     "description": "Classic flame-grilled seasoned beef patty with crisp lettuce, tomatoes, onions, and house sauce.",
     "image_url": "/assets/images/item_beef_burger.jpg",
@@ -725,7 +716,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_special_sandwich",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Special Sandwich",
     "description": "Loaded house special toasted sandwich with seasoned meat, egg, cheese, and fresh vegetables.",
     "image_url": "/assets/images/special sandwich.jpg",
@@ -737,7 +728,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_beef_sandwich",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Beef Sandwich",
     "description": "Warm toasted sandwich packed with tender sautéed beef strips, peppers, onions, and sauce.",
     "image_url": "/assets/images/beef sandwich.jpg",
@@ -749,7 +740,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_tuna_sandwich",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Tuna Sandwich",
     "description": "Savory flaked tuna sandwich with crisp lettuce, tomatoes, and creamy dressing.",
     "image_url": "/assets/images/item_bs_tuna_sandwich.jpg",
@@ -761,7 +752,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "ff_04",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Club Sandwich",
     "description": "Triple-layer toasted sandwich filled with savory meats, cheese, crisp lettuce, tomato, and house spread.",
     "image_url": "/assets/images/primecafe_sandwich.jpg",
@@ -774,7 +765,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_full_chicken",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Full Chicken",
     "description": "Whole golden roasted and seasoned chicken served hot with house sauces.",
     "image_url": "/assets/images/full chicken.jpg",
@@ -787,7 +778,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "ff_05",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Chicken Leg with Pasta or Rice",
     "description": "Seasoned roasted chicken leg quarter served with your choice of savory pasta or fragrant basmati rice.",
     "image_url": "/assets/images/primecafe_chicken_and_chips.jpg",
@@ -800,7 +791,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "ff_02",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Special Shawarma",
     "description": "Tender marinated sliced meat wrapped in warm flatbread with garlic sauce, pickled cucumbers, and crisp lettuce.",
     "image_url": "/assets/images/primecafe_shawarma.jpg",
@@ -813,7 +804,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_chicken_shwarm",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Chicken Shawarma",
     "description": "Spiced rotisserie chicken strips wrapped in toasted flatbread with garlic toum and pickles.",
     "image_url": "/assets/images/chicken shawarma.jpg",
@@ -825,7 +816,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_beef_shwarma",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Beef Shawarma",
     "description": "Marinated roasted beef shawarma wrap with tahini garlic sauce, tomatoes, and onions.",
     "image_url": "/assets/images/beef shawarma.jpg",
@@ -837,7 +828,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "bs_tuna_shwarma",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_lunch_mains",
+    "category_id": "cat_fast_food",
     "name": "Tuna Shawarma",
     "description": "Warm flatbread wrap filled with seasoned tuna, sautéed peppers, onions, and house sauce.",
     "image_url": "/assets/images/item_tuna_shawarma.jpg",
@@ -849,7 +840,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "pz_special_pizza",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_pizza",
+    "category_id": "cat_fast_food",
     "name": "Special Pizza",
     "description": "House supreme pizza loaded with beef, chicken, mozzarella cheese, bell peppers, olives, and tomato sauce.",
     "image_url": "/assets/images/special pizza.jpg",
@@ -862,7 +853,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "pz_new_pizza",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_pizza",
+    "category_id": "cat_fast_food",
     "name": "New Pizza",
     "description": "Chef specialty oven-baked pizza with extra melted cheese and signature toppings.",
     "image_url": "/assets/images/new pizza.jpg",
@@ -874,7 +865,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "pz_chicken_pizza",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_pizza",
+    "category_id": "cat_fast_food",
     "name": "Chicken Pizza",
     "description": "Stone-baked pizza topped with seasoned chicken breast, mozzarella, sweet peppers, and herbs.",
     "image_url": "/assets/images/chicken pizza.jpg",
@@ -886,7 +877,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "pz_beef_pizza",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_pizza",
+    "category_id": "cat_fast_food",
     "name": "Beef Pizza",
     "description": "Savory spiced minced beef, melted mozzarella cheese, onions, and rich tomato sauce on a crispy crust.",
     "image_url": "/assets/images/beef pizza.jpg",
@@ -898,7 +889,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "pz_margrita_pizza",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_pizza",
+    "category_id": "cat_fast_food",
     "name": "Margherita Pizza",
     "description": "Classic Italian-style pizza with vine-ripened tomato sauce, melted mozzarella, and basil.",
     "image_url": "/assets/images/margherita pizza.jpg",
@@ -910,7 +901,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
   {
     "id": "pz_tuna_pizza",
     "restaurant_id": "rest_prime_cafe",
-    "category_id": "cat_pizza",
+    "category_id": "cat_fast_food",
     "name": "Tuna Pizza",
     "description": "Oven-baked pizza topped with flaked tuna, red onions, green peppers, olives, and mozzarella.",
     "image_url": "/assets/images/tuna pizza.jpg",
@@ -1381,7 +1372,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_mojito",
     "name": "Tropical Blue Mojito",
     "description": "Tropical citrus and blue lagoon syrup muddled with mint, lime, and sparkling soda.",
-    "image_url": "/assets/images/tropical blue mojito.jpg",
+    "image_url": "/assets/images/tropical_blue_mojito_1791172562399.jpg",
     "is_available": true,
     "display_order": 11,
     "created_at": "2026-10-01T12:00:00.000Z",
@@ -1443,7 +1434,7 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_soft_drink",
     "name": "Water 0.5",
     "description": "Chilled 0.5L purified natural spring bottled water.",
-    "image_url": "/assets/images/water 0.5.jpg",
+    "image_url": "/assets/images/water_bottle_half_1791172553264.jpg",
     "is_available": true,
     "display_order": 2,
     "created_at": "2026-10-01T12:00:00.000Z",

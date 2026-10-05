@@ -8,11 +8,11 @@
     "google_maps_url": "https://maps.app.goo.gl/Tnb9gLs98u4fihhC9",
     "opening_hours": "8:30 AM – 10:00 PM Daily",
     "wifi_available": false,
-    "logo_url": "/assets/images/four_season_confidential_logo_1791112084749.jpg",
-    "cover_url": "/assets/images/four_season_confidential_wall_1791112084749.jpg",
+    "logo_url": "/assets/images/four_season_confidential_logo_1791117377485.jpg",
+    "cover_url": "/assets/images/four_season_confidential_wall_1791117377485.jpg",
     "is_active": true,
     "created_at": "2026-09-24T06:36:50.156Z",
-    "updated_at": "2026-10-04T11:08:04.750Z"
+    "updated_at": "2026-10-04T12:36:17.489Z"
   },
   "categories": [
     {
@@ -28,35 +28,26 @@
       "id": "cat_launch",
       "restaurant_id": "rest_prime_cafe",
       "name": "Lunch",
-      "meal_time": "lunch_dinner",
+      "meal_time": "lunch",
       "display_order": 2,
       "created_at": "2026-10-01T12:00:00.000Z",
       "updated_at": "2026-10-01T12:00:00.000Z"
     },
     {
-      "id": "cat_lunch_mains",
+      "id": "cat_fast_food",
       "restaurant_id": "rest_prime_cafe",
-      "name": "Burger & Shawarma",
-      "meal_time": "lunch_dinner",
+      "name": "Fast Food",
+      "meal_time": "fast_food",
       "display_order": 3,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
-    },
-    {
-      "id": "cat_pizza",
-      "restaurant_id": "rest_prime_cafe",
-      "name": "Pizza",
-      "meal_time": "lunch_dinner",
-      "display_order": 4,
-      "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-05T04:52:25.849Z"
     },
     {
       "id": "cat_hot_cold_coffee",
       "restaurant_id": "rest_prime_cafe",
       "name": "Hot Drink",
       "meal_time": "drinks",
-      "display_order": 5,
+      "display_order": 4,
       "created_at": "2026-10-01T12:00:00.000Z",
       "updated_at": "2026-10-01T12:00:00.000Z"
     },
@@ -65,7 +56,7 @@
       "restaurant_id": "rest_prime_cafe",
       "name": "Ice Drink",
       "meal_time": "drinks",
-      "display_order": 6,
+      "display_order": 5,
       "created_at": "2026-10-01T12:00:00.000Z",
       "updated_at": "2026-10-01T12:00:00.000Z"
     },
@@ -74,7 +65,7 @@
       "restaurant_id": "rest_prime_cafe",
       "name": "Juice",
       "meal_time": "drinks",
-      "display_order": 7,
+      "display_order": 6,
       "created_at": "2026-10-01T12:00:00.000Z",
       "updated_at": "2026-10-01T12:00:00.000Z"
     },
@@ -83,7 +74,7 @@
       "restaurant_id": "rest_prime_cafe",
       "name": "Mojito",
       "meal_time": "drinks",
-      "display_order": 8,
+      "display_order": 7,
       "created_at": "2026-10-01T12:00:00.000Z",
       "updated_at": "2026-10-01T12:00:00.000Z"
     },
@@ -92,7 +83,7 @@
       "restaurant_id": "rest_prime_cafe",
       "name": "Soft Drink",
       "meal_time": "drinks",
-      "display_order": 9,
+      "display_order": 8,
       "created_at": "2026-10-01T12:00:00.000Z",
       "updated_at": "2026-10-01T12:00:00.000Z"
     }
@@ -269,7 +260,7 @@
       "category_id": "cat_breakfast",
       "name": "Chechebsa",
       "description": "Traditional shredded flatbread tossed in spiced clarified butter and berbere, served warm with honey.",
-      "image_url": "/assets/images/chechebsa.jpg",
+      "image_url": "/assets/images/chechebsa_honey_butter_1791172617536.jpg",
       "is_available": true,
       "display_order": 14,
       "created_at": "2026-10-01T12:00:00.000Z",
@@ -332,7 +323,7 @@
       "category_id": "cat_launch",
       "name": "Chicken Tibs",
       "description": "Sautéed tender chicken breast cubes with onions, bell peppers, garlic, and rosemary.",
-      "image_url": "/assets/images/chicken tibs.jpg",
+      "image_url": "/assets/images/chicken_tibs_sizzle_1791172594954.jpg",
       "is_available": true,
       "display_order": 5,
       "created_at": "2026-10-01T12:00:00.000Z",
@@ -504,7 +495,7 @@
       "category_id": "cat_launch",
       "name": "Mahbarawi",
       "description": "Assorted combination platter of traditional stews, meats, and sides served over injera.",
-      "image_url": "/assets/images/item_mahbarawi.jpg",
+      "image_url": "/assets/images/mahbarawi_grand_platter_1791172606539.jpg",
       "is_available": true,
       "display_order": 19,
       "is_popular": true,
@@ -601,25 +592,25 @@
       "restaurant_id": "rest_prime_cafe",
       "category_id": "cat_launch",
       "name": "Full Mandi",
-      "description": "Full platter of slow-roasted tender meat over fragrant spiced Mandi basmati rice.",
-      "image_url": "/assets/images/item_full_mandi.jpg",
+      "description": "Generous full platter of slow-roasted tender ox meat over fragrant spiced Mandi basmati rice with side salad.",
+      "image_url": "/assets/images/full_mandi_ox_1791174749519.jpg",
       "is_available": true,
       "display_order": 27,
       "is_popular": true,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-01T12:00:00.000Z"
+      "updated_at": "2026-10-05T04:32:57.984Z"
     },
     {
       "id": "ln_half_mandi",
       "restaurant_id": "rest_prime_cafe",
       "category_id": "cat_launch",
       "name": "Half Mandi",
-      "description": "Half portion of slow-roasted tender meat served over aromatic Mandi basmati rice.",
-      "image_url": "/assets/images/half mandi.jpg",
+      "description": "Generous half portion of slow-roasted tender ox meat served over aromatic spiced Mandi basmati rice with side salad.",
+      "image_url": "/assets/images/half_mandi_ox_1791174759205.jpg",
       "is_available": true,
       "display_order": 28,
       "created_at": "2026-10-01T12:00:00.000Z",
-      "updated_at": "2026-10-03T11:49:25.329Z"
+      "updated_at": "2026-10-05T04:32:57.985Z"
     },
     {
       "id": "ln_full_burma",
@@ -673,7 +664,7 @@
     {
       "id": "ff_01",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Special Burger",
       "description": "Double-layered house special burger with melted cheese, egg, crisp lettuce, tomato, and signature sauce.",
       "image_url": "/assets/images/item_special_burger.jpg",
@@ -686,7 +677,7 @@
     {
       "id": "bs_chiss_burger",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Cheese Burger",
       "description": "Juicy grilled beef patty topped with melted cheddar cheese, lettuce, tomato, and house burger sauce.",
       "image_url": "/assets/images/gourmet_burger_fries_1790216748392.jpg",
@@ -698,7 +689,7 @@
     {
       "id": "bs_new_burger",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "New Burger",
       "description": "Chef signature burger stacked with premium toppings, cheese, and savory house dressing.",
       "image_url": "/assets/images/new burger.jpg",
@@ -710,7 +701,7 @@
     {
       "id": "bs_beef_burger",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Beef Burger",
       "description": "Classic flame-grilled seasoned beef patty with crisp lettuce, tomatoes, onions, and house sauce.",
       "image_url": "/assets/images/item_beef_burger.jpg",
@@ -722,7 +713,7 @@
     {
       "id": "bs_special_sandwich",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Special Sandwich",
       "description": "Loaded house special toasted sandwich with seasoned meat, egg, cheese, and fresh vegetables.",
       "image_url": "/assets/images/special sandwich.jpg",
@@ -734,7 +725,7 @@
     {
       "id": "bs_beef_sandwich",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Beef Sandwich",
       "description": "Warm toasted sandwich packed with tender sautéed beef strips, peppers, onions, and sauce.",
       "image_url": "/assets/images/beef sandwich.jpg",
@@ -746,7 +737,7 @@
     {
       "id": "bs_tuna_sandwich",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Tuna Sandwich",
       "description": "Savory flaked tuna sandwich with crisp lettuce, tomatoes, and creamy dressing.",
       "image_url": "/assets/images/item_bs_tuna_sandwich.jpg",
@@ -758,7 +749,7 @@
     {
       "id": "ff_04",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Club Sandwich",
       "description": "Triple-layer toasted sandwich filled with savory meats, cheese, crisp lettuce, tomato, and house spread.",
       "image_url": "/assets/images/primecafe_sandwich.jpg",
@@ -771,7 +762,7 @@
     {
       "id": "bs_full_chicken",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Full Chicken",
       "description": "Whole golden roasted and seasoned chicken served hot with house sauces.",
       "image_url": "/assets/images/full chicken.jpg",
@@ -784,7 +775,7 @@
     {
       "id": "ff_05",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Chicken Leg with Pasta or Rice",
       "description": "Seasoned roasted chicken leg quarter served with your choice of savory pasta or fragrant basmati rice.",
       "image_url": "/assets/images/primecafe_chicken_and_chips.jpg",
@@ -797,7 +788,7 @@
     {
       "id": "ff_02",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Special Shawarma",
       "description": "Tender marinated sliced meat wrapped in warm flatbread with garlic sauce, pickled cucumbers, and crisp lettuce.",
       "image_url": "/assets/images/primecafe_shawarma.jpg",
@@ -810,7 +801,7 @@
     {
       "id": "bs_chicken_shwarm",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Chicken Shawarma",
       "description": "Spiced rotisserie chicken strips wrapped in toasted flatbread with garlic toum and pickles.",
       "image_url": "/assets/images/chicken shawarma.jpg",
@@ -822,7 +813,7 @@
     {
       "id": "bs_beef_shwarma",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Beef Shawarma",
       "description": "Marinated roasted beef shawarma wrap with tahini garlic sauce, tomatoes, and onions.",
       "image_url": "/assets/images/beef shawarma.jpg",
@@ -834,7 +825,7 @@
     {
       "id": "bs_tuna_shwarma",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_lunch_mains",
+      "category_id": "cat_fast_food",
       "name": "Tuna Shawarma",
       "description": "Warm flatbread wrap filled with seasoned tuna, sautéed peppers, onions, and house sauce.",
       "image_url": "/assets/images/item_tuna_shawarma.jpg",
@@ -846,7 +837,7 @@
     {
       "id": "pz_special_pizza",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_pizza",
+      "category_id": "cat_fast_food",
       "name": "Special Pizza",
       "description": "House supreme pizza loaded with beef, chicken, mozzarella cheese, bell peppers, olives, and tomato sauce.",
       "image_url": "/assets/images/special pizza.jpg",
@@ -859,7 +850,7 @@
     {
       "id": "pz_new_pizza",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_pizza",
+      "category_id": "cat_fast_food",
       "name": "New Pizza",
       "description": "Chef specialty oven-baked pizza with extra melted cheese and signature toppings.",
       "image_url": "/assets/images/new pizza.jpg",
@@ -871,7 +862,7 @@
     {
       "id": "pz_chicken_pizza",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_pizza",
+      "category_id": "cat_fast_food",
       "name": "Chicken Pizza",
       "description": "Stone-baked pizza topped with seasoned chicken breast, mozzarella, sweet peppers, and herbs.",
       "image_url": "/assets/images/chicken pizza.jpg",
@@ -883,7 +874,7 @@
     {
       "id": "pz_beef_pizza",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_pizza",
+      "category_id": "cat_fast_food",
       "name": "Beef Pizza",
       "description": "Savory spiced minced beef, melted mozzarella cheese, onions, and rich tomato sauce on a crispy crust.",
       "image_url": "/assets/images/beef pizza.jpg",
@@ -895,7 +886,7 @@
     {
       "id": "pz_margrita_pizza",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_pizza",
+      "category_id": "cat_fast_food",
       "name": "Margherita Pizza",
       "description": "Classic Italian-style pizza with vine-ripened tomato sauce, melted mozzarella, and basil.",
       "image_url": "/assets/images/margherita pizza.jpg",
@@ -907,7 +898,7 @@
     {
       "id": "pz_tuna_pizza",
       "restaurant_id": "rest_prime_cafe",
-      "category_id": "cat_pizza",
+      "category_id": "cat_fast_food",
       "name": "Tuna Pizza",
       "description": "Oven-baked pizza topped with flaked tuna, red onions, green peppers, olives, and mozzarella.",
       "image_url": "/assets/images/tuna pizza.jpg",
@@ -1378,7 +1369,7 @@
       "category_id": "cat_mojito",
       "name": "Tropical Blue Mojito",
       "description": "Tropical citrus and blue lagoon syrup muddled with mint, lime, and sparkling soda.",
-      "image_url": "/assets/images/tropical blue mojito.jpg",
+      "image_url": "/assets/images/tropical_blue_mojito_1791172562399.jpg",
       "is_available": true,
       "display_order": 11,
       "created_at": "2026-10-01T12:00:00.000Z",
@@ -1440,118 +1431,142 @@
       "category_id": "cat_soft_drink",
       "name": "Water 0.5",
       "description": "Chilled 0.5L purified natural spring bottled water.",
-      "image_url": "/assets/images/water 0.5.jpg",
+      "image_url": "/assets/images/water_bottle_half_1791172553264.jpg",
       "is_available": true,
       "display_order": 2,
       "created_at": "2026-10-01T12:00:00.000Z",
       "updated_at": "2026-10-03T11:49:25.330Z"
     }
   ],
-  "last_updated": "2026-10-03T12:17:32.350Z",
   "vip_tables": [
     {
       "id": "vip_1",
-      "table_number": "VIP-1",
       "name": "Royal Gold Suite",
-      "secret_code": "7771",
-      "assigned_waiter_id": "waiter_1",
-      "is_active": true,
       "notes": "Primary luxury banquet table near private fountain",
-      "created_at": "2026-10-04T08:37:18.775Z"
+      "is_active": true,
+      "created_at": "2026-10-04T02:55:10.891Z",
+      "secret_code": "7771",
+      "table_number": "VIP-1",
+      "assigned_waiter_id": "waiter_1791176454976_272"
     },
     {
       "id": "vip_2",
-      "table_number": "VIP-2",
       "name": "Executive Lounge",
-      "secret_code": "7772",
-      "assigned_waiter_id": "waiter_2",
-      "is_active": true,
       "notes": "Leather booths with privacy partition",
-      "created_at": "2026-10-04T08:37:18.775Z"
+      "is_active": true,
+      "created_at": "2026-10-04T02:55:10.891Z",
+      "secret_code": "7772",
+      "table_number": "VIP-2",
+      "assigned_waiter_id": "waiter_2"
     },
     {
       "id": "vip_3",
-      "table_number": "VIP-3",
       "name": "Garden Terrace",
-      "secret_code": "7773",
-      "assigned_waiter_id": null,
-      "is_active": true,
       "notes": "Open outdoor VIP gazebo, unassigned shared pool",
-      "created_at": "2026-10-04T08:37:18.775Z"
+      "is_active": true,
+      "created_at": "2026-10-04T02:55:10.891Z",
+      "secret_code": "7773",
+      "table_number": "VIP-3",
+      "assigned_waiter_id": null
     },
     {
       "id": "vip_4",
-      "table_number": "VIP-4",
       "name": "Penthouse Salon",
-      "secret_code": "7774",
-      "assigned_waiter_id": "waiter_1",
-      "is_active": true,
       "notes": "Panoramic top-floor view table",
-      "created_at": "2026-10-04T08:37:18.775Z"
+      "is_active": true,
+      "created_at": "2026-10-04T02:55:10.891Z",
+      "secret_code": "7774",
+      "table_number": "VIP-4",
+      "assigned_waiter_id": "waiter_1"
     }
   ],
   "waiters": [
     {
       "id": "waiter_1",
-      "name": "Abebe Tsegaye",
       "pin": "1111",
+      "name": "Abebe Tsegaye",
       "phone": "+251 91 123 4567",
-      "is_on_duty": true,
       "is_active": true,
-      "created_at": "2026-10-04T08:37:18.774Z"
+      "created_at": "2026-10-04T02:55:10.890Z",
+      "is_on_duty": true
     },
     {
       "id": "waiter_2",
-      "name": "Sara Mohammed",
       "pin": "2222",
+      "name": "Sara Mohammed",
       "phone": "+251 92 234 5678",
-      "is_on_duty": true,
       "is_active": true,
-      "created_at": "2026-10-04T08:37:18.775Z"
+      "created_at": "2026-10-04T02:55:10.891Z",
+      "is_on_duty": true
     },
     {
       "id": "waiter_3",
-      "name": "Dawit Kebede",
       "pin": "3333",
+      "name": "Dawit Kebede",
       "phone": "+251 93 345 6789",
-      "is_on_duty": false,
       "is_active": true,
-      "created_at": "2026-10-04T08:37:18.775Z"
+      "created_at": "2026-10-04T02:55:10.891Z",
+      "is_on_duty": false
+    },
+    {
+      "id": "waiter_1791176454976_272",
+      "name": "gd",
+      "pin": "1234",
+      "phone": "09765444",
+      "is_on_duty": true,
+      "is_active": true,
+      "created_at": "2026-10-05T05:00:54.976Z"
     }
   ],
   "waiter_calls": [
     {
-      "id": "call_1791103046925_239",
-      "table_id": "vip_1",
-      "table_number": "VIP-1",
-      "table_name": "Royal Gold Suite",
-      "call_type": "water",
-      "message": "Cold bottled water please",
+      "id": "call_1791084607049_42e6",
       "status": "completed",
-      "assigned_waiter_id": "waiter_1",
-      "is_escalated": false,
+      "message": "Need water refill",
+      "table_id": "vip_1",
+      "call_type": "water",
+      "created_at": "2026-10-04T03:30:07.049Z",
+      "table_name": "Royal Gold Suite",
+      "completed_at": "2026-10-04T03:31:07.193Z",
+      "escalated_at": "2026-10-04T03:30:52.050Z",
+      "is_escalated": true,
+      "table_number": "VIP-1",
+      "accepted_by_name": null,
+      "assigned_waiter_id": null,
       "original_waiter_id": "waiter_1",
-      "created_at": "2026-10-04T08:37:26.925Z",
-      "accepted_by_waiter_id": "waiter_1",
-      "accepted_by_name": "Abebe Tsegaye",
-      "accepted_at": "2026-10-04T08:37:30.136Z",
-      "completed_at": "2026-10-04T08:37:33.111Z"
+      "accepted_by_waiter_id": null
     },
     {
-      "id": "call_1791103580492_802",
+      "id": "call_1791084593935_020p",
+      "status": "completed",
+      "message": "Need sparkling water and manager",
       "table_id": "vip_1",
-      "table_number": "VIP-1",
+      "call_type": "urgent",
+      "created_at": "2026-10-04T03:29:53.935Z",
       "table_name": "Royal Gold Suite",
-      "call_type": "general",
-      "message": "",
-      "status": "accepted",
-      "assigned_waiter_id": "waiter_1",
+      "accepted_at": "2026-10-04T03:29:57.689Z",
+      "completed_at": "2026-10-04T03:30:02.226Z",
       "is_escalated": false,
+      "table_number": "VIP-1",
+      "accepted_by_name": "Abebe Bikila",
+      "assigned_waiter_id": "waiter_1",
       "original_waiter_id": "waiter_1",
-      "created_at": "2026-10-04T08:46:20.492Z",
-      "accepted_by_waiter_id": "waiter_1",
-      "accepted_by_name": "Abebe Tsegaye",
-      "accepted_at": "2026-10-04T08:46:40.087Z"
+      "accepted_by_waiter_id": "waiter_1"
+    },
+    {
+      "id": "call_1791082520724_h3ku",
+      "status": "cancelled",
+      "message": "VIP test call",
+      "table_id": "vip_1",
+      "call_type": "general",
+      "created_at": "2026-10-04T02:55:20.724Z",
+      "table_name": "Royal Gold Suite",
+      "completed_at": "2026-10-04T02:55:25.096Z",
+      "table_number": "VIP-1",
+      "accepted_by_name": null,
+      "assigned_waiter_id": "waiter_1",
+      "accepted_by_waiter_id": null
     }
-  ]
+  ],
+  "last_updated": "2026-10-05T04:54:06.452Z"
 }

@@ -87,6 +87,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout,
 }) => {
   const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'restaurant' | 'flags' | 'gallery' | 'vip'>('items');
+  const [vipSubTab, setVipSubTab] = useState<'calls' | 'tables' | 'waiters' | 'qr_system'>('calls');
   const [galleryCategory, setGalleryCategory] = useState<string>('all');
   const [gallerySearch, setGallerySearch] = useState<string>('');
   const [previewingPhoto, setPreviewingPhoto] = useState<{ name: string; url: string; item: MenuItem } | null>(null);
@@ -588,6 +589,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <span>Wall &amp; Logo Crop</span>
               </button>
             )}
+            <button
+              onClick={() => {
+                setActiveTab('vip');
+                setVipSubTab('qr_system');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-[#080808] text-xs font-extrabold hover:brightness-110 transition-all shadow-sm cursor-pointer"
+              title="Generate VIP table QR codes that grant instant VIP access"
+            >
+              <Crown className="w-3.5 h-3.5 text-[#080808]" />
+              <span>VIP QR System</span>
+            </button>
             <button
               onClick={onOpenQR}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141414] hover:bg-[#1E1C14] text-[#FCF6BA] border border-[#D4AF37]/50 text-xs font-semibold transition-colors"
@@ -1506,8 +1518,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto no-scrollbar py-1">
                 {[
                   { id: 'all', label: 'All Dishes' },
-                  { id: 'cat_breakfast', label: 'Breakfast (9)' },
-                  { id: 'cat_lunch_mains', label: 'Lunch (8)' },
+                  { id: 'cat_breakfast', label: 'Breakfast' },
+                  { id: 'cat_launch', label: 'Lunch' },
+                  { id: 'cat_fast_food', label: 'Fast Food' },
                   { id: 'cat_pasta', label: 'Pasta (2)' },
                   { id: 'cat_dinner_specialties', label: 'Dinner (7)' },
                   { id: 'cat_hot_cold_coffee', label: 'Coffee (8)' },
@@ -1686,6 +1699,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             waiters={waiters}
             calls={calls}
             token={token}
+            initialTab={vipSubTab}
             onUpdateTables={onUpdateTables}
             onUpdateWaiters={onUpdateWaiters}
             onAcceptCall={onAcceptCall}
@@ -1990,9 +2004,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   }
                   className="w-full px-3 py-2 text-xs bg-[#080808] border border-[#D4AF37]/40 rounded-lg text-[#F9F6F0]"
                 >
-                  <option value="drinks">Drinks (Coffee, Teas, Juices, Mojitos, Shakes)</option>
                   <option value="breakfast">Breakfast (Morning)</option>
-                  <option value="lunch_dinner">Lunch &amp; Dinner (Merged Fast Food, Pasta &amp; Mains)</option>
+                  <option value="lunch">Lunch (Mains, Tibs, Mandi, Rice, Firfir)</option>
+                  <option value="fast_food">Fast Food (Burger, Shawarma, Pizza, Sandwiches)</option>
+                  <option value="drinks">Drinks (Coffee, Teas, Juices, Mojitos, Shakes)</option>
+                  <option value="lunch_dinner">Lunch &amp; Dinner</option>
                   <option value="all_day">All Day</option>
                 </select>
               </div>

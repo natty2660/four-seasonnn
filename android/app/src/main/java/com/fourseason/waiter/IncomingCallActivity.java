@@ -22,13 +22,13 @@ public class IncomingCallActivity extends Activity {
     private String tableNumber = "VIP Table";
     private String customerName = "VIP Customer";
     private String notes = "Service requested";
-    private String serverUrl = "https://ais-dev-f3z7xsgo4gzakdpxzf5ir5-912680925196.europe-west2.run.app";
+    private String serverUrl = VipCallService.DEFAULT_SERVER_URL;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Turn screen on and show over lock screen
+        // Turn screen on and show over lock screen (even when in pocket or locked)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
@@ -36,17 +36,13 @@ public class IncomingCallActivity extends Activity {
             if (km != null) {
                 km.requestDismissKeyguard(this, null);
             }
-        } else {
-            getWindow().addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-            );
         }
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-        setContentView(R.layout.activity_incoming_call);
+        getWindow().addFlags(
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+            WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
+            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        );
 
         // Parse extras
         Intent intent = getIntent();
@@ -57,6 +53,17 @@ public class IncomingCallActivity extends Activity {
             if (intent.hasExtra("notes")) notes = intent.getStringExtra("notes");
             if (intent.hasExtra("server_url")) serverUrl = intent.getStringExtra("server_url");
         }
+        if (serverUrl == null || serverUrl.isEmpty()) {
+            serverUrl = VipCallService.getStoredServerUrl(this);
+        }
+
+        // Check if opened from notification action button directly
+        if (intent != null && "accept".equalsIgnoreCase(intent.getStringExtra("user_action"))) {
+            handleAccept();
+            return;
+        }
+
+        setContentView(R.layout.activity_incoming_call);
 
         TextView tvTable = findViewById(R.id.tv_table_number);
         TextView tvCustomer = findViewById(R.id.tv_customer_name);
@@ -88,8 +95,9 @@ public class IncomingCallActivity extends Activity {
     }
 
     private void handleAccept() {
-        Log.d(TAG, "Accepting call: " + callId);
-        // 1. Immediately stop ringing & vibration
+        Log.d(TAG, "Accepting VIP call: " + callId);
+
+        // 1. Instantly stop ringing, looping audio and vibration
         VipCallService.stopAlarmAudio(this);
 
         // 2. Report accepted to server
@@ -107,7 +115,7 @@ public class IncomingCallActivity extends Activity {
             Log.e(TAG, "Error starting MainActivity: " + e.getMessage());
         }
 
-        // 4. Close IncomingCallActivity
+        // 4. Finish activity
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             finishAndRemoveTask();
         } else {
@@ -116,14 +124,15 @@ public class IncomingCallActivity extends Activity {
     }
 
     private void handleDecline() {
-        Log.d(TAG, "Declining call: " + callId);
-        // 1. Immediately stop ringing & vibration
+        Log.d(TAG, "Declining VIP call: " + callId);
+
+        // 1. Instantly stop ringing, looping audio and vibration
         VipCallService.stopAlarmAudio(this);
 
         // 2. Report dismissed to server
         sendCallActionToServer(callId, "dismiss");
 
-        // 3. Close IncomingCallActivity
+        // 3. Finish activity
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             finishAndRemoveTask();
         } else {
@@ -137,31 +146,25 @@ public class IncomingCallActivity extends Activity {
             @Override
             public void run() {
                 try {
-                    URL url = new URL(serverUrl + "/api/waiter/calls/" + id + "/" + action);
+                    // Try primary endpoint
+                    URL url = new URL(serverUrl + "/api/waiter-calls/" + id + "/" + action);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json");
-                    conn.setConnectTimeout(5000);
-                    conn.setReadTimeout(5000);
+                    conn.setConnectTimeout(4000);
+                    conn.setReadTimeout(4000);
                     conn.setDoOutput(true);
                     OutputStream os = conn.getOutputStream();
                     os.write("{}".getBytes());
                     os.flush();
                     os.close();
                     int responseCode = conn.getResponseCode();
-                    Log.d(TAG, "Call " + id + " " + action + " response: " + responseCode);
+                    Log.d(TAG, "Call action " + action + " response: " + responseCode);
                     conn.disconnect();
                 } catch (Exception e) {
-                    Log.e(TAG, "Failed to send call action: " + e.getMessage());
+                    Log.e(TAG, "Failed sending call action to server: " + e.getMessage());
                 }
             }
         }).start();
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        // Guaranteed stop of alarm sound & vibration if activity is destroyed
-        VipCallService.stopAlarmAudio(this);
     }
 }

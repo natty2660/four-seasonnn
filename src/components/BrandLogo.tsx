@@ -7,7 +7,7 @@ interface BrandLogoProps {
   showSubtitle?: boolean;
 }
 
-const DEFAULT_FOUR_SEASON_LOGO = '/assets/images/four_season_confidential_logo_1790854372202.jpg';
+const DEFAULT_FOUR_SEASON_LOGO = '/assets/images/four_season_confidential_logo_1791112084749.jpg';
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 'md',

@@ -2,6 +2,7 @@ package com.fourseason.waiter;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -12,10 +13,25 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "VipCallNative")
 public class VipCallNativePlugin extends Plugin {
 
+    private static final String DEFAULT_SERVER_URL = "https://ais-dev-ci7h2qy5u3hn6xucauliww-11082165761.europe-west2.run.app";
+
+    private void persistServerUrl(Context context, String url) {
+        if (url != null && !url.isEmpty()) {
+            SharedPreferences prefs = context.getSharedPreferences("FourSeasonVip", Context.MODE_PRIVATE);
+            prefs.edit().putString("server_url", url).apply();
+        }
+    }
+
+    @PluginMethod
+    public void startVipCallService(PluginCall call) {
+        startMonitoring(call);
+    }
+
     @PluginMethod
     public void startMonitoring(PluginCall call) {
-        String serverUrl = call.getString("serverUrl", "https://ais-dev-f3z7xsgo4gzakdpxzf5ir5-912680925196.europe-west2.run.app");
+        String serverUrl = call.getString("serverUrl", DEFAULT_SERVER_URL);
         Context context = getContext();
+        persistServerUrl(context, serverUrl);
 
         Intent serviceIntent = new Intent(context, VipCallService.class);
         serviceIntent.setAction(VipCallService.ACTION_START_LISTENING);
@@ -28,8 +44,14 @@ public class VipCallNativePlugin extends Plugin {
         }
 
         JSObject ret = new JSObject();
+        ret.put("started", true);
         ret.put("status", "running");
         call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void stopVipCallService(PluginCall call) {
+        stopMonitoring(call);
     }
 
     @PluginMethod
@@ -40,8 +62,19 @@ public class VipCallNativePlugin extends Plugin {
         context.stopService(serviceIntent);
 
         JSObject ret = new JSObject();
+        ret.put("stopped", true);
         ret.put("status", "stopped");
         call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void triggerCallAlert(PluginCall call) {
+        testIncomingCall(call);
+    }
+
+    @PluginMethod
+    public void testAlarmRinging(PluginCall call) {
+        testIncomingCall(call);
     }
 
     @PluginMethod
@@ -50,7 +83,7 @@ public class VipCallNativePlugin extends Plugin {
         String callId = call.getString("callId", "test-" + System.currentTimeMillis());
         String tableNumber = call.getString("tableNumber", "VIP-1");
         String customerName = call.getString("customerName", "VIP Customer");
-        String notes = call.getString("notes", "Urgent test call");
+        String notes = call.getString("notes", "Urgent VIP assistance requested");
 
         Intent alarmIntent = new Intent(context, VipCallService.class);
         alarmIntent.setAction(VipCallService.ACTION_TRIGGER_ALARM);
@@ -66,8 +99,19 @@ public class VipCallNativePlugin extends Plugin {
         }
 
         JSObject ret = new JSObject();
+        ret.put("triggered", true);
         ret.put("status", "triggered");
         call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void stopCallAlert(PluginCall call) {
+        stopRinging(call);
+    }
+
+    @PluginMethod
+    public void muteSound(PluginCall call) {
+        stopRinging(call);
     }
 
     @PluginMethod
@@ -80,6 +124,7 @@ public class VipCallNativePlugin extends Plugin {
         context.startService(stopIntent);
 
         JSObject ret = new JSObject();
+        ret.put("stopped", true);
         ret.put("status", "silenced");
         call.resolve(ret);
     }

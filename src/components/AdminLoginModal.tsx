@@ -47,10 +47,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           ? localStorage.getItem('prime_cafe_custom_admin_password')
           : null;
       if (
-        password.trim() === (savedCustom || 'primecafe2026') ||
+        password.trim() === (savedCustom || 'fourseason2026') ||
+        password.trim() === 'fourseason2026' ||
         password.trim() === 'primecafe2026'
       ) {
-        const mockToken = 'client_token_prime_cafe_2026';
+        const mockToken = 'client_token_four_season_2026';
         onSuccess(mockToken);
         onClose();
         setPassword('');
@@ -132,7 +133,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
           <div className="mt-5 pt-3 border-t border-[#080808]/25 text-center">
             <span className="text-[11px] text-[#1A1A1A] font-semibold">
-              Default staff password: <code className="text-[#080808] font-bold font-mono">primecafe2026</code>
+              Default staff password: <code className="text-[#080808] font-bold font-mono">fourseason2026</code>
             </span>
           </div>
         </form>

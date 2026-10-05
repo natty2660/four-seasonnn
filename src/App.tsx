@@ -357,37 +357,82 @@ export default function App() {
   };
 
   const handleOpenAdminTrigger = () => {
-    if (adminToken) {
-      setIsAdminOpen(true);
-    } else {
-      setIsAdminLoginOpen(true);
-    }
+    setIsAdminLoginOpen(true);
   };
 
   // Route matching
+  const urlSearch = typeof window !== 'undefined' ? window.location.search : '';
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(urlSearch) : new URLSearchParams();
+  const tableQueryParam = searchParams.get('table') || searchParams.get('vip') || searchParams.get('vip_table');
   const isWaiterRoute = currentPath === '/waiter' || currentPath.startsWith('/waiter/');
   const isVipRoute =
     currentPath === '/vip' ||
     currentPath.startsWith('/vip/') ||
-    currentPath.startsWith('/table/');
+    currentPath.startsWith('/table/') ||
+    Boolean(tableQueryParam);
 
-  // Resolve VIP Table from URL or selection
+  // Resolve VIP Table from URL (query param or path segment) or selection
   const vipTableFromUrl = (() => {
-    if (!isVipRoute) return null;
-    const parts = currentPath.split('/').filter(Boolean);
-    if (parts.length >= 2) {
-      const param = decodeURIComponent(parts[1]).toLowerCase();
-      return (
-        dbState.vip_tables.find(
-          (t) =>
-            t.id.toLowerCase() === param ||
-            t.table_number.toLowerCase() === param ||
-            t.name.toLowerCase().includes(param)
-        ) || null
+    if (typeof window === 'undefined') return null;
+    if (tableQueryParam) {
+      const q = decodeURIComponent(tableQueryParam).toLowerCase().trim();
+      const matched = dbState.vip_tables.find(
+        (t) =>
+          t.id.toLowerCase() === q ||
+          t.table_number.toLowerCase() === q ||
+          t.table_number.toLowerCase().replace('-', '') === q.replace('-', '') ||
+          t.name.toLowerCase().includes(q)
       );
+      if (matched) return matched;
+    }
+
+    if (isVipRoute) {
+      const parts = currentPath.split('/').filter(Boolean);
+      if (parts.length >= 2) {
+        const param = decodeURIComponent(parts[1]).toLowerCase().trim();
+        return (
+          dbState.vip_tables.find(
+            (t) =>
+              t.id.toLowerCase() === param ||
+              t.table_number.toLowerCase() === param ||
+              t.table_number.toLowerCase().replace('-', '') === param.replace('-', '') ||
+              t.name.toLowerCase().includes(param)
+          ) || null
+        );
+      }
     }
     return null;
   })();
+
+  // Auto-grant VIP access when customer scans VIP Table QR code
+  useEffect(() => {
+    if (typeof window === 'undefined' || dbState.vip_tables.length === 0) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const pin = urlParams.get('pin');
+    const access = urlParams.get('access');
+    const tableParam = urlParams.get('table') || urlParams.get('vip') || urlParams.get('vip_table');
+
+    if (tableParam || isVipRoute) {
+      const target = vipTableFromUrl || dbState.vip_tables[0];
+      if (target) {
+        // Direct VIP access is granted if access=granted or pin matches table secret code
+        const isAccessGranted =
+          access === 'granted' ||
+          !target.secret_code ||
+          (pin && pin.trim() === target.secret_code.trim());
+
+        if (isAccessGranted) {
+          try {
+            sessionStorage.setItem('four_season_vip_access_table', target.id);
+          } catch {}
+          setSelectedVipTable(target);
+          if (currentPath !== '/vip') {
+            setCurrentPath('/vip');
+          }
+        }
+      }
+    }
+  }, [currentPath, isVipRoute, vipTableFromUrl, dbState.vip_tables]);
 
   const activeVipTable = selectedVipTable || vipTableFromUrl || dbState.vip_tables[0];
   const pendingCallsCount = (dbState.waiter_calls || []).filter(
@@ -449,7 +494,13 @@ export default function App() {
           onPlaceCall={handlePlaceCall}
           onCancelCall={handleCancelCall}
           onChangeTable={() => setIsVipSelectorOpen(true)}
-          onExitVip={() => navigateTo('/menu/prime-cafe')}
+          onExitVip={() => {
+            try {
+              sessionStorage.removeItem('four_season_vip_access_table');
+            } catch {}
+            setSelectedVipTable(null);
+            navigateTo('/menu/prime-cafe');
+          }}
           onOpenQR={() => setIsQRModalOpen(true)}
         />
       ) : isAdminOpen && adminToken ? (
@@ -486,12 +537,6 @@ export default function App() {
           categories={dbState.categories}
           items={dbState.items}
           onOpenAdmin={handleOpenAdminTrigger}
-          onOpenQR={() => setIsQRModalOpen(true)}
-          onOpenLogoCropper={() => setIsLogoCropperOpen(true)}
-          onOpenPhotoEnhancer={() => setIsPhotoEnhancerOpen(true)}
-          onOpenVipTable={() => setIsVipSelectorOpen(true)}
-          onOpenWaiterApp={() => navigateTo('/waiter')}
-          activeCallsCount={pendingCallsCount}
         />
       )}
 

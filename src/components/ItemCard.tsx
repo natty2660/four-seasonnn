@@ -53,7 +53,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
       }`}
     >
       {/* Image Presentation */}
-      <div className="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-xl overflow-hidden bg-[#080808] border border-[#080808]/60 group-hover:border-[#080808] shadow-sm transition-all duration-200">
+      <div className="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-xl overflow-hidden bg-[#E5C158] border border-[#080808]/60 group-hover:border-[#080808] shadow-sm transition-all duration-200">
         {hasValidPhoto ? (
           <img
             src={currentSrc}

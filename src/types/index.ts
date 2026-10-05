@@ -5,6 +5,7 @@ export type MealTime =
   | 'breakfast'
   | 'lunch_dinner'
   | 'lunch'
+  | 'fast_food'
   | 'dinner'
   | 'all_day';
 

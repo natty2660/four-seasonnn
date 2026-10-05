@@ -8,6 +8,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -36,10 +37,14 @@ public class VipCallService extends Service {
     public static final String ACTION_TRIGGER_ALARM = "ACTION_TRIGGER_ALARM";
     public static final String ACTION_STOP_ALARM = "ACTION_STOP_ALARM";
 
+    public static final String PREFS_NAME = "FourSeasonVip";
+    public static final String KEY_SERVER_URL = "server_url";
+    public static final String DEFAULT_SERVER_URL = "https://ais-dev-ci7h2qy5u3hn6xucauliww-11082165761.europe-west2.run.app";
+
     private static final String CHANNEL_SERVICE_ID = "vip_call_monitor_channel";
     private static final String CHANNEL_ALARM_ID = "vip_call_alarm_channel";
     private static final int NOTIFICATION_SERVICE_ID = 1001;
-    private static final int NOTIFICATION_ALARM_ID = 2002;
+    public static final int NOTIFICATION_ALARM_ID = 2002;
 
     private static MediaPlayer sMediaPlayer = null;
     private static Vibrator sVibrator = null;
@@ -47,54 +52,73 @@ public class VipCallService extends Service {
 
     private boolean isPolling = false;
     private Thread pollingThread = null;
-    private String serverUrl = "https://ais-dev-f3z7xsgo4gzakdpxzf5ir5-912680925196.europe-west2.run.app";
+    private String serverUrl = DEFAULT_SERVER_URL;
     private final Set<String> handledCallIds = new HashSet<>();
+
+    public static String getStoredServerUrl(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL);
+    }
+
+    public static void setStoredServerUrl(Context context, String url) {
+        if (url != null && !url.trim().isEmpty()) {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit().putString(KEY_SERVER_URL, url.trim()).apply();
+        }
+    }
 
     @Override
     public void onCreate() {
         super.onCreate();
+        serverUrl = getStoredServerUrl(this);
         createNotificationChannels();
-        Log.d(TAG, "VipCallService created");
+        Log.d(TAG, "VipCallService created with serverUrl: " + serverUrl);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent != null ? intent.getAction() : null;
 
-        // Ensure service runs in foreground
+        // Ensure service runs as high-priority foreground service
         startForeground(NOTIFICATION_SERVICE_ID, buildForegroundNotification("Monitoring VIP Table Calls"));
 
         if (intent != null && intent.hasExtra("server_url")) {
-            serverUrl = intent.getStringExtra("server_url");
+            String incomingUrl = intent.getStringExtra("server_url");
+            if (incomingUrl != null && !incomingUrl.trim().isEmpty()) {
+                serverUrl = incomingUrl.trim();
+                setStoredServerUrl(this, serverUrl);
+            }
+        } else {
+            serverUrl = getStoredServerUrl(this);
         }
 
         if (ACTION_STOP_ALARM.equals(action)) {
             stopAlarmAudio(this);
             dismissAlarmNotification();
         } else if (ACTION_TRIGGER_ALARM.equals(action)) {
-            String callId = intent != null ? intent.getStringExtra("call_id") : "manual";
-            String tableNumber = intent != null ? intent.getStringExtra("table_number") : "VIP";
+            String callId = intent != null ? intent.getStringExtra("call_id") : "manual-" + System.currentTimeMillis();
+            String tableNumber = intent != null ? intent.getStringExtra("table_number") : "VIP-1";
             String customerName = intent != null ? intent.getStringExtra("customer_name") : "VIP Customer";
-            String notes = intent != null ? intent.getStringExtra("notes") : "Service requested";
+            String notes = intent != null ? intent.getStringExtra("notes") : "Service requested immediately";
             triggerIncomingCall(callId, tableNumber, customerName, notes);
         } else if (ACTION_STOP_LISTENING.equals(action)) {
             stopPolling();
             stopSelf();
         } else {
-            // Default: start monitoring
+            // Default: start monitoring loop
             startPolling();
         }
 
-        // START_STICKY ensures Android OS restarts the service if it's killed
+        // START_STICKY guarantees OS restarts the service if killed
         return START_STICKY;
     }
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         super.onTaskRemoved(rootIntent);
-        Log.d(TAG, "App task removed (swiped away) -> Scheduling service restart");
+        Log.d(TAG, "App task removed (swiped away) -> Scheduling persistent service restart");
 
-        // Immediately schedule restart via AlarmManager
+        // Immediately schedule restart via AlarmManager so background monitoring never terminates
         Intent restartIntent = new Intent(getApplicationContext(), VipCallService.class);
         restartIntent.setAction(ACTION_START_LISTENING);
         restartIntent.putExtra("server_url", serverUrl);
@@ -103,7 +127,7 @@ public class VipCallService extends Service {
             getApplicationContext(),
             999,
             restartIntent,
-            PendingIntent.FLAG_ONE_SHOT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
@@ -123,7 +147,7 @@ public class VipCallService extends Service {
         pollingThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                Log.d(TAG, "Polling thread started for: " + serverUrl);
+                Log.d(TAG, "VIP Call polling thread active: " + serverUrl);
                 while (isPolling) {
                     try {
                         checkActiveCalls();
@@ -131,7 +155,7 @@ public class VipCallService extends Service {
                         Log.e(TAG, "Polling loop error: " + e.getMessage());
                     }
                     try {
-                        Thread.sleep(2500); // Check every 2.5 seconds
+                        Thread.sleep(2000); // Check every 2 seconds
                     } catch (InterruptedException e) {
                         break;
                     }
@@ -151,6 +175,7 @@ public class VipCallService extends Service {
 
     private void checkActiveCalls() {
         try {
+            // Primary endpoint for active pending calls
             URL url = new URL(serverUrl + "/api/waiter/calls/active");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
@@ -167,19 +192,29 @@ public class VipCallService extends Service {
                 }
                 reader.close();
 
-                JSONObject response = new JSONObject(sb.toString());
-                if (response.has("calls")) {
-                    JSONArray calls = response.getJSONArray("calls");
-                    for (int i = 0; i < calls.length(); i++) {
-                        JSONObject call = calls.getJSONObject(i);
+                String jsonStr = sb.toString().trim();
+                JSONArray callsArray = null;
+
+                if (jsonStr.startsWith("{")) {
+                    JSONObject obj = new JSONObject(jsonStr);
+                    if (obj.has("calls")) {
+                        callsArray = obj.getJSONArray("calls");
+                    }
+                } else if (jsonStr.startsWith("[")) {
+                    callsArray = new JSONArray(jsonStr);
+                }
+
+                if (callsArray != null) {
+                    for (int i = 0; i < callsArray.length(); i++) {
+                        JSONObject call = callsArray.getJSONObject(i);
                         String id = call.optString("id");
                         String status = call.optString("status", "pending");
                         if ("pending".equalsIgnoreCase(status) && !handledCallIds.contains(id)) {
                             handledCallIds.add(id);
                             String tableNumber = call.optString("table_number", "VIP");
                             String customerName = call.optString("customer_name", "VIP Customer");
-                            String notes = call.optString("notes", "Assistance requested");
-                            Log.d(TAG, "Detected new active VIP call: " + id + " for Table " + tableNumber);
+                            String notes = call.optString("notes", "Assistance requested immediately");
+                            Log.d(TAG, ">>> VIP CALL DETECTED: " + id + " for Table " + tableNumber);
                             triggerIncomingCall(id, tableNumber, customerName, notes);
                             break;
                         }
@@ -188,18 +223,20 @@ public class VipCallService extends Service {
             }
             conn.disconnect();
         } catch (Exception e) {
-            // Server might be temporarily unreachable; wait for next tick
+            // Ignore transient network hiccups and retry on next tick
         }
     }
 
     private void triggerIncomingCall(String callId, String tableNumber, String customerName, String notes) {
+        Log.d(TAG, "Triggering Full-Screen Incoming VIP Call: " + tableNumber);
+
         // 1. Wake screen up (even if locked or in pocket)
         acquireWakeLock(this);
 
-        // 2. Play loud alarm sound and start vibration (bypassing silent mode)
+        // 2. Play loud alarm sound and start vibration (overriding silent and vibrate modes)
         startAlarmAudio(this);
 
-        // 3. Launch IncomingCallActivity directly
+        // 3. Activity Intent
         Intent activityIntent = new Intent(this, IncomingCallActivity.class);
         activityIntent.addFlags(
             Intent.FLAG_ACTIVITY_NEW_TASK |
@@ -212,13 +249,14 @@ public class VipCallService extends Service {
         activityIntent.putExtra("customer_name", customerName);
         activityIntent.putExtra("notes", notes);
         activityIntent.putExtra("server_url", serverUrl);
+
         try {
             startActivity(activityIntent);
         } catch (Exception e) {
-            Log.e(TAG, "Could not start activity directly: " + e.getMessage());
+            Log.e(TAG, "Could not launch IncomingCallActivity directly: " + e.getMessage());
         }
 
-        // 4. Post Full-Screen Intent Notification
+        // 4. Full-Screen Intent Notification for lock screen display
         PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
             this,
             callId.hashCode(),
@@ -229,6 +267,7 @@ public class VipCallService extends Service {
         // Accept Action Intent
         Intent acceptIntent = new Intent(this, IncomingCallActivity.class);
         acceptIntent.putExtras(activityIntent);
+        acceptIntent.putExtra("user_action", "accept");
         PendingIntent acceptPendingIntent = PendingIntent.getActivity(
             this,
             callId.hashCode() + 1,
@@ -236,7 +275,7 @@ public class VipCallService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
-        // Dismiss Action Intent
+        // Decline Action Intent
         Intent declineIntent = new Intent(this, VipCallService.class);
         declineIntent.setAction(ACTION_STOP_ALARM);
         PendingIntent declinePendingIntent = PendingIntent.getService(
@@ -287,7 +326,7 @@ public class VipCallService extends Service {
                 }
             }
             if (sWakeLock != null && !sWakeLock.isHeld()) {
-                sWakeLock.acquire(90000); // 90 seconds timeout
+                sWakeLock.acquire(120000); // 2 minutes wake lock
             }
         } catch (Exception e) {
             Log.e(TAG, "Error acquiring WakeLock: " + e.getMessage());
@@ -312,12 +351,9 @@ public class VipCallService extends Service {
 
             AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
             if (audioManager != null) {
-                // Ensure alarm volume is loud even if phone was on silent
+                // Ensure alarm stream volume is maximum so it is loud even on silent / vibrate mode
                 int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM);
-                int currentVol = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
-                if (currentVol < maxVol * 0.7) {
-                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVol, 0);
-                }
+                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVol, 0);
             }
 
             // AudioAttributes configured for ALARM - overrides silent and vibrate ringer modes
@@ -327,18 +363,18 @@ public class VipCallService extends Service {
                 .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
                 .build();
 
-            // Try raw resource first
+            // Load and loop bell sound
             try {
                 Uri soundUri = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.restaurant_bell);
                 sMediaPlayer = new MediaPlayer();
                 sMediaPlayer.setDataSource(context, soundUri);
                 sMediaPlayer.setAudioAttributes(audioAttributes);
+                sMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
                 sMediaPlayer.setLooping(true);
                 sMediaPlayer.setVolume(1.0f, 1.0f);
                 sMediaPlayer.prepare();
                 sMediaPlayer.start();
             } catch (Exception rawEx) {
-                // Fallback to system default alarm or ringtone
                 Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
                 if (alarmUri == null) {
                     alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
@@ -346,18 +382,19 @@ public class VipCallService extends Service {
                 sMediaPlayer = new MediaPlayer();
                 sMediaPlayer.setDataSource(context, alarmUri);
                 sMediaPlayer.setAudioAttributes(audioAttributes);
+                sMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
                 sMediaPlayer.setLooping(true);
                 sMediaPlayer.setVolume(1.0f, 1.0f);
                 sMediaPlayer.prepare();
                 sMediaPlayer.start();
             }
 
-            // Start repeating vibration
+            // Start strong repeating vibration
             sVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
             if (sVibrator != null && sVibrator.hasVibrator()) {
                 long[] pattern = {0, 800, 400, 800, 400, 1000};
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    VibrationEffect effect = VibrationEffect.createWaveform(pattern, 0); // repeat from 0
+                    VibrationEffect effect = VibrationEffect.createWaveform(pattern, 0);
                     sVibrator.vibrate(effect, audioAttributes);
                 } else {
                     sVibrator.vibrate(pattern, 0);
@@ -388,6 +425,26 @@ public class VipCallService extends Service {
             }
         } catch (Exception e) {
             Log.e(TAG, "Error stopping Vibrator: " + e.getMessage());
+        }
+
+        // Cancel the system vibrator directly to ensure zero lingering vibration
+        try {
+            Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null) {
+                v.cancel();
+            }
+        } catch (Exception e) {
+            // Ignore
+        }
+
+        // Immediately dismiss the alarm notification
+        try {
+            NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancel(NOTIFICATION_ALARM_ID);
+            }
+        } catch (Exception e) {
+            // Ignore
         }
 
         releaseWakeLock();

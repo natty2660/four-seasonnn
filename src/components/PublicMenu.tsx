@@ -5,20 +5,14 @@ import { ItemCard } from './ItemCard.tsx';
 import {
   Search,
   Clock,
-  MapPin,
-  QrCode,
   Lock,
   X,
   Flame,
   CheckCircle2,
   Sparkles,
   Coffee,
-  Camera,
-  Navigation,
   UtensilsCrossed,
-  Crop,
-  Crown,
-  Smartphone,
+  PhoneCall,
 } from 'lucide-react';
 
 interface PublicMenuProps {
@@ -26,7 +20,7 @@ interface PublicMenuProps {
   categories: Category[];
   items: MenuItem[];
   onOpenAdmin: () => void;
-  onOpenQR: () => void;
+  onOpenQR?: () => void;
   onOpenLogoCropper?: () => void;
   onOpenPhotoEnhancer?: () => void;
   onOpenVipTable?: () => void;
@@ -34,19 +28,13 @@ interface PublicMenuProps {
   activeCallsCount?: number;
 }
 
-const DEFAULT_HERO_BANNER = '/assets/images/four_season_confidential_wall_1790854372202.jpg';
+const DEFAULT_HERO_BANNER = '/assets/images/four_season_confidential_wall_1791112084749.jpg';
 
 export const PublicMenu: React.FC<PublicMenuProps> = ({
   restaurant,
   categories,
   items,
   onOpenAdmin,
-  onOpenQR,
-  onOpenLogoCropper,
-  onOpenPhotoEnhancer,
-  onOpenVipTable,
-  onOpenWaiterApp,
-  activeCallsCount = 0,
 }) => {
   const [selectedMealTime, setSelectedMealTime] = useState<MealTime | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,7 +50,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
   // Inactive state check
   if (!restaurant.is_active) {
     return (
-      <div className="min-h-screen bg-[#D4AF37] bg-gold-canvas text-[#080808] flex items-center justify-center p-6 text-center">
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#D4AF37] bg-gold-canvas text-[#080808] flex items-center justify-center p-6 text-center">
         <div className="max-w-md bg-gold-surface p-8 rounded-2xl border-2 border-[#080808]/40 shadow-2xl">
           <BrandLogo
             size="lg"
@@ -78,7 +66,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
           </p>
           <button
             onClick={onOpenAdmin}
-            className="text-xs text-[#080808] font-bold hover:underline inline-flex items-center gap-1.5"
+            className="text-xs text-[#080808] font-bold hover:underline inline-flex items-center gap-1.5 cursor-pointer"
           >
             <Lock className="w-3.5 h-3.5" /> Staff Management Access
           </button>
@@ -87,29 +75,26 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
     );
   }
 
-  // Filter categories by meal time tab (excluding removed ice_cream)
+  // Filter categories by meal time tab
   const filteredCategories = useMemo(() => {
     let list = categories.filter((c) => c.meal_time !== 'ice_cream' && c.id !== 'cat_ice_cream');
     if (selectedMealTime !== 'all') {
       if (selectedMealTime === 'drinks' || selectedMealTime === 'all_day') {
         list = list.filter((c) => c.meal_time === 'drinks' || c.meal_time === 'all_day');
       } else if (selectedMealTime === 'breakfast') {
-        list = list.filter((c) => c.meal_time === 'breakfast');
-      } else if (
-        selectedMealTime === 'lunch_dinner' ||
-        selectedMealTime === 'lunch' ||
-        selectedMealTime === 'dinner'
-      ) {
+        list = list.filter((c) => c.meal_time === 'breakfast' || c.id === 'cat_breakfast');
+      } else if (selectedMealTime === 'lunch') {
+        list = list.filter((c) => (c.meal_time === 'lunch' || c.id === 'cat_launch') && c.id !== 'cat_fast_food');
+      } else if (selectedMealTime === 'fast_food') {
+        list = list.filter((c) => c.meal_time === 'fast_food' || c.id === 'cat_fast_food');
+      } else if (selectedMealTime === 'lunch_dinner') {
         list = list.filter(
           (c) =>
-            c.meal_time === 'lunch_dinner' ||
             c.meal_time === 'lunch' ||
-            c.meal_time === 'dinner' ||
+            c.meal_time === 'fast_food' ||
+            c.meal_time === 'lunch_dinner' ||
             c.id === 'cat_launch' ||
-            c.id === 'cat_lunch_mains' ||
-            c.id === 'cat_pizza' ||
-            c.id === 'cat_pasta' ||
-            c.id === 'cat_dinner_specialties'
+            c.id === 'cat_fast_food'
         );
       }
     }
@@ -141,72 +126,29 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
     return map;
   }, [filteredCategories, items, searchQuery]);
 
-  // Main Categories tabs arranged in sequence
+  // Main Categories tabs arranged in sequence: Full Menu, Breakfast, Lunch, Fast Food, Drinks
   const mealTimeTabs = [
     { id: 'all', label: 'Full Menu', sub: 'Everything', icon: Sparkles },
-    { id: 'breakfast', label: 'Break Fast', sub: '8:30 AM – 12 PM', icon: null },
-    { id: 'lunch_dinner', label: 'Launch & Mains', sub: 'Launch, Burger & Pizza', icon: UtensilsCrossed },
-    { id: 'drinks', label: 'Drinks', sub: 'Hot Drink, Juice & Mojito', icon: Coffee },
+    { id: 'breakfast', label: 'Breakfast', sub: '8:30 AM – 12 PM', icon: null },
+    { id: 'lunch', label: 'Lunch', sub: 'Tibs, Mandi & Specials', icon: UtensilsCrossed },
+    { id: 'fast_food', label: 'Fast Food', sub: 'Burger, Shawarma & Pizza', icon: Flame },
+    { id: 'drinks', label: 'Drinks', sub: 'Hot Drink, Juice, Mojito', icon: Coffee },
   ] as const;
 
   return (
-    <div className="min-h-screen bg-[#D4AF37] bg-gold-canvas text-[#080808] pb-20 selection:bg-[#080808] selection:text-[#FCF6BA]">
-      {/* Top Luxury Dominant Golden & Minor Black Header Bar */}
-      <header className="sticky top-0 z-30 bg-[#E6C55A]/95 backdrop-blur-md border-b border-[#080808]/30 px-4 sm:px-6 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#D4AF37] bg-gold-canvas text-[#080808] pb-16 selection:bg-[#080808] selection:text-[#FCF6BA]">
+      {/* Top Luxury Clean Header Bar */}
+      <header className="sticky top-0 z-30 bg-[#E6C55A]/95 backdrop-blur-md border-b border-[#080808]/25 px-4 sm:px-6 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <BrandLogo size="sm" customLogoUrl={restaurant.logo_url} />
           </div>
 
           <div className="flex items-center gap-2">
-            {onOpenVipTable && (
-              <button
-                onClick={onOpenVipTable}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#080808] hover:bg-[#1A1A1A] text-[#FCF6BA] border border-[#080808] transition-all shadow-sm cursor-pointer"
-                title="VIP Table service & waiter call"
-              >
-                <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span className="font-extrabold">VIP Table</span>
-              </button>
-            )}
-            {onOpenWaiterApp && (
-              <button
-                onClick={onOpenWaiterApp}
-                className="relative inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#080808] hover:bg-[#1A1A1A] text-[#FCF6BA] border border-[#080808] transition-all shadow-sm cursor-pointer"
-                title="Waiter mobile app portal"
-              >
-                <Smartphone className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span className="hidden sm:inline">Waiter App</span>
-                {activeCallsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 bg-red-600 text-white rounded-full text-[9px] font-black flex items-center justify-center animate-pulse">
-                    {activeCallsCount}
-                  </span>
-                )}
-              </button>
-            )}
-            {onOpenPhotoEnhancer && (
-              <button
-                onClick={onOpenPhotoEnhancer}
-                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg bg-[#080808] hover:bg-[#1A1A1A] text-[#D4AF37] border border-[#080808] transition-all shadow-sm"
-                title="Upload your original named dish & drink photos with studio quality enhancement and zero ingredient changes"
-              >
-                <Camera className="w-4 h-4 text-[#D4AF37]" />
-                <span className="hidden sm:inline">Upload Photos</span>
-                <span className="inline sm:hidden">Photos</span>
-              </button>
-            )}
-            <button
-              onClick={onOpenQR}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#080808] hover:bg-[#1A1A1A] text-[#FCF6BA] border border-[#080808] transition-all shadow-sm"
-              title="View & share permanent QR code"
-            >
-              <QrCode className="w-4 h-4 text-[#D4AF37]" />
-              <span className="hidden sm:inline">Table QR</span>
-            </button>
             <button
               onClick={onOpenAdmin}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-[#080808] hover:text-[#FCF6BA] hover:bg-[#080808] border border-[#080808]/35 transition-all"
-              title="Staff admin login"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-[#080808] hover:text-[#FCF6BA] hover:bg-[#080808] border border-[#080808]/30 transition-all cursor-pointer"
+              title="Staff Access"
             >
               <Lock className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Staff Access</span>
@@ -215,16 +157,16 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
         </div>
       </header>
 
-      {/* Hero / Wall & Provided Logo Only Banner (No descriptions, name, location, or time underneath) */}
-      <div className="relative bg-[#070809] border-b border-[#080808]/35 overflow-hidden">
-        <div className="relative h-64 sm:h-80 w-full bg-[#070809] flex items-center justify-center">
+      {/* Hero / Wall & Provided Logo Banner (Seamless Golden Backdrop, No Black Background, No Public Crop Button) */}
+      <div className="relative bg-gradient-to-b from-[#DEC05B] to-[#C59B27] border-b border-[#080808]/25 overflow-hidden">
+        <div className="relative h-56 sm:h-72 w-full flex items-center justify-center p-3 sm:p-4">
           <img
             src={heroCoverUrl}
             alt={`${restaurant.name} Wall and Logo`}
             referrerPolicy="no-referrer"
             loading="eager"
             decoding="async"
-            className="w-full h-full object-contain sm:object-cover object-center"
+            className="w-full h-full object-contain object-center rounded-xl shadow-md"
             onError={(e) => {
               const target = e.currentTarget;
               if (target.src.includes('/assets/images/')) {
@@ -236,66 +178,31 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
               }
             }}
           />
-
-          {onOpenLogoCropper && (
-            <button
-              onClick={onOpenLogoCropper}
-              className="absolute top-3 right-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#080808]/90 hover:bg-[#141414] text-[#FCF6BA] border border-[#D4AF37]/60 text-[11px] font-bold backdrop-blur-md shadow-lg transition-all cursor-pointer"
-              title="Upload your confidential cafe photo and crop out background people & cafe (Wall & Logo only)"
-            >
-              <Crop className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>Use / Crop Provided Photo</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* VIP Table Service & Waiter Callout Banner */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-4">
-        <div className="bg-gradient-to-r from-[#17140B] via-[#0E0C07] to-[#17140B] border-2 border-[#D4AF37] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-white shadow-xl">
-          <div className="flex items-center gap-3.5 text-center sm:text-left">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37] to-[#996515] flex items-center justify-center shrink-0 shadow-lg border border-[#FCF6BA]/40">
-              <Crown className="w-6 h-6 text-[#080808]" />
-            </div>
-            <div>
-              <div className="flex items-center justify-center sm:justify-start gap-2">
-                <h4 className="text-sm sm:text-base font-extrabold text-[#FCF6BA] font-display">
-                  VIP Table Service &amp; Live Waiter Calls
-                </h4>
-                <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37] text-[10px] font-black text-[#D4AF37] uppercase tracking-wider">
-                  Exclusive
-                </span>
-              </div>
-              <p className="text-xs text-[#D4C9B0] mt-0.5 leading-relaxed">
-                Seated at a VIP table or lounge? Tap to call your personal assigned waiter, order, or request bills &amp; drinks with real-time restaurant chime.
-              </p>
-            </div>
+      {/* Delivery & Agency Branding: Exactly Under Logo, Above Categories */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-2 text-center">
+        <div className="inline-flex flex-col items-center justify-center bg-[#080808] border-2 border-[#D4AF37] rounded-2xl px-6 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.25)]">
+          <div className="flex items-center gap-2 text-sm sm:text-base font-extrabold text-[#FCF6BA] tracking-wider uppercase font-display">
+            <PhoneCall className="w-4 h-4 text-[#D4AF37]" />
+            <span className="text-[#D4AF37]">delivery=</span>
+            <a
+              href="tel:6170"
+              className="text-[#FCF6BA] hover:text-[#FFFFFF] underline decoration-[#D4AF37] transition-colors font-black text-base sm:text-lg"
+              title="Call 6170 for Delivery"
+            >
+              6170
+            </a>
           </div>
-          <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-center">
-            {onOpenVipTable && (
-              <button
-                onClick={onOpenVipTable}
-                className="flex-1 sm:flex-none px-4 py-2.5 bg-[#D4AF37] text-[#080808] text-xs font-black rounded-xl hover:bg-[#FBF5B7] shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Crown className="w-4 h-4 text-[#080808]" />
-                <span>Enter VIP Table</span>
-              </button>
-            )}
-            {onOpenWaiterApp && (
-              <button
-                onClick={onOpenWaiterApp}
-                className="flex-1 sm:flex-none px-3.5 py-2.5 bg-[#1F1E1A] border border-[#D4AF37]/60 text-[#FCF6BA] text-xs font-bold rounded-xl hover:bg-[#2A2720] shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Smartphone className="w-4 h-4 text-[#D4AF37]" />
-                <span>Waiter App</span>
-              </button>
-            )}
-          </div>
+          <span className="text-[10px] sm:text-[11px] text-[#FCF6BA]/75 font-medium tracking-wide mt-0.5 lowercase">
+            powerd by zaza digital agency
+          </span>
         </div>
       </div>
 
       {/* Sticky Section Tabs & Search */}
-      <div className="sticky top-[64px] z-20 bg-[#DEC05B]/95 backdrop-blur-md border-b border-[#080808]/25 px-4 sm:px-6 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+      <div className="sticky top-[56px] z-20 bg-[#DEC05B]/95 backdrop-blur-md border-b border-[#080808]/25 px-4 sm:px-6 py-2.5 shadow-[0_8px_20px_rgba(0,0,0,0.12)]">
         <div className="max-w-4xl mx-auto flex flex-col gap-2.5">
           {/* Meal Time Segmented Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
@@ -306,7 +213,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
                 <button
                   key={tab.id}
                   onClick={() => setSelectedMealTime(tab.id)}
-                  className={`relative shrink-0 px-3.5 py-2 rounded-xl text-xs transition-all duration-150 flex flex-col items-center justify-center min-w-[82px] border whitespace-nowrap ${
+                  className={`relative shrink-0 px-3.5 py-2 rounded-xl text-xs transition-all duration-150 flex flex-col items-center justify-center min-w-[82px] border whitespace-nowrap cursor-pointer ${
                     isActive
                       ? 'bg-[#080808] text-[#FCF6BA] font-extrabold border-[#080808] shadow-[0_4px_14px_rgba(0,0,0,0.35)]'
                       : 'bg-[#F7E6A2] text-[#080808] font-bold hover:bg-[#080808]/15 border-[#080808]/35'
@@ -330,18 +237,18 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
 
           {/* Search Input */}
           <div className="relative">
-            <Search className="w-4 h-4 text-[#080808] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#080808] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search food, coffees, juices, mojitos..."
+              placeholder="Search dishes, burgers, pizzas, juices, mojitos..."
               className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-[#F7E6A2] border border-[#080808]/40 rounded-lg text-[#080808] font-medium placeholder-[#1A1A1A]/70 focus:outline-hidden focus:border-[#080808] focus:ring-1 focus:ring-[#080808] transition-all"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#080808]/75 hover:text-[#080808]"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#080808]/75 hover:text-[#080808] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -352,8 +259,6 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
 
       {/* Main Menu Body */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-6">
-
-        {/* Empty States */}
         {categories.length === 0 ? (
           <div className="text-center py-16 text-[#1A1A1A]">
             <p className="text-base font-semibold">Menu coming soon.</p>
@@ -384,14 +289,14 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
                     </div>
 
                     <span className="text-[11px] text-[#080808] uppercase tracking-wider font-extrabold">
-                      {category.meal_time === 'ice_cream'
-                        ? 'Gelateria'
+                      {category.name === 'Fast Food'
+                        ? 'Fast Food'
                         : category.meal_time === 'drinks' || category.meal_time === 'all_day'
                         ? 'Drinks'
                         : category.meal_time === 'lunch_dinner' ||
                           category.meal_time === 'lunch' ||
                           category.meal_time === 'dinner'
-                        ? 'Lunch & Dinner'
+                        ? 'Mains & Fast Food'
                         : category.meal_time}
                     </span>
                   </div>
@@ -421,7 +326,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
         )}
       </main>
 
-      {/* Item Detail Modal (No Price Tags) */}
+      {/* Item Detail Modal */}
       {selectedItem && (
         <div
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
@@ -433,7 +338,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
           >
             {/* Modal Image or Clean Placeholder */}
             {selectedItem.image_url ? (
-              <div className="relative h-60 w-full bg-[#080808]">
+              <div className="relative h-60 w-full bg-[#D4AF37]">
                 <img
                   src={selectedItem.image_url}
                   alt={selectedItem.name}
@@ -452,7 +357,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
                 />
                 <button
                   onClick={() => setSelectedItem(null)}
-                  className="absolute top-3 right-3 p-1.5 rounded-full bg-[#080808] text-[#FCF6BA] border border-[#D4AF37]/50 hover:bg-[#1A1A1A] transition-colors"
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-[#080808] text-[#FCF6BA] border border-[#D4AF37]/50 hover:bg-[#1A1A1A] transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -460,14 +365,14 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
             ) : (
               <div className="p-6 bg-[#E5C158] border-b border-[#080808]/35 flex items-center justify-between">
                 <div className="flex items-center gap-2.5 text-xs text-[#080808]">
-                  <Camera className="w-4 h-4 text-[#080808]" />
+                  <UtensilsCrossed className="w-4 h-4 text-[#080808]" />
                   <span className="font-bold uppercase tracking-wider text-[11px]">
-                    {restaurant.name} Specialty · Kitchen Crafted
+                    {restaurant.name} Specialty
                   </span>
                 </div>
                 <button
                   onClick={() => setSelectedItem(null)}
-                  className="p-1.5 rounded-full bg-[#080808] text-[#FCF6BA] border border-[#080808] hover:bg-[#1A1A1A] transition-colors"
+                  className="p-1.5 rounded-full bg-[#080808] text-[#FCF6BA] border border-[#080808] hover:bg-[#1A1A1A] transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -532,7 +437,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
                 </span>
                 <button
                   onClick={() => setSelectedItem(null)}
-                  className="px-5 py-2.5 bg-[#080808] text-[#FCF6BA] text-xs font-bold rounded-lg hover:bg-[#1A1A1A] transition-all shadow-md"
+                  className="px-5 py-2.5 bg-[#080808] text-[#FCF6BA] text-xs font-bold rounded-lg hover:bg-[#1A1A1A] transition-all shadow-md cursor-pointer"
                 >
                   Close
                 </button>
@@ -542,74 +447,14 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
         </div>
       )}
 
-      {/* Location & Directions Section */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 mt-14 mb-4">
-        <div className="bg-gold-surface border-2 border-[#080808]/40 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
-          <div className="space-y-2 text-center sm:text-left">
-            <div className="inline-flex items-center gap-1.5 text-xs text-[#080808] font-extrabold uppercase tracking-wider">
-              <MapPin className="w-3.5 h-3.5 text-[#080808]" />
-              <span>Location &amp; Directions</span>
-            </div>
-            <h3 className="text-xl font-extrabold text-[#080808] font-display">
-              Visit {restaurant.name}
-            </h3>
-            <p className="text-sm text-[#111111] font-semibold">
-              {restaurant.address || 'Jijiga, Ethiopia'}
-            </p>
-            {restaurant.opening_hours && (
-              <p className="text-xs text-[#1A1A1A] font-semibold flex items-center justify-center sm:justify-start gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#080808]" />
-                <span>{restaurant.opening_hours}</span>
-              </p>
-            )}
-          </div>
-
-          <a
-            href={restaurant.google_maps_url || 'https://maps.app.goo.gl/Tnb9gLs98u4fihhC9'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#080808] text-[#FCF6BA] font-extrabold text-xs shadow-[0_4px_16px_rgba(0,0,0,0.3)] hover:bg-[#1A1A1A] transition-all whitespace-nowrap"
-          >
-            <Navigation className="w-4 h-4 text-[#D4AF37]" />
-            Get Directions
-          </a>
-        </div>
-      </section>
-
-      {/* Modern Luxury Dominant Golden & Minor Black Footer */}
-      <footer className="mt-16 border-t-2 border-[#080808]/30 bg-[#C59B27] py-10 px-4 text-center text-xs text-[#080808]">
-        <div className="max-w-md mx-auto space-y-3">
+      {/* Modern Luxury Dominant Golden Footer (No location section, no VIP or waiter buttons, clean public ready) */}
+      <footer className="mt-14 border-t-2 border-[#080808]/30 bg-[#C59B27] py-8 px-4 text-center text-xs text-[#080808]">
+        <div className="max-w-md mx-auto space-y-2.5">
           <BrandLogo size="md" customLogoUrl={restaurant.logo_url} className="justify-center" />
-          <p className="text-[#111111] font-semibold leading-relaxed">
+          <p className="text-[#111111] font-semibold leading-relaxed text-xs">
             Contemporary Coffee Lounge · Gourmet Restaurant
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-[11px] text-[#080808] font-semibold">
-            <span>Jijiga, Ethiopia</span>
-            <span>·</span>
-            {onOpenVipTable && (
-              <>
-                <button
-                  onClick={onOpenVipTable}
-                  className="text-[#080808] hover:underline cursor-pointer font-extrabold flex items-center gap-1"
-                >
-                  <Crown className="w-3 h-3" />
-                  <span>VIP Tables</span>
-                </button>
-                <span>·</span>
-              </>
-            )}
-            {onOpenWaiterApp && (
-              <>
-                <button
-                  onClick={onOpenWaiterApp}
-                  className="text-[#080808] hover:underline cursor-pointer font-extrabold flex items-center gap-1"
-                >
-                  <Smartphone className="w-3 h-3" />
-                  <span>Waiter Mobile App</span>
-                </button>
-                <span>·</span>
-              </>
-            )}
+          <div className="pt-2 text-[11px] text-[#080808]">
             <button
               onClick={onOpenAdmin}
               className="text-[#080808] hover:underline cursor-pointer font-extrabold"
