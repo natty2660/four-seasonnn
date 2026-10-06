@@ -12,8 +12,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(VipCallNativePlugin.class);
         super.onCreate(savedInstanceState);
 
-        // Start VIP call background service
-        startVipService();
+        // Phase 1: Temporarily disable automatic start of background service to stabilize app
+        // startVipService();
 
         // Check if opened from an incoming call
         handleIncomingIntent(getIntent());

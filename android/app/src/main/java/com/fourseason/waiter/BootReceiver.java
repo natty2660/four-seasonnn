@@ -19,6 +19,9 @@ public class BootReceiver extends BroadcastReceiver {
             Intent.ACTION_MY_PACKAGE_REPLACED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
             
+            // Phase 1: Disabled automatic startup on boot for stability
+            Log.d(TAG, "Boot auto-start bypassed in Phase 1");
+            /*
             Intent serviceIntent = new Intent(context, VipCallService.class);
             serviceIntent.setAction(VipCallService.ACTION_START_LISTENING);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -26,6 +29,7 @@ public class BootReceiver extends BroadcastReceiver {
             } else {
                 context.startService(serviceIntent);
             }
+            */
         }
     }
 }

@@ -5,6 +5,7 @@ import {
   enhanceOriginalDishPhoto,
   matchFilenameToMenuItems,
 } from '../lib/imageEnhancer.ts';
+import { apiFetch } from '../lib/apiConfig.ts';
 import {
   X,
   Upload,
@@ -83,7 +84,7 @@ export const OriginalPhotoEnhancerModal: React.FC<OriginalPhotoEnhancerModalProp
 
           let finalUrl = enhancedDataUrl;
           try {
-            const res = await fetch('/api/upload-dish-photo', {
+            const res = await apiFetch('/api/upload-dish-photo', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

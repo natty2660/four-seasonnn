@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Restaurant } from '../types/index.ts';
 import { X, Upload, Crop, Check, ShieldCheck, RotateCcw, Sparkles } from 'lucide-react';
+import { apiFetch } from '../lib/apiConfig.ts';
 
 interface ConfidentialLogoCropModalProps {
   isOpen: boolean;
@@ -171,7 +172,7 @@ export const ConfidentialLogoCropModal: React.FC<ConfidentialLogoCropModalProps>
       onUpdateRestaurant(immediateRestaurant);
 
       // Persist to server disk & PostgreSQL blobs
-      const res = await fetch('/api/upload-brand-asset', {
+      const res = await apiFetch('/api/upload-brand-asset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

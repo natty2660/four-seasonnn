@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { VipTable } from '../types/index.ts';
 import { Crown, Sparkles, X, ArrowRight, ShieldCheck } from 'lucide-react';
+import { startVipSession } from '../lib/vipSession.ts';
 
 interface VipTableSelectorModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export const VipTableSelectorModal: React.FC<VipTableSelectorModalProps> = ({
       }
     }
 
+    startVipSession(currentSelected.id, currentSelected.table_number);
     onSelectTable(currentSelected);
     onClose();
   };

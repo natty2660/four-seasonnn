@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrandLogo } from './BrandLogo.tsx';
 import { Lock, X, AlertCircle, KeyRound } from 'lucide-react';
+import { apiFetch } from '../lib/apiConfig.ts';
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -25,7 +26,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/admin/login', {
+      const response = await apiFetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),

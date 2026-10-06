@@ -30,57 +30,19 @@ class NativeCallBridgeService {
 
   constructor() {
     this.isNative = Capacitor.isNativePlatform();
-    if (this.isNative) {
-      this.initNativeChannels();
-    }
+    // Phase 1: DO NOT automatically request notification permissions or trigger native service at startup
   }
 
-  // Initialize Native Android & iOS Notification Channels & Permissions
+  // Phase 1 Safe Channel Setup (No automatic startup permission requests)
   public async initNativeChannels(): Promise<void> {
     if (!this.isNative) return;
-
-    try {
-      // 1. Request local notification permissions
-      const perm = await LocalNotifications.requestPermissions();
-      if (perm.display === 'granted') {
-        // 2. Create High-Priority Notification Channel on Android for lock screen ringing
-        await LocalNotifications.createChannel({
-          id: 'vip_call_channel',
-          name: 'VIP Table Urgent Calls',
-          description: 'Phone-call style ringing, vibration, and locked-screen notification when VIP tables call',
-          importance: 5, // MAX importance (makes heads-up banner and sound)
-          visibility: 1, // VISIBILITY_PUBLIC (shows content on lockscreen)
-          sound: 'restaurant_bell.wav',
-          vibration: true,
-          lights: true,
-          lightColor: '#D4AF37',
-        });
-      }
-
-      // 3. Setup Push Notifications (FCM / APNs)
-      const pushPerm = await PushNotifications.requestPermissions();
-      if (pushPerm.receive === 'granted') {
-        await PushNotifications.register();
-      }
-    } catch (err: any) {
-      console.warn('[NativeBridge] Channel init notice:', err.message);
-    }
+    // In Phase 1, we do not prompt for POST_NOTIFICATIONS during initialization
   }
 
-  // Starts the Android Background Foreground Service so calls ring when app is closed / phone locked
+  // Phase 1: Foreground service is disabled to prevent crashes on Android 13/14
   public async startBackgroundService(waiterId: string, waiterName: string): Promise<void> {
     if (!this.isNative) return;
-    try {
-      const serverUrl = getServerBaseUrl();
-      await VipCallNative.startVipCallService({
-        waiterId,
-        waiterName,
-        serverUrl,
-      });
-      console.log('✅ Started native Android background Foreground Service for:', waiterName);
-    } catch (err: any) {
-      console.warn('Native background service init info:', err.message);
-    }
+    console.log('[Phase 1] Native background service start bypassed for:', waiterName, waiterId);
   }
 
   // Stops background service when waiter logs out or goes off duty
@@ -91,83 +53,20 @@ class NativeCallBridgeService {
     } catch {}
   }
 
-  // Register device push token with backend
+  // Register device push token with backend (Safe guard in Phase 1)
   public registerPushToken(waiterId: string): void {
     if (!this.isNative) return;
-
-    try {
-      PushNotifications.addListener('registration', async (token) => {
-        try {
-          const baseUrl = getServerBaseUrl();
-          await fetch(`${baseUrl}/api/waiter-push-tokens`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              waiter_id: waiterId,
-              token: token.value,
-              platform: Capacitor.getPlatform(),
-            }),
-          });
-          console.log('✅ Registered native push token with server for waiter:', waiterId);
-        } catch {}
-      });
-
-      PushNotifications.addListener('registrationError', (err) => {
-        console.warn('Native push registration error:', err);
-      });
-    } catch {}
+    // FCM push notifications will be fully wired in Phase 2
+    console.log('[Phase 1] Push token registration deferred for waiter:', waiterId);
   }
 
-  // Start Real Native Phone Ringing & Repeating Haptic Vibration
+  // Call Alert Trigger (In Phase 1, UI + in-app audio handled stably)
   public async triggerNativeCallAlert(call: WaiterCall): Promise<void> {
-    // 1. Call native Android plugin to wake lockscreen, play ALARM stream, and start continuous vibration
-    if (this.isNative) {
-      try {
-        await VipCallNative.triggerCallAlert({
-          callId: call.id,
-          tableNumber: call.table_number,
-          tableName: call.table_name || 'VIP Table',
-          callType: call.call_type || 'general',
-          isEscalated: Boolean(call.is_escalated),
-        });
-      } catch (err: any) {
-        console.warn('Failed calling native VipCallNative.triggerCallAlert:', err.message);
-      }
-    }
-
-    // 2. Start continuous repeating native haptic vibration fallback
-    this.startContinuousHaptics();
-
-    // 3. Fire high-priority lock-screen notification if on device
-    if (this.isNative) {
-      try {
-        const notifId = Math.abs(parseInt(call.id.replace(/\D/g, '').slice(-6) || '999', 10));
-        this.activeNotificationId = notifId;
-
-        await LocalNotifications.schedule({
-          notifications: [
-            {
-              id: notifId,
-              title: `👑 VIP CALL: ${call.table_number} (${call.table_name})`,
-              body: `Incoming ${call.call_type.toUpperCase()} request! Tap to open and accept now.`,
-              channelId: 'vip_call_channel',
-              sound: 'restaurant_bell.wav',
-              ongoing: true, // Cannot be swiped away until accepted!
-              autoCancel: false,
-              extra: {
-                callId: call.id,
-                tableNumber: call.table_number,
-              },
-            },
-          ],
-        });
-      } catch (e: any) {
-        console.warn('Failed scheduling local notification:', e.message);
-      }
-    }
+    // Phase 1: Keep app completely crash-free; avoid locked-screen alarm service
+    console.log('[Phase 1] In-app call alert received for table:', call.table_number);
   }
 
-  // Stop All Native Ringing, Haptics, and Clear Ongoing Lockscreen Notification
+  // Stop Call Alert
   public async stopNativeCallAlert(): Promise<void> {
     this.stopContinuousHaptics();
 
@@ -200,47 +99,36 @@ class NativeCallBridgeService {
   public async testDeviceHardware(): Promise<void> {
     if (this.isNative) {
       try {
-        await VipCallNative.testAlarmRinging();
-        setTimeout(() => {
-          this.stopNativeCallAlert();
-        }, 5000);
-      } catch {}
+        await Haptics.impact({ style: ImpactStyle.Heavy });
+      } catch (err: any) {
+        console.warn('Haptics test note:', err.message);
+      }
     }
   }
 
-  // Strong continuous haptic pulses for pocket alerts
+  // Repeating tactile vibration loop
   private startContinuousHaptics(): void {
-    if (this.isVibrating) return;
+    if (this.isVibrating || !this.isNative) return;
     this.isVibrating = true;
 
-    const vibrateOnce = async () => {
+    const pulse = async () => {
+      if (!this.isVibrating) return;
       try {
-        if (this.isNative) {
-          await Haptics.vibrate({ duration: 800 });
-          await Haptics.impact({ style: ImpactStyle.Heavy });
-        } else if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-          navigator.vibrate([500, 200, 500, 200, 800]);
-        }
+        await Haptics.impact({ style: ImpactStyle.Heavy });
       } catch {}
     };
 
-    vibrateOnce();
-    this.hapticsLoopId = window.setInterval(vibrateOnce, 2200);
+    pulse();
+    this.hapticsLoopId = window.setInterval(pulse, 1200);
   }
 
+  // Stop tactile vibration loop
   private stopContinuousHaptics(): void {
     this.isVibrating = false;
     if (this.hapticsLoopId !== null) {
       clearInterval(this.hapticsLoopId);
       this.hapticsLoopId = null;
     }
-    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(0);
-    }
-  }
-
-  public getIsNative(): boolean {
-    return this.isNative;
   }
 }
 

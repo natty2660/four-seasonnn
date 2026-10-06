@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Restaurant, Category, MenuItem, MealTime, VipTable, Waiter, WaiterCall } from '../types/index.ts';
 import { OWNER_TRANSCRIPTION_FLAGS } from '../data/seedData.ts';
 import { enhanceOriginalDishPhoto, matchFilenameToMenuItems } from '../lib/imageEnhancer.ts';
+import { apiFetch } from '../lib/apiConfig.ts';
 import { BrandLogo } from './BrandLogo.tsx';
 import { VipAdminManagement } from './VipAdminManagement.tsx';
 import {
@@ -131,7 +132,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setIsChangingPassword(true);
     try {
-      const res = await fetch('/api/admin/change-password', {
+      const res = await apiFetch('/api/admin/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +177,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchDbStatus = async () => {
     setIsCheckingDb(true);
     try {
-      const res = await fetch('/api/db/status');
+      const res = await apiFetch('/api/db/status');
       if (res.ok) {
         const data = await res.json();
         setDbStatus(data);
@@ -198,7 +199,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
     setIsResyncingDb(true);
     try {
-      const res = await fetch('/api/db/resync', {
+      const res = await apiFetch('/api/db/resync', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -242,7 +243,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateItems(updated);
 
     try {
-      await fetch(`/api/items/${item.id}`, {
+      await apiFetch(`/api/items/${item.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +264,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateItems(updated);
 
     try {
-      await fetch(`/api/items/${itemId}`, {
+      await apiFetch(`/api/items/${itemId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -299,7 +300,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsNewItemModal(false);
 
     try {
-      await fetch('/api/items', {
+      await apiFetch('/api/items', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

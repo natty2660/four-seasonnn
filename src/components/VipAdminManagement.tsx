@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { VipTable, Waiter, WaiterCall } from '../types/index.ts';
 import { generateQRCodeDataUrl, getVipTableUrl, downloadVipQRPNG } from '../lib/qr.ts';
+import { apiFetch } from '../lib/apiConfig.ts';
 import { BrandLogo } from './BrandLogo.tsx';
 import {
   Crown,
@@ -182,7 +183,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     if (!newTableNumber.trim()) return;
 
     try {
-      const res = await fetch('/api/vip-tables', {
+      const res = await apiFetch('/api/vip-tables', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -214,7 +215,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
 
   const handleUpdateTableWaiter = async (tableId: string, assignedWaiterId: string | null) => {
     try {
-      const res = await fetch(`/api/vip-tables/${tableId}`, {
+      const res = await apiFetch(`/api/vip-tables/${tableId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -237,7 +238,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
   const handleDeleteTable = async (tableId: string) => {
     if (!confirm('Are you sure you want to delete this VIP table?')) return;
     try {
-      const res = await fetch(`/api/vip-tables/${tableId}`, {
+      const res = await apiFetch(`/api/vip-tables/${tableId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -254,7 +255,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     if (!newWaiterName.trim()) return;
 
     try {
-      const res = await fetch('/api/waiters', {
+      const res = await apiFetch('/api/waiters', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -283,7 +284,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
 
   const handleToggleWaiterDuty = async (waiterId: string, currentDuty: boolean) => {
     try {
-      const res = await fetch(`/api/waiters/${waiterId}`, {
+      const res = await apiFetch(`/api/waiters/${waiterId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_on_duty: !currentDuty }),
@@ -300,7 +301,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
   const handleDeleteWaiter = async (waiterId: string) => {
     if (!confirm('Are you sure you want to delete this waiter?')) return;
     try {
-      const res = await fetch(`/api/waiters/${waiterId}`, {
+      const res = await apiFetch(`/api/waiters/${waiterId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -337,7 +338,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
   const handleClearHistory = async () => {
     if (!confirm('Clear all completed call logs?')) return;
     try {
-      await fetch('/api/waiter-calls/history', {
+      await apiFetch('/api/waiter-calls/history', {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -800,7 +801,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                   VIP Table QR Code Generator &amp; Direct Access System
                 </h3>
                 <p className="text-xs text-[#D4AF37]/80 mt-1 max-w-2xl leading-relaxed">
-                  Generate scannable QR codes for your physical table stands. When a VIP customer scans the code with their smartphone camera, they automatically gain VIP table access, view their dedicated waiter, and unlock one-tap waiter calling without manual PIN hassle.
+                  Generate scannable QR codes for your physical table stands. When a VIP customer scans the code with their smartphone camera, they automatically gain VIP table access for 4 hours, view their dedicated waiter, and unlock one-tap waiter calling. Access securely expires after 4 hours to prevent off-premise paging.
                 </p>
               </div>
 

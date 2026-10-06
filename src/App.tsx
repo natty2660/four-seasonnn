@@ -13,6 +13,13 @@ import {
   saveClientState,
   DatabaseState,
 } from './lib/storage.ts';
+import {
+  startVipSession,
+  getVipSession,
+  isVipSessionValid,
+} from './lib/vipSession.ts';
+import { Capacitor } from '@capacitor/core';
+import { apiFetch } from './lib/apiConfig.ts';
 import { PublicMenu } from './components/PublicMenu.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { AdminLoginModal } from './components/AdminLoginModal.tsx';
@@ -42,7 +49,14 @@ export default function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [currentPath, setCurrentPath] = useState(() => {
     if (typeof window !== 'undefined') {
-      return window.location.pathname;
+      const path = window.location.pathname;
+      // On native Capacitor Android APK, default app launch path to the Waiter Mobile App
+      if (Capacitor.isNativePlatform()) {
+        if (path === '/' || path === '/index.html' || path === '' || path === '/menu/prime-cafe') {
+          return '/waiter';
+        }
+      }
+      return path;
     }
     return '/menu/prime-cafe';
   });
@@ -64,28 +78,60 @@ export default function App() {
     }
   };
 
-  // Fetch / revalidate menu from backend API (Graceful revalidation)
+  // Fetch / revalidate menu, live waiters, VIP tables, and active calls from authoritative backend
   const refreshFromAPI = useCallback(async () => {
     try {
-      const res = await fetch('/api/menu/prime-cafe');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.restaurant && data.categories && data.items) {
-          setDbState((prevState) => {
-            const freshState: DatabaseState = {
-              ...prevState,
-              restaurant: data.restaurant,
-              categories: data.categories,
-              items: data.items,
-              last_updated: data.generated_at || new Date().toISOString(),
-            };
-            saveClientState(freshState);
-            return freshState;
-          });
-        }
+      const [menuRes, waitersRes, tablesRes, callsRes] = await Promise.allSettled([
+        apiFetch('/api/menu/prime-cafe'),
+        apiFetch('/api/waiters'),
+        apiFetch('/api/vip-tables'),
+        apiFetch('/api/waiter-calls'),
+      ]);
+
+      let freshMenuData: any = null;
+      if (menuRes.status === 'fulfilled' && menuRes.value.ok) {
+        freshMenuData = await menuRes.value.json().catch(() => null);
       }
-    } catch {
+
+      let freshWaiters: Waiter[] | null = null;
+      if (waitersRes.status === 'fulfilled' && waitersRes.value.ok) {
+        const w = await waitersRes.value.json().catch(() => null);
+        if (Array.isArray(w)) freshWaiters = w;
+      }
+
+      let freshTables: VipTable[] | null = null;
+      if (tablesRes.status === 'fulfilled' && tablesRes.value.ok) {
+        const t = await tablesRes.value.json().catch(() => null);
+        if (Array.isArray(t)) freshTables = t;
+      }
+
+      let freshCalls: WaiterCall[] | null = null;
+      if (callsRes.status === 'fulfilled' && callsRes.value.ok) {
+        const c = await callsRes.value.json().catch(() => null);
+        if (Array.isArray(c)) freshCalls = c;
+      }
+
+      setDbState((prevState) => {
+        const freshState: DatabaseState = {
+          ...prevState,
+          ...(freshMenuData?.restaurant && freshMenuData?.categories && freshMenuData?.items
+            ? {
+                restaurant: freshMenuData.restaurant,
+                categories: freshMenuData.categories,
+                items: freshMenuData.items,
+              }
+            : {}),
+          ...(freshWaiters ? { waiters: freshWaiters } : {}),
+          ...(freshTables ? { vip_tables: freshTables } : {}),
+          ...(freshCalls ? { waiter_calls: freshCalls } : {}),
+          last_updated: freshMenuData?.generated_at || new Date().toISOString(),
+        };
+        saveClientState(freshState);
+        return freshState;
+      });
+    } catch (err) {
       // Offline / serverless cold boot fallback: local client state already loaded
+      console.warn('API refresh notice (fallback to local state):', err);
     }
   }, []);
 
@@ -93,23 +139,43 @@ export default function App() {
     refreshFromAPI();
   }, [refreshFromAPI]);
 
-  // Real-time polling for live VIP waiter calls
+  // Real-time polling for live VIP waiter calls and waiter duty statuses
   useEffect(() => {
     const pollCalls = async () => {
       try {
-        const res = await fetch('/api/waiter-calls');
-        if (res.ok) {
-          const calls = await res.json();
-          if (Array.isArray(calls)) {
-            setDbState((prev) => {
-              if (JSON.stringify(prev.waiter_calls) !== JSON.stringify(calls)) {
-                const next = { ...prev, waiter_calls: calls };
-                saveClientState(next);
-                return next;
-              }
-              return prev;
-            });
-          }
+        const [callsRes, waitersRes] = await Promise.allSettled([
+          apiFetch('/api/waiter-calls'),
+          apiFetch('/api/waiters'),
+        ]);
+
+        let calls: WaiterCall[] | null = null;
+        if (callsRes.status === 'fulfilled' && callsRes.value.ok) {
+          const c = await callsRes.value.json().catch(() => null);
+          if (Array.isArray(c)) calls = c;
+        }
+
+        let waiters: Waiter[] | null = null;
+        if (waitersRes.status === 'fulfilled' && waitersRes.value.ok) {
+          const w = await waitersRes.value.json().catch(() => null);
+          if (Array.isArray(w)) waiters = w;
+        }
+
+        if (calls || waiters) {
+          setDbState((prev) => {
+            const hasCallDiff = calls && JSON.stringify(prev.waiter_calls) !== JSON.stringify(calls);
+            const hasWaiterDiff = waiters && JSON.stringify(prev.waiters) !== JSON.stringify(waiters);
+
+            if (hasCallDiff || hasWaiterDiff) {
+              const next: DatabaseState = {
+                ...prev,
+                ...(calls ? { waiter_calls: calls } : {}),
+                ...(waiters ? { waiters } : {}),
+              };
+              saveClientState(next);
+              return next;
+            }
+            return prev;
+          });
         }
       } catch {
         // Silent catch for offline or initial boot
@@ -117,7 +183,7 @@ export default function App() {
     };
 
     pollCalls();
-    const interval = setInterval(pollCalls, 3000);
+    const interval = setInterval(pollCalls, 2500);
     return () => clearInterval(interval);
   }, []);
 
@@ -132,7 +198,7 @@ export default function App() {
     saveClientState(next);
 
     if (adminToken) {
-      fetch('/api/restaurants', {
+      apiFetch('/api/restaurants', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +219,7 @@ export default function App() {
     saveClientState(next);
 
     if (adminToken) {
-      fetch('/api/categories/sync', {
+      apiFetch('/api/categories/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +240,7 @@ export default function App() {
     saveClientState(next);
 
     if (adminToken) {
-      fetch('/api/items/sync', {
+      apiFetch('/api/items/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -211,8 +277,14 @@ export default function App() {
     callType: CallType,
     message?: string
   ): Promise<boolean> => {
+    // Security check: 4-hour VIP session expiration
+    if (!isVipSessionValid(tableId)) {
+      console.warn('VIP session for table', tableId, 'has expired after 4 hours. Call blocked.');
+      return false;
+    }
+
     try {
-      const res = await fetch('/api/waiter-calls', {
+      const res = await apiFetch('/api/waiter-calls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ table_id: tableId, call_type: callType, message }),
@@ -242,7 +314,7 @@ export default function App() {
     waiterName: string
   ): Promise<void> => {
     try {
-      await fetch(`/api/waiter-calls/${callId}/accept`, {
+      await apiFetch(`/api/waiter-calls/${callId}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
@@ -273,7 +345,7 @@ export default function App() {
   // Waiter & Admin: Complete Call
   const handleCompleteCall = async (callId: string): Promise<void> => {
     try {
-      await fetch(`/api/waiter-calls/${callId}/complete`, { method: 'POST' });
+      await apiFetch(`/api/waiter-calls/${callId}/complete`, { method: 'POST' });
     } catch (e) {
       console.warn(e);
     }
@@ -298,7 +370,7 @@ export default function App() {
   // Customer & Admin: Cancel Call
   const handleCancelCall = async (callId: string): Promise<void> => {
     try {
-      await fetch(`/api/waiter-calls/${callId}/cancel`, { method: 'POST' });
+      await apiFetch(`/api/waiter-calls/${callId}/cancel`, { method: 'POST' });
     } catch (e) {
       console.warn(e);
     }
@@ -323,7 +395,7 @@ export default function App() {
   // Waiter: Toggle duty status
   const handleToggleDuty = async (waiterId: string, onDuty: boolean): Promise<void> => {
     try {
-      await fetch(`/api/waiters/${waiterId}`, {
+      await apiFetch(`/api/waiters/${waiterId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_on_duty: onDuty }),
@@ -361,10 +433,14 @@ export default function App() {
   };
 
   // Route matching
+  const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
   const urlSearch = typeof window !== 'undefined' ? window.location.search : '';
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(urlSearch) : new URLSearchParams();
   const tableQueryParam = searchParams.get('table') || searchParams.get('vip') || searchParams.get('vip_table');
-  const isWaiterRoute = currentPath === '/waiter' || currentPath.startsWith('/waiter/');
+  const isWaiterRoute =
+    currentPath === '/waiter' ||
+    currentPath.startsWith('/waiter/') ||
+    (isNative && (currentPath === '/' || currentPath === '/index.html' || currentPath === ''));
   const isVipRoute =
     currentPath === '/vip' ||
     currentPath.startsWith('/vip/') ||
@@ -422,10 +498,23 @@ export default function App() {
           (pin && pin.trim() === target.secret_code.trim());
 
         if (isAccessGranted) {
-          try {
-            sessionStorage.setItem('four_season_vip_access_table', target.id);
-          } catch {}
-          setSelectedVipTable(target);
+          const existingSession = getVipSession(target.id);
+          const isExplicitFreshScan =
+            urlParams.get('scan') === 'fresh' ||
+            urlParams.get('scan') === '1' ||
+            Boolean(pin && pin.trim() === target.secret_code?.trim());
+
+          if (existingSession && !isVipSessionValid(target.id) && !isExplicitFreshScan) {
+            // Session expired! Do not silently restart from saved link
+            setSelectedVipTable(target);
+          } else {
+            // First time scan, valid existing session, or fresh re-scan
+            if (!existingSession || isExplicitFreshScan) {
+              startVipSession(target.id, target.table_number);
+            }
+            setSelectedVipTable(target);
+          }
+
           if (currentPath !== '/vip') {
             setCurrentPath('/vip');
           }

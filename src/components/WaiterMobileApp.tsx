@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Waiter, VipTable, WaiterCall, CallType } from '../types/index.ts';
 import { callSound } from '../lib/callSound.ts';
 import { nativeCallBridge } from '../lib/nativeCallBridge.ts';
-import { getServerBaseUrl, setServerBaseUrl } from '../lib/apiConfig.ts';
+import { getServerBaseUrl, setServerBaseUrl, PRODUCTION_BACKEND_URL } from '../lib/apiConfig.ts';
 import { NativeIncomingCallScreen } from './NativeIncomingCallScreen.tsx';
 import { NativeAppInstallModal } from './NativeAppInstallModal.tsx';
 import {
@@ -71,12 +71,14 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   // Currently logged-in waiter
   const currentWaiter = waiters.find((w) => w.id === selectedWaiterId);
 
-  // Auto-start native Android background Foreground Service when waiter is active & on-duty
+  // Phase 1: Native background service startup disabled to stabilize Android APK
+  /*
   useEffect(() => {
     if (currentWaiter && currentWaiter.is_on_duty) {
       nativeCallBridge.startBackgroundService(currentWaiter.id, currentWaiter.name);
     }
   }, [currentWaiter?.id, currentWaiter?.is_on_duty, currentWaiter?.name]);
+  */
 
   // Save selected waiter to local storage and register push token
   const handleSelectWaiter = (waiter: Waiter) => {
@@ -91,8 +93,9 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     setPinInput('');
     setPinError(null);
     callSound.unlockAudio();
-    nativeCallBridge.registerPushToken(waiter.id);
-    nativeCallBridge.startBackgroundService(waiter.id, waiter.name);
+    // Phase 1: Background service disabled
+    // nativeCallBridge.registerPushToken(waiter.id);
+    // nativeCallBridge.startBackgroundService(waiter.id, waiter.name);
   };
 
   const handleLogout = () => {
@@ -385,10 +388,10 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setServerUrlInput('http://10.0.2.2:3000')}
+                  onClick={() => setServerUrlInput(PRODUCTION_BACKEND_URL)}
                   className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 cursor-pointer"
                 >
-                  Android Emulator
+                  Production Cloud Server
                 </button>
               </div>
 
@@ -574,10 +577,10 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setServerUrlInput('http://10.0.2.2:3000')}
+                onClick={() => setServerUrlInput(PRODUCTION_BACKEND_URL)}
                 className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 cursor-pointer"
               >
-                Android Emulator
+                Production Cloud Server
               </button>
             </div>
 

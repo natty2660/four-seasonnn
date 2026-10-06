@@ -57,7 +57,12 @@ public class VipCallService extends Service {
 
     public static String getStoredServerUrl(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL);
+        String url = prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL);
+        if (url == null || url.trim().isEmpty() || url.contains("10.0.2.2") || url.contains("127.0.0.1")) {
+            prefs.edit().putString(KEY_SERVER_URL, DEFAULT_SERVER_URL).apply();
+            return DEFAULT_SERVER_URL;
+        }
+        return url;
     }
 
     public static void setStoredServerUrl(Context context, String url) {

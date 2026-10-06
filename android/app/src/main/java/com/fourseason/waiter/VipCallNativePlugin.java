@@ -16,9 +16,9 @@ public class VipCallNativePlugin extends Plugin {
     private static final String DEFAULT_SERVER_URL = "https://ais-dev-ci7h2qy5u3hn6xucauliww-11082165761.europe-west2.run.app";
 
     private void persistServerUrl(Context context, String url) {
-        if (url != null && !url.isEmpty()) {
+        if (url != null && !url.trim().isEmpty() && !url.contains("10.0.2.2") && !url.contains("127.0.0.1")) {
             SharedPreferences prefs = context.getSharedPreferences("FourSeasonVip", Context.MODE_PRIVATE);
-            prefs.edit().putString("server_url", url).apply();
+            prefs.edit().putString("server_url", url.trim()).apply();
         }
     }
 

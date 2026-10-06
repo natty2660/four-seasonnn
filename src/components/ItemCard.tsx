@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MenuItem } from '../types/index.ts';
+import { getApiUrl } from '../lib/apiConfig.ts';
 import { Flame, Clock, Coffee, UtensilsCrossed, Sparkles } from 'lucide-react';
 
 interface ItemCardProps {
@@ -26,7 +27,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
       const filename = currentSrc.split('/').pop()?.split('?')[0];
       if (filename) {
         // Automatic fallback to API route which serves from PostgreSQL blob store
-        setCurrentSrc(`/api/images/${filename}`);
+        setCurrentSrc(getApiUrl(`/api/images/${filename}`));
         return;
       }
     }
