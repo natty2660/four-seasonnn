@@ -7,7 +7,6 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     cleartext: true,
-    appStartPath: 'waiter',
   },
   plugins: {
     LocalNotifications: {
