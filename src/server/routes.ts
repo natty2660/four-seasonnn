@@ -646,6 +646,7 @@ apiRouter.put('/waiters/:id', (req: Request, res: Response) => {
     id,
   };
   saveDatabase(db);
+  broadcastWaiterUpdate();
   res.json(db.waiters[index]);
 });
 
@@ -680,6 +681,62 @@ apiRouter.get('/waiter-calls', (_req: Request, res: Response) => {
   res.json(calls);
 });
 
+// --- Real-Time Server-Sent Events (SSE) Stream for Waiter Dashboard ---
+const sseClients = new Set<Response>();
+
+export function broadcastWaiterUpdate() {
+  const db = getDatabase();
+  const payload = JSON.stringify({
+    type: 'update',
+    calls: db.waiter_calls || [],
+    waiters: db.waiters || [],
+    timestamp: new Date().toISOString(),
+  });
+  const message = `data: ${payload}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(message);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+}
+
+// 20.1c Server-Sent Events (SSE) live stream for instant real-time waiter call alerts
+apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], (req: Request, res: Response) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+  });
+
+  const db = getDatabase();
+  const initial = JSON.stringify({
+    type: 'init',
+    calls: db.waiter_calls || [],
+    waiters: db.waiters || [],
+    timestamp: new Date().toISOString(),
+  });
+  res.write(`data: ${initial}\n\n`);
+
+  sseClients.add(res);
+
+  const keepAlive = setInterval(() => {
+    try {
+      res.write(': keepalive\n\n');
+    } catch {
+      clearInterval(keepAlive);
+      sseClients.delete(res);
+    }
+  }, 15000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    sseClients.delete(res);
+  });
+});
+
 // 20.1b Waiter Calls Active Endpoint (used by Android native background polling)
 apiRouter.get(['/waiter/calls/active', '/waiter-calls/active'], (_req: Request, res: Response) => {
   const db = getDatabase();
@@ -706,6 +763,7 @@ apiRouter.post(['/waiter/calls/:id/accept', '/waiter/calls/:id/dismiss', '/waite
     call.accepted_at = new Date().toISOString();
   }
   saveDatabase(db);
+  broadcastWaiterUpdate();
   res.json(call);
 });
 
@@ -738,6 +796,7 @@ apiRouter.post('/waiter-calls', (req: Request, res: Response) => {
   };
   db.waiter_calls.push(newCall);
   saveDatabase(db);
+  broadcastWaiterUpdate();
   res.status(201).json(newCall);
 });
 
@@ -757,6 +816,7 @@ apiRouter.post('/waiter-calls/:id/accept', (req: Request, res: Response) => {
   call.accepted_by_name = waiter_name || 'Staff Member';
   call.accepted_at = new Date().toISOString();
   saveDatabase(db);
+  broadcastWaiterUpdate();
   res.json(call);
 });
 
@@ -773,6 +833,7 @@ apiRouter.post('/waiter-calls/:id/complete', (req: Request, res: Response) => {
   call.status = 'completed';
   call.completed_at = new Date().toISOString();
   saveDatabase(db);
+  broadcastWaiterUpdate();
   res.json(call);
 });
 
@@ -789,6 +850,7 @@ apiRouter.post('/waiter-calls/:id/cancel', (req: Request, res: Response) => {
   call.status = 'cancelled';
   call.completed_at = new Date().toISOString();
   saveDatabase(db);
+  broadcastWaiterUpdate();
   res.json(call);
 });
 

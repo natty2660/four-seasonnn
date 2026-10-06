@@ -19,7 +19,7 @@ import {
   isVipSessionValid,
 } from './lib/vipSession.ts';
 import { Capacitor } from '@capacitor/core';
-import { apiFetch } from './lib/apiConfig.ts';
+import { apiFetch, isNativeApp, getApiUrl } from './lib/apiConfig.ts';
 import { PublicMenu } from './components/PublicMenu.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { AdminLoginModal } from './components/AdminLoginModal.tsx';
@@ -51,7 +51,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       // On native Capacitor Android APK, default app launch path to the Waiter Mobile App
-      if (Capacitor.isNativePlatform()) {
+      if (isNativeApp()) {
         if (path === '/' || path === '/index.html' || path === '' || path === '/menu/prime-cafe') {
           return '/waiter';
         }
@@ -139,8 +139,11 @@ export default function App() {
     refreshFromAPI();
   }, [refreshFromAPI]);
 
-  // Real-time polling for live VIP waiter calls and waiter duty statuses
+  // Real-time synchronization: Server-Sent Events (SSE) stream + controlled polling fallback
   useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let pollInterval: any = null;
+
     const pollCalls = async () => {
       try {
         const [callsRes, waitersRes] = await Promise.allSettled([
@@ -182,9 +185,49 @@ export default function App() {
       }
     };
 
+    // 1. Initial revalidation
     pollCalls();
-    const interval = setInterval(pollCalls, 2500);
-    return () => clearInterval(interval);
+
+    // 2. Connect to Server-Sent Events (SSE) stream for instant real-time pushes
+    try {
+      const streamUrl = getApiUrl('/api/waiter-calls/stream');
+      eventSource = new EventSource(streamUrl);
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data && (data.calls || data.waiters)) {
+            setDbState((prev) => {
+              const next: DatabaseState = {
+                ...prev,
+                ...(Array.isArray(data.calls) ? { waiter_calls: data.calls } : {}),
+                ...(Array.isArray(data.waiters) ? { waiters: data.waiters } : {}),
+              };
+              saveClientState(next);
+              return next;
+            });
+          }
+        } catch {}
+      };
+
+      eventSource.onerror = () => {
+        // If SSE stream is interrupted, controlled polling maintains real-time sync
+      };
+    } catch (e) {
+      console.warn('SSE stream setup note:', e);
+    }
+
+    // 3. Controlled polling interval (resilient diagnostic & fallback)
+    pollInterval = setInterval(pollCalls, 3000);
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
   }, []);
 
   // State update handlers that persist immediately to localStorage & server
@@ -433,14 +476,14 @@ export default function App() {
   };
 
   // Route matching
-  const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
+  const isNative = typeof window !== 'undefined' && isNativeApp();
   const urlSearch = typeof window !== 'undefined' ? window.location.search : '';
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(urlSearch) : new URLSearchParams();
   const tableQueryParam = searchParams.get('table') || searchParams.get('vip') || searchParams.get('vip_table');
   const isWaiterRoute =
     currentPath === '/waiter' ||
     currentPath.startsWith('/waiter/') ||
-    (isNative && (currentPath === '/' || currentPath === '/index.html' || currentPath === ''));
+    (isNative && (currentPath === '/' || currentPath === '/index.html' || currentPath === '' || currentPath === '/menu/prime-cafe'));
   const isVipRoute =
     currentPath === '/vip' ||
     currentPath.startsWith('/vip/') ||

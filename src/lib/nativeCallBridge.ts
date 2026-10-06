@@ -1,9 +1,8 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { registerPlugin } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { PushNotifications } from '@capacitor/push-notifications';
 import { WaiterCall } from '../types/index.ts';
-import { getServerBaseUrl } from './apiConfig.ts';
+import { isNativeApp } from './apiConfig.ts';
 
 interface VipCallNativePluginInterface {
   startVipCallService(options: { waiterId: string; waiterName: string; serverUrl: string }): Promise<{ started: boolean }>;
@@ -29,7 +28,7 @@ class NativeCallBridgeService {
   private activeNotificationId: number | null = null;
 
   constructor() {
-    this.isNative = Capacitor.isNativePlatform();
+    this.isNative = isNativeApp();
     // Phase 1: DO NOT automatically request notification permissions or trigger native service at startup
   }
 

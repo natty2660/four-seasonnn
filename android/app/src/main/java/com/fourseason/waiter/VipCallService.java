@@ -84,8 +84,20 @@ public class VipCallService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent != null ? intent.getAction() : null;
 
-        // Ensure service runs as high-priority foreground service
-        startForeground(NOTIFICATION_SERVICE_ID, buildForegroundNotification("Monitoring VIP Table Calls"));
+        // Ensure service runs as high-priority foreground service with crash safety
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_SERVICE_ID,
+                    buildForegroundNotification("Monitoring VIP Table Calls"),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                );
+            } else {
+                startForeground(NOTIFICATION_SERVICE_ID, buildForegroundNotification("Monitoring VIP Table Calls"));
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "Safe startForeground catch: " + t.getMessage());
+        }
 
         if (intent != null && intent.hasExtra("server_url")) {
             String incomingUrl = intent.getStringExtra("server_url");
@@ -138,10 +150,14 @@ public class VipCallService extends Service {
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (alarmManager != null) {
             long triggerAt = System.currentTimeMillis() + 1000;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+                } else {
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "Exact alarm permission not granted: " + t.getMessage());
             }
         }
     }
@@ -457,39 +473,47 @@ public class VipCallService extends Service {
 
     private void createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager nm = getSystemService(NotificationManager.class);
-            if (nm == null) return;
+            try {
+                NotificationManager nm = getSystemService(NotificationManager.class);
+                if (nm == null) return;
 
-            // Background Service Channel
-            NotificationChannel serviceChannel = new NotificationChannel(
-                CHANNEL_SERVICE_ID,
-                "VIP Waiter Service Background Monitor",
-                NotificationManager.IMPORTANCE_LOW
-            );
-            serviceChannel.setDescription("Keeps waiter app connected to VIP table call requests");
-            nm.createNotificationChannel(serviceChannel);
+                // Background Service Channel
+                NotificationChannel serviceChannel = new NotificationChannel(
+                    CHANNEL_SERVICE_ID,
+                    "VIP Waiter Service Background Monitor",
+                    NotificationManager.IMPORTANCE_LOW
+                );
+                serviceChannel.setDescription("Keeps waiter app connected to VIP table call requests");
+                nm.createNotificationChannel(serviceChannel);
 
-            // High Priority Alarm Channel
-            NotificationChannel alarmChannel = new NotificationChannel(
-                CHANNEL_ALARM_ID,
-                "VIP Table Urgent Calls",
-                NotificationManager.IMPORTANCE_HIGH
-            );
-            alarmChannel.setDescription("Full-screen notifications and loud alarms for VIP table service");
-            alarmChannel.setBypassDnd(true);
-            alarmChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-            alarmChannel.enableVibration(true);
-            alarmChannel.setVibrationPattern(new long[]{0, 800, 400, 800, 400, 1000});
+                // High Priority Alarm Channel
+                NotificationChannel alarmChannel = new NotificationChannel(
+                    CHANNEL_ALARM_ID,
+                    "VIP Table Urgent Calls",
+                    NotificationManager.IMPORTANCE_HIGH
+                );
+                alarmChannel.setDescription("Full-screen notifications and loud alarms for VIP table service");
+                try {
+                    alarmChannel.setBypassDnd(true);
+                } catch (Throwable t) {
+                    Log.w(TAG, "DND bypass setting not permitted: " + t.getMessage());
+                }
+                alarmChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                alarmChannel.enableVibration(true);
+                alarmChannel.setVibrationPattern(new long[]{0, 800, 400, 800, 400, 1000});
 
-            AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
-                .build();
-            Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.restaurant_bell);
-            alarmChannel.setSound(soundUri, audioAttributes);
+                AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                    .build();
+                Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.restaurant_bell);
+                alarmChannel.setSound(soundUri, audioAttributes);
 
-            nm.createNotificationChannel(alarmChannel);
+                nm.createNotificationChannel(alarmChannel);
+            } catch (Throwable t) {
+                Log.e(TAG, "createNotificationChannels safe catch: " + t.getMessage());
+            }
         }
     }
 

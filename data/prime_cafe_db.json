@@ -1510,12 +1510,12 @@
     },
     {
       "id": "waiter_1791176454976_272",
-      "name": "gd",
       "pin": "1234",
+      "name": "gd",
       "phone": "09765444",
-      "is_on_duty": true,
       "is_active": true,
-      "created_at": "2026-10-05T05:00:54.976Z"
+      "created_at": "2026-10-05T05:00:54.976Z",
+      "is_on_duty": true
     }
   ],
   "waiter_calls": [
@@ -1566,7 +1566,24 @@
       "accepted_by_name": null,
       "assigned_waiter_id": "waiter_1",
       "accepted_by_waiter_id": null
+    },
+    {
+      "id": "call_1791274052660_249",
+      "table_id": "vip_1",
+      "table_number": "VIP-1",
+      "table_name": "Royal Gold Suite",
+      "call_type": "water",
+      "message": "Please bring sparkling water",
+      "status": "completed",
+      "assigned_waiter_id": "waiter_1791176454976_272",
+      "is_escalated": false,
+      "original_waiter_id": "waiter_1791176454976_272",
+      "created_at": "2026-10-06T08:07:32.660Z",
+      "accepted_by_waiter_id": "waiter_1",
+      "accepted_by_name": "Abebe Tsegaye",
+      "accepted_at": "2026-10-06T08:07:38.619Z",
+      "completed_at": "2026-10-06T08:07:43.033Z"
     }
   ],
-  "last_updated": "2026-10-05T04:54:06.452Z"
+  "last_updated": "2026-10-06T08:07:12.634Z"
 }

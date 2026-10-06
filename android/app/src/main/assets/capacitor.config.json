@@ -4,7 +4,8 @@
 	"webDir": "dist",
 	"server": {
 		"androidScheme": "https",
-		"cleartext": true
+		"cleartext": true,
+		"appStartPath": "waiter"
 	},
 	"plugins": {
 		"LocalNotifications": {

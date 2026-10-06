@@ -33,14 +33,18 @@ public class VipCallNativePlugin extends Plugin {
         Context context = getContext();
         persistServerUrl(context, serverUrl);
 
-        Intent serviceIntent = new Intent(context, VipCallService.class);
-        serviceIntent.setAction(VipCallService.ACTION_START_LISTENING);
-        serviceIntent.putExtra("server_url", serverUrl);
+        try {
+            Intent serviceIntent = new Intent(context, VipCallService.class);
+            serviceIntent.setAction(VipCallService.ACTION_START_LISTENING);
+            serviceIntent.putExtra("server_url", serverUrl);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(serviceIntent);
-        } else {
-            context.startService(serviceIntent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent);
+            } else {
+                context.startService(serviceIntent);
+            }
+        } catch (Throwable t) {
+            android.util.Log.e("VipCallNativePlugin", "Error starting monitor service: " + t.getMessage());
         }
 
         JSObject ret = new JSObject();
@@ -57,9 +61,13 @@ public class VipCallNativePlugin extends Plugin {
     @PluginMethod
     public void stopMonitoring(PluginCall call) {
         Context context = getContext();
-        Intent serviceIntent = new Intent(context, VipCallService.class);
-        serviceIntent.setAction(VipCallService.ACTION_STOP_LISTENING);
-        context.stopService(serviceIntent);
+        try {
+            Intent serviceIntent = new Intent(context, VipCallService.class);
+            serviceIntent.setAction(VipCallService.ACTION_STOP_LISTENING);
+            context.stopService(serviceIntent);
+        } catch (Throwable t) {
+            android.util.Log.e("VipCallNativePlugin", "Error stopping monitor service: " + t.getMessage());
+        }
 
         JSObject ret = new JSObject();
         ret.put("stopped", true);
@@ -85,17 +93,21 @@ public class VipCallNativePlugin extends Plugin {
         String customerName = call.getString("customerName", "VIP Customer");
         String notes = call.getString("notes", "Urgent VIP assistance requested");
 
-        Intent alarmIntent = new Intent(context, VipCallService.class);
-        alarmIntent.setAction(VipCallService.ACTION_TRIGGER_ALARM);
-        alarmIntent.putExtra("call_id", callId);
-        alarmIntent.putExtra("table_number", tableNumber);
-        alarmIntent.putExtra("customer_name", customerName);
-        alarmIntent.putExtra("notes", notes);
+        try {
+            Intent alarmIntent = new Intent(context, VipCallService.class);
+            alarmIntent.setAction(VipCallService.ACTION_TRIGGER_ALARM);
+            alarmIntent.putExtra("call_id", callId);
+            alarmIntent.putExtra("table_number", tableNumber);
+            alarmIntent.putExtra("customer_name", customerName);
+            alarmIntent.putExtra("notes", notes);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(alarmIntent);
-        } else {
-            context.startService(alarmIntent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(alarmIntent);
+            } else {
+                context.startService(alarmIntent);
+            }
+        } catch (Throwable t) {
+            android.util.Log.e("VipCallNativePlugin", "Error triggering alarm service: " + t.getMessage());
         }
 
         JSObject ret = new JSObject();
@@ -117,11 +129,15 @@ public class VipCallNativePlugin extends Plugin {
     @PluginMethod
     public void stopRinging(PluginCall call) {
         Context context = getContext();
-        VipCallService.stopAlarmAudio(context);
+        try {
+            VipCallService.stopAlarmAudio(context);
 
-        Intent stopIntent = new Intent(context, VipCallService.class);
-        stopIntent.setAction(VipCallService.ACTION_STOP_ALARM);
-        context.startService(stopIntent);
+            Intent stopIntent = new Intent(context, VipCallService.class);
+            stopIntent.setAction(VipCallService.ACTION_STOP_ALARM);
+            context.startService(stopIntent);
+        } catch (Throwable t) {
+            android.util.Log.e("VipCallNativePlugin", "Error stopping alarm: " + t.getMessage());
+        }
 
         JSObject ret = new JSObject();
         ret.put("stopped", true);

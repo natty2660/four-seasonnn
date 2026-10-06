@@ -410,7 +410,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
 
       const itemId = editingItem?.id || `item_${Date.now()}`;
-      const res = await fetch('/api/upload-dish-photo', {
+      const res = await apiFetch('/api/upload-dish-photo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -462,7 +462,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         applyVignette: true,
       });
 
-      const res = await fetch('/api/upload-dish-photo', {
+      const res = await apiFetch('/api/upload-dish-photo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -514,7 +514,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               applyVignette: true,
             });
 
-            const res = await fetch('/api/upload-dish-photo', {
+            const res = await apiFetch('/api/upload-dish-photo', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
