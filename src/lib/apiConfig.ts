@@ -7,6 +7,71 @@ export const PRODUCTION_BACKEND_URL =
 const SERVER_URL_KEY = 'four_season_server_url';
 
 /**
+ * Bulletproof native platform detector.
+ * Returns true if running inside the Capacitor Android/iOS application.
+ * Returns false when accessed via standard web browser.
+ */
+export function isNativeApp(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  // 1. Official Capacitor isNativePlatform
+  try {
+    if (Capacitor.isNativePlatform()) return true;
+  } catch {}
+
+  // 2. Window Capacitor object or bridge
+  const win = window as any;
+  if (win.Capacitor) {
+    try {
+      if (typeof win.Capacitor.isNativePlatform === 'function' && win.Capacitor.isNativePlatform()) {
+        return true;
+      }
+      if (typeof win.Capacitor.getPlatform === 'function' && win.Capacitor.getPlatform() !== 'web') {
+        return true;
+      }
+      if (win.Capacitor.platform && win.Capacitor.platform !== 'web') {
+        return true;
+      }
+    } catch {}
+  }
+
+  // 3. Android WebView bridge injected by Capacitor or native MainActivity
+  if (win.androidBridge != null || win.AndroidNativeApp != null) {
+    return true;
+  }
+
+  // 4. iOS WebKit bridge
+  if (win.webkit?.messageHandlers?.bridge != null) {
+    return true;
+  }
+
+  // 5. Native protocols
+  const protocol = window.location.protocol;
+  if (protocol === 'capacitor:' || protocol === 'ionic:') {
+    return true;
+  }
+
+  // 6. Running on localhost inside Android WebView
+  // In Capacitor Android APK, static assets are hosted locally on https://localhost (port '')
+  // Web browser visitors on production are on *.run.app or a custom domain, never localhost.
+  // Local Vite development runs specifically on port 3000.
+  const hostname = window.location.hostname;
+  const port = window.location.port;
+  const ua = navigator.userAgent || '';
+  const isAndroidUA = /Android/i.test(ua);
+  const isWebViewUA = /wv|Version\/[0-9.]+/i.test(ua);
+
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    // If it's an Android WebView or running on standard https localhost without dev port 3000
+    if (isAndroidUA || isWebViewUA || (protocol === 'https:' && port === '')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Returns the authoritative server base URL.
  * Physical Android APK connects directly to PRODUCTION_BACKEND_URL.
  * Browser connects to current origin.
@@ -26,8 +91,8 @@ export function getServerBaseUrl(): string {
     }
   }
 
-  // Native Capacitor Android APK always defaults to authoritative production backend
-  if (Capacitor.isNativePlatform()) {
+  // Native Capacitor Android APK always connects to authoritative production backend
+  if (isNativeApp()) {
     return PRODUCTION_BACKEND_URL;
   }
 
@@ -59,7 +124,7 @@ export function getApiUrl(endpoint: string): string {
     return cleanEndpoint;
   }
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativeApp()) {
     const base = getServerBaseUrl();
     return `${base}${cleanEndpoint}`;
   }
