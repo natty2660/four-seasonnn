@@ -454,7 +454,14 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
           <p className="text-[#111111] font-semibold leading-relaxed text-xs">
             Contemporary Coffee Lounge · Gourmet Restaurant
           </p>
-          <div className="pt-2 text-[11px] text-[#080808]">
+          <div className="pt-2 text-[11px] text-[#080808] flex items-center justify-center gap-4">
+            <a
+              href="/waiter"
+              className="text-[#080808] hover:underline cursor-pointer font-extrabold flex items-center gap-1"
+            >
+              <span>🔔</span> Waiter App
+            </a>
+            <span className="opacity-40">·</span>
             <button
               onClick={onOpenAdmin}
               className="text-[#080808] hover:underline cursor-pointer font-extrabold"

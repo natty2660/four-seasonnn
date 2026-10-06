@@ -1,8 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 
 // ONE authoritative production backend URL across the entire project
-export const PRODUCTION_BACKEND_URL =
-  'https://ais-dev-ci7h2qy5u3hn6xucauliww-11082165761.europe-west2.run.app';
+export const PRODUCTION_BACKEND_URL = 'https://four-seasonnn.vercel.app';
 
 const SERVER_URL_KEY = 'four_season_server_url';
 
