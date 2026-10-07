@@ -459,7 +459,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
               href="/waiter"
               className="text-[#080808] hover:underline cursor-pointer font-extrabold flex items-center gap-1"
             >
-              <span>🔔</span> Waiter App
+              <span>🔒</span> Staff Waiter App
             </a>
             <span className="opacity-40">·</span>
             <button
