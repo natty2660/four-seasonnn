@@ -258,7 +258,7 @@ public class VipCallService extends Service {
         startAlarmAudio(this);
 
         // 3. Activity Intent
-        Intent activityIntent = new Intent(this, IncomingCallActivity.class);
+        Intent activityIntent = new Intent(this, MainActivity.class);
         activityIntent.addFlags(
             Intent.FLAG_ACTIVITY_NEW_TASK |
             Intent.FLAG_ACTIVITY_CLEAR_TOP |
@@ -286,7 +286,7 @@ public class VipCallService extends Service {
         );
 
         // Accept Action Intent
-        Intent acceptIntent = new Intent(this, IncomingCallActivity.class);
+        Intent acceptIntent = new Intent(this, MainActivity.class);
         acceptIntent.putExtras(activityIntent);
         acceptIntent.putExtra("user_action", "accept");
         PendingIntent acceptPendingIntent = PendingIntent.getActivity(
