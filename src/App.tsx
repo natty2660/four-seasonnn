@@ -52,7 +52,7 @@ export default function App() {
       const path = window.location.pathname;
       // On native Capacitor Android APK, default app launch path to the Waiter Mobile App
       if (isNativeApp()) {
-        if (path === '/' || path === '/index.html' || path === '' || path === '/menu/prime-cafe') {
+        if (path === '/' || path === '/index.html' || path === '' || path === '/menu/prime-cafe' || !path) {
           return '/waiter';
         }
       }
@@ -60,6 +60,19 @@ export default function App() {
     }
     return '/menu/prime-cafe';
   });
+
+  // Enforce Waiter Mobile App route upon initial load of native Capacitor Android APK
+  useEffect(() => {
+    if (isNativeApp()) {
+      const p = typeof window !== 'undefined' ? window.location.pathname : '';
+      if (p === '/' || p === '/index.html' || p === '' || p === '/menu/prime-cafe' || !p) {
+        setCurrentPath('/waiter');
+        if (typeof window !== 'undefined') {
+          window.history.replaceState({}, '', '/waiter');
+        }
+      }
+    }
+  }, []);
 
   // Keep route synced with browser history
   useEffect(() => {
@@ -669,6 +682,7 @@ export default function App() {
           categories={dbState.categories}
           items={dbState.items}
           onOpenAdmin={handleOpenAdminTrigger}
+          onOpenWaiterApp={() => navigateTo('/waiter')}
         />
       )}
 

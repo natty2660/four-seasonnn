@@ -16,6 +16,7 @@ export function isNativeApp(): boolean {
   // 1. Official Capacitor isNativePlatform
   try {
     if (Capacitor.isNativePlatform()) return true;
+    if (Capacitor.getPlatform() === 'android' || Capacitor.getPlatform() === 'ios') return true;
   } catch {}
 
   // 2. Window Capacitor object or bridge
@@ -35,7 +36,7 @@ export function isNativeApp(): boolean {
   }
 
   // 3. Android WebView bridge injected by Capacitor or native MainActivity
-  if (win.androidBridge != null || win.AndroidNativeApp != null) {
+  if (win.androidBridge != null || win.AndroidNativeApp != null || win._capacitor != null) {
     return true;
   }
 
@@ -50,19 +51,14 @@ export function isNativeApp(): boolean {
     return true;
   }
 
-  // 6. Running on localhost inside Android WebView
-  // In Capacitor Android APK, static assets are hosted locally on https://localhost (port '')
-  // Web browser visitors on production are on *.run.app or a custom domain, never localhost.
-  // Local Vite development runs specifically on port 3000.
+  // 6. Running on localhost inside Android WebView (Capacitor serves dist at https://localhost with no port)
+  // Local Vite development runs strictly on port 3000.
   const hostname = window.location.hostname;
   const port = window.location.port;
-  const ua = navigator.userAgent || '';
-  const isAndroidUA = /Android/i.test(ua);
-  const isWebViewUA = /wv|Version\/[0-9.]+/i.test(ua);
 
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // If it's an Android WebView or running on standard https localhost without dev port 3000
-    if (isAndroidUA || isWebViewUA || (protocol === 'https:' && port === '')) {
+    // If not on dev port 3000, it is 100% running inside the Capacitor Android APK
+    if (port !== '3000') {
       return true;
     }
   }
@@ -83,7 +79,7 @@ export function getServerBaseUrl(): string {
   if (stored) {
     const trimmed = stored.trim();
     // Invalidate legacy emulator loopback URLs that fail on physical devices
-    if (trimmed.includes('10.0.2.2') || trimmed.includes('127.0.0.1')) {
+    if (trimmed.includes('10.0.2.2') || trimmed.includes('127.0.0.1') || trimmed.includes('localhost')) {
       localStorage.removeItem(SERVER_URL_KEY);
     } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed.replace(/\/$/, '');
@@ -91,7 +87,12 @@ export function getServerBaseUrl(): string {
   }
 
   // Native Capacitor Android APK always connects to authoritative production backend
-  if (isNativeApp()) {
+  const isCapacitorLocal =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+    window.location.port !== '3000';
+
+  if (isNativeApp() || isCapacitorLocal) {
     return PRODUCTION_BACKEND_URL;
   }
 
