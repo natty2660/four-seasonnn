@@ -319,6 +319,29 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     }
   };
 
+  const handleUpdateWaiterPin = async (waiterId: string, currentPin: string, waiterName: string) => {
+    const input = prompt(`Enter new 4-digit security PIN for ${waiterName}:`, currentPin || '1234');
+    if (!input || input.trim() === currentPin) return;
+    const cleanPin = input.trim();
+    try {
+      const res = await apiFetch(`/api/waiters/${waiterId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ pin: cleanPin }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        onUpdateWaiters(waiters.map((w) => (w.id === waiterId ? { ...w, pin: cleanPin, ...updated } : w)));
+        alert(`Security PIN for ${waiterName} successfully updated to ${cleanPin}.`);
+      }
+    } catch (err) {
+      console.error('Failed to update waiter PIN:', err);
+    }
+  };
+
   const handleOpenTableQR = async (table: VipTable) => {
     setSelectedQRTable(table);
     const tableUrl = getVipTableUrl(table.table_number);
@@ -712,6 +735,29 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
       {/* 3. STAFF WAITERS MANAGER TAB */}
       {activeTab === 'waiters' && (
         <div className="space-y-4">
+          {/* Security & Lock Policy Notice */}
+          <div className="bg-[#1C180E] border border-[#D4AF37]/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40 flex items-center justify-center shrink-0 mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-[#FCF6BA] uppercase tracking-wider">
+                  Waiter App Access Security Lock Active
+                </h4>
+                <p className="text-[11px] text-white/70 mt-0.5 leading-relaxed">
+                  The Waiter App is securely locked against unauthorized public access. Staff must enter their 4-digit PIN to unlock their workspace. Master Manager Passcode: <span className="font-mono text-[#FCF6BA] font-bold">2026</span>.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsAddWaiterOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs shadow hover:brightness-110 transition-all cursor-pointer shrink-0 self-start sm:self-center"
+            >
+              + Add New Waiter
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {waiters.map((w) => {
               const assigned = vipTables.filter((t) => t.assigned_waiter_id === w.id);
@@ -728,8 +774,17 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                         </div>
                         <div>
                           <div className="font-bold text-sm text-[#FCF6BA]">{w.name}</div>
-                          <div className="text-[10px] text-white/50 flex items-center gap-1 font-mono">
-                            PIN: {w.pin || '1234'}
+                          <div className="text-[10px] text-white/50 flex items-center gap-1.5 font-mono">
+                            <span>PIN:</span>
+                            <span className="text-[#FCF6BA] font-bold">{w.pin || '1234'}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateWaiterPin(w.id, w.pin || '1234', w.name)}
+                              className="text-[9px] text-[#D4AF37] hover:underline cursor-pointer ml-1"
+                              title="Edit Staff PIN"
+                            >
+                              [Edit PIN]
+                            </button>
                           </div>
                         </div>
                       </div>

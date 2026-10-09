@@ -274,7 +274,7 @@ public class VipCallService extends Service {
         try {
             startActivity(activityIntent);
         } catch (Exception e) {
-            Log.e(TAG, "Could not launch IncomingCallActivity directly: " + e.getMessage());
+            Log.e(TAG, "Could not launch MainActivity directly: " + e.getMessage());
         }
 
         // 4. Full-Screen Intent Notification for lock screen display
@@ -307,7 +307,7 @@ public class VipCallService extends Service {
         );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ALARM_ID)
-            .setSmallIcon(R.drawable.ic_stat_bell)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle("⭐ VIP TABLE " + tableNumber + " CALLING")
             .setContentText(customerName + " - " + notes)
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -385,30 +385,21 @@ public class VipCallService extends Service {
                 .build();
 
             // Load and loop bell sound
-            try {
-                Uri soundUri = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.restaurant_bell);
-                sMediaPlayer = new MediaPlayer();
-                sMediaPlayer.setDataSource(context, soundUri);
-                sMediaPlayer.setAudioAttributes(audioAttributes);
-                sMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
-                sMediaPlayer.setLooping(true);
-                sMediaPlayer.setVolume(1.0f, 1.0f);
-                sMediaPlayer.prepare();
-                sMediaPlayer.start();
-            } catch (Exception rawEx) {
-                Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-                if (alarmUri == null) {
-                    alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-                }
-                sMediaPlayer = new MediaPlayer();
-                sMediaPlayer.setDataSource(context, alarmUri);
-                sMediaPlayer.setAudioAttributes(audioAttributes);
-                sMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
-                sMediaPlayer.setLooping(true);
-                sMediaPlayer.setVolume(1.0f, 1.0f);
-                sMediaPlayer.prepare();
-                sMediaPlayer.start();
+            Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (alarmUri == null) {
+                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
             }
+            if (alarmUri == null) {
+                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            }
+            sMediaPlayer = new MediaPlayer();
+            sMediaPlayer.setDataSource(context, alarmUri);
+            sMediaPlayer.setAudioAttributes(audioAttributes);
+            sMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
+            sMediaPlayer.setLooping(true);
+            sMediaPlayer.setVolume(1.0f, 1.0f);
+            sMediaPlayer.prepare();
+            sMediaPlayer.start();
 
             // Start strong repeating vibration
             sVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);

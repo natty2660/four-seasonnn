@@ -187,12 +187,12 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_breakfast",
     "name": "Egg with meat",
-    "description": "Scrambled eggs sautéed together with tender seasoned beef cubes, onions, and tomatoes.",
-    "image_url": "/assets/images/egg with meat.jpg",
+    "description": "Scrambled eggs sautéed together with tender seasoned beef cubes, onions, tomatoes, and herbs.",
+    "image_url": "/assets/images/egg_with_meat_1791366460682.jpg",
     "is_available": true,
     "display_order": 8,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-03T11:49:25.329Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "bf_07",
@@ -251,11 +251,11 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_breakfast",
     "name": "Pines",
     "description": "Savory seasoned breakfast beans sautéed with onions, tomatoes, garlic, and herbs.",
-    "image_url": "/assets/images/pines.jpg",
+    "image_url": "/assets/images/pines_dish_1791366473133.jpg",
     "is_available": true,
     "display_order": 13,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-03T11:49:25.329Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "bf_chachbsa",
@@ -399,12 +399,12 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_launch",
     "name": "Key Wet",
     "description": "Traditional spicy beef stew slow-cooked in rich berbere sauce and seasoned butter.",
-    "image_url": "/assets/images/item_key_wet.jpg",
+    "image_url": "/assets/images/key_wet_1791366486867.jpg",
     "is_available": true,
     "display_order": 11,
     "is_spicy": true,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "ln_pasta_with_kitfo",
@@ -767,13 +767,13 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_fast_food",
     "name": "Full Chicken",
-    "description": "Whole golden roasted and seasoned chicken served hot with house sauces.",
-    "image_url": "/assets/images/full chicken.jpg",
+    "description": "Whole golden roasted and seasoned chicken surrounded with fragrant spiced besti rice.",
+    "image_url": "/assets/images/full_chicken_1791366515640.jpg",
     "is_available": true,
     "display_order": 9,
     "is_popular": true,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-03T11:49:25.329Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "ff_05",
@@ -903,12 +903,12 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_fast_food",
     "name": "Tuna Pizza",
-    "description": "Oven-baked pizza topped with flaked tuna, red onions, green peppers, olives, and mozzarella.",
-    "image_url": "/assets/images/tuna pizza.jpg",
+    "description": "Full whole oven-baked pizza topped with flaked tuna, red onions, green peppers, olives, and mozzarella.",
+    "image_url": "/assets/images/tuna_pizza_1791366497906.jpg",
     "is_available": true,
     "display_order": 6,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-03T11:49:25.329Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "tea_01",
@@ -1078,13 +1078,13 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_fresh_juices",
     "name": "Special Juice",
-    "description": "Layered house specialty tropical fruit smoothie topped with fresh fruit pieces.",
-    "image_url": "/assets/images/fresh_fruit_juice_1790235112270.jpg",
+    "description": "Creamy layered special fruit milkshake smoothie blended with avocado, mango, and strawberry.",
+    "image_url": "/assets/images/special_juice_1791366559629.jpg",
     "is_available": true,
     "display_order": 1,
     "is_popular": true,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "jc_new_juice",
@@ -1152,12 +1152,12 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_fresh_juices",
     "name": "Milk Shake",
-    "description": "Rich and creamy chilled house milkshake blended to perfection.",
-    "image_url": "/assets/images/gourmet_milkshake_1790235124208.jpg",
+    "description": "Classic chilled cafe milkshake blended smooth and refreshing.",
+    "image_url": "/assets/images/milk_shake_1791366570952.jpg",
     "is_available": true,
     "display_order": 7,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-01T12:00:00.000Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "jce_05",
@@ -1214,12 +1214,12 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_fresh_juices",
     "name": "Beso Juice",
-    "description": "Refreshing roasted barley (Beso) shake blended chilled with milk and honey.",
-    "image_url": "/assets/images/beso juice.jpg",
+    "description": "Thick and dark roasted barley (Beso) shake blended chilled with milk and honey.",
+    "image_url": "/assets/images/beso_juice_1791366531671.jpg",
     "is_available": true,
     "display_order": 12,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-03T11:49:25.329Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "jc_oogsir_juss",
@@ -1239,11 +1239,11 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "category_id": "cat_fresh_juices",
     "name": "Zayitun Juice",
     "description": "Freshly blended sweet tropical guava (Zayitun) juice served chilled.",
-    "image_url": "/assets/images/Zayitun Juice.jpg",
+    "image_url": "/assets/images/zayitun_juice_1791366541994.jpg",
     "is_available": true,
     "display_order": 14,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-03T11:49:25.329Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "moj_04",
@@ -1421,24 +1421,24 @@ export const SEED_MENU_ITEMS: MenuItem[] = [
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_soft_drink",
     "name": "Soft Drink",
-    "description": "Assorted chilled bottled or canned carbonated soft drinks.",
-    "image_url": "/assets/images/soft drink.jpg",
+    "description": "Assorted chilled sodas including Coca-Cola, Fanta, and Sprite.",
+    "image_url": "/assets/images/soft_drink_1791366583447.jpg",
     "is_available": true,
     "display_order": 1,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-03T11:49:25.330Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   },
   {
     "id": "sd_water_05",
     "restaurant_id": "rest_prime_cafe",
     "category_id": "cat_soft_drink",
     "name": "Water 0.5",
-    "description": "Chilled 0.5L purified natural spring bottled water.",
-    "image_url": "/assets/images/water_bottle_half_1791172553264.jpg",
+    "description": "Chilled 0.5L unbranded pure bottled spring water in a clear bottle.",
+    "image_url": "/assets/images/water_bottle_1791366594627.jpg",
     "is_available": true,
     "display_order": 2,
     "created_at": "2026-10-01T12:00:00.000Z",
-    "updated_at": "2026-10-03T11:49:25.330Z"
+    "updated_at": "2026-10-07T09:50:00.000Z"
   }
 ];
 

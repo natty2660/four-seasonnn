@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Restaurant, Category, MenuItem, MealTime } from '../types/index.ts';
 import { BrandLogo } from './BrandLogo.tsx';
 import { ItemCard } from './ItemCard.tsx';
+import { isNativeApp } from '../lib/apiConfig.ts';
 import {
   Search,
   Clock,
@@ -13,6 +14,7 @@ import {
   Coffee,
   UtensilsCrossed,
   PhoneCall,
+  Smartphone,
 } from 'lucide-react';
 
 interface PublicMenuProps {
@@ -35,6 +37,7 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
   categories,
   items,
   onOpenAdmin,
+  onOpenWaiterApp,
 }) => {
   const [selectedMealTime, setSelectedMealTime] = useState<MealTime | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -455,12 +458,12 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
             Contemporary Coffee Lounge · Gourmet Restaurant
           </p>
           <div className="pt-2 text-[11px] text-[#080808] flex items-center justify-center gap-4">
-            <a
-              href="/waiter"
+            <button
+              onClick={onOpenWaiterApp || (() => { window.location.href = '/waiter'; })}
               className="text-[#080808] hover:underline cursor-pointer font-extrabold flex items-center gap-1"
             >
-              <span>🔔</span> Waiter App
-            </a>
+              <span>🔒</span> Staff Waiter App
+            </button>
             <span className="opacity-40">·</span>
             <button
               onClick={onOpenAdmin}
@@ -471,6 +474,22 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
           </div>
         </div>
       </footer>
+
+      {/* Floating Waiter Return Pill when viewing menu inside Android Standalone APK */}
+      {isNativeApp() && onOpenWaiterApp && (
+        <aside
+          aria-label="Staff Navigation"
+          className="fixed bottom-5 right-5 z-40 animate-fade-in"
+        >
+          <button
+            onClick={onOpenWaiterApp}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#080808] text-[#FCF6BA] border-2 border-[#D4AF37] shadow-2xl font-bold text-xs hover:bg-[#1a1a1a] active:scale-95 transition-all cursor-pointer"
+          >
+            <Smartphone className="w-4 h-4 text-[#D4AF37]" />
+            <span>Return to Waiter App</span>
+          </button>
+        </aside>
+      )}
     </div>
   );
 };
