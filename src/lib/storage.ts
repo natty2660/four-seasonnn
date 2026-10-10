@@ -124,10 +124,10 @@ export function loadClientState(): DatabaseState {
       .map(({ price: _p, sizes: _s, ...rest }) => ({ ...rest }));
 
     // Ensure VIP tables, waiters, and calls exist
-    if (!Array.isArray(parsed.vip_tables) || parsed.vip_tables.length === 0) {
+    if (!Array.isArray(parsed.vip_tables)) {
       parsed.vip_tables = [...INITIAL_VIP_TABLES];
     }
-    if (!Array.isArray(parsed.waiters) || parsed.waiters.length === 0) {
+    if (!Array.isArray(parsed.waiters)) {
       parsed.waiters = [...INITIAL_WAITERS];
     }
     if (!Array.isArray(parsed.waiter_calls)) {

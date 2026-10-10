@@ -52,7 +52,8 @@ export default function App() {
       const path = window.location.pathname;
       // On native Capacitor Android APK, default app launch path to the Waiter Mobile App
       if (isNativeApp()) {
-        if (path === '/' || path === '/index.html' || path === '' || path === '/menu/prime-cafe' || !path) {
+        const isViewingMenu = sessionStorage.getItem('waiter_viewing_menu') === 'true';
+        if (!isViewingMenu || path === '/' || path === '/index.html' || path === '' || !path) {
           return '/waiter';
         }
       }
@@ -64,8 +65,9 @@ export default function App() {
   // Enforce Waiter Mobile App route upon initial load of native Capacitor Android APK
   useEffect(() => {
     if (isNativeApp()) {
+      const isViewingMenu = typeof window !== 'undefined' && sessionStorage.getItem('waiter_viewing_menu') === 'true';
       const p = typeof window !== 'undefined' ? window.location.pathname : '';
-      if (p === '/' || p === '/index.html' || p === '' || p === '/menu/prime-cafe' || !p) {
+      if (!isViewingMenu || p === '/' || p === '/index.html' || p === '' || !p) {
         setCurrentPath('/waiter');
         if (typeof window !== 'undefined') {
           window.history.replaceState({}, '', '/waiter');
@@ -90,6 +92,63 @@ export default function App() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
+
+/**
+ * Authoritative reconciliation for live waiter calls.
+ * Ensures newer confirmed statuses (e.g. accepted, completed) are never reversed by older polling responses.
+ * Preserves active calls across network updates without flickering or duplicate ring alerts.
+ */
+function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall[]): WaiterCall[] {
+  const prevMap = new Map((prevCalls || []).map((c) => [c.id, c]));
+  const incomingMap = new Map((incomingCalls || []).map((c) => [c.id, c]));
+
+  const statusPriority: Record<string, number> = {
+    pending: 1,
+    accepted: 2,
+    completed: 3,
+    cancelled: 3,
+  };
+
+  const reconciled: WaiterCall[] = [];
+
+  for (const inc of incomingCalls) {
+    const prev = prevMap.get(inc.id);
+    if (!prev) {
+      reconciled.push(inc);
+      continue;
+    }
+
+    const prevPriority = statusPriority[prev.status] || 0;
+    const incPriority = statusPriority[inc.status] || 0;
+
+    // Rule: Older API response cannot reverse newer confirmed local status
+    if (prevPriority > incPriority) {
+      reconciled.push({
+        ...inc,
+        status: prev.status,
+        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id,
+        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name,
+        accepted_at: prev.accepted_at || inc.accepted_at,
+        completed_at: prev.completed_at || inc.completed_at,
+      });
+    } else {
+      reconciled.push(inc);
+    }
+  }
+
+  // Preserve very fresh in-flight calls (<10s) created locally that haven't been echoed back yet
+  const now = Date.now();
+  for (const prev of prevCalls || []) {
+    if (!incomingMap.has(prev.id) && prev.status === 'pending') {
+      const ageMs = now - new Date(prev.created_at).getTime();
+      if (ageMs < 10000) {
+        reconciled.unshift(prev);
+      }
+    }
+  }
+
+  return reconciled;
+}
 
   // Fetch / revalidate menu, live waiters, VIP tables, and active calls from authoritative backend
   const refreshFromAPI = useCallback(async () => {
@@ -125,6 +184,11 @@ export default function App() {
       }
 
       setDbState((prevState) => {
+        const mergedCalls = freshCalls
+          ? reconcileWaiterCalls(prevState.waiter_calls || [], freshCalls)
+          : prevState.waiter_calls;
+        const mergedWaiters = freshWaiters !== null ? freshWaiters : prevState.waiters;
+
         const freshState: DatabaseState = {
           ...prevState,
           ...(freshMenuData?.restaurant && freshMenuData?.categories && freshMenuData?.items
@@ -134,9 +198,9 @@ export default function App() {
                 items: freshMenuData.items,
               }
             : {}),
-          ...(freshWaiters ? { waiters: freshWaiters } : {}),
+          waiters: mergedWaiters,
           ...(freshTables ? { vip_tables: freshTables } : {}),
-          ...(freshCalls ? { waiter_calls: freshCalls } : {}),
+          waiter_calls: mergedCalls,
           last_updated: freshMenuData?.generated_at || new Date().toISOString(),
         };
         saveClientState(freshState);
@@ -178,14 +242,19 @@ export default function App() {
 
         if (calls || waiters) {
           setDbState((prev) => {
-            const hasCallDiff = calls && JSON.stringify(prev.waiter_calls) !== JSON.stringify(calls);
-            const hasWaiterDiff = waiters && JSON.stringify(prev.waiters) !== JSON.stringify(waiters);
+            const mergedCalls = calls
+              ? reconcileWaiterCalls(prev.waiter_calls || [], calls)
+              : prev.waiter_calls;
+            const mergedWaiters = waiters !== null ? waiters : prev.waiters;
+
+            const hasCallDiff = JSON.stringify(prev.waiter_calls) !== JSON.stringify(mergedCalls);
+            const hasWaiterDiff = JSON.stringify(prev.waiters) !== JSON.stringify(mergedWaiters);
 
             if (hasCallDiff || hasWaiterDiff) {
               const next: DatabaseState = {
                 ...prev,
-                ...(calls ? { waiter_calls: calls } : {}),
-                ...(waiters ? { waiters } : {}),
+                waiter_calls: mergedCalls,
+                waiters: mergedWaiters,
               };
               saveClientState(next);
               return next;
@@ -211,13 +280,24 @@ export default function App() {
           const data = JSON.parse(event.data);
           if (data && (data.calls || data.waiters)) {
             setDbState((prev) => {
-              const next: DatabaseState = {
-                ...prev,
-                ...(Array.isArray(data.calls) ? { waiter_calls: data.calls } : {}),
-                ...(Array.isArray(data.waiters) ? { waiters: data.waiters } : {}),
-              };
-              saveClientState(next);
-              return next;
+              const mergedCalls = Array.isArray(data.calls)
+                ? reconcileWaiterCalls(prev.waiter_calls || [], data.calls)
+                : prev.waiter_calls;
+              const mergedWaiters = Array.isArray(data.waiters) ? data.waiters : prev.waiters;
+
+              const hasCallDiff = JSON.stringify(prev.waiter_calls) !== JSON.stringify(mergedCalls);
+              const hasWaiterDiff = JSON.stringify(prev.waiters) !== JSON.stringify(mergedWaiters);
+
+              if (hasCallDiff || hasWaiterDiff) {
+                const next: DatabaseState = {
+                  ...prev,
+                  waiter_calls: mergedCalls,
+                  waiters: mergedWaiters,
+                };
+                saveClientState(next);
+                return next;
+              }
+              return prev;
             });
           }
         } catch {}
@@ -490,18 +570,19 @@ export default function App() {
 
   // Route matching
   const isNative = typeof window !== 'undefined' && isNativeApp();
+  const isViewingMenu = typeof window !== 'undefined' && sessionStorage.getItem('waiter_viewing_menu') === 'true';
   const urlSearch = typeof window !== 'undefined' ? window.location.search : '';
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(urlSearch) : new URLSearchParams();
   const tableQueryParam = searchParams.get('table') || searchParams.get('vip') || searchParams.get('vip_table');
-  const isWaiterRoute =
-    currentPath === '/waiter' ||
-    currentPath.startsWith('/waiter/') ||
-    (isNative && (currentPath === '/' || currentPath === '/index.html' || currentPath === '' || currentPath === '/menu/prime-cafe'));
   const isVipRoute =
     currentPath === '/vip' ||
     currentPath.startsWith('/vip/') ||
     currentPath.startsWith('/table/') ||
     Boolean(tableQueryParam);
+  const isWaiterRoute =
+    currentPath === '/waiter' ||
+    currentPath.startsWith('/waiter/') ||
+    (isNative && !isViewingMenu && !isVipRoute && !isAdminOpen);
 
   // Resolve VIP Table from URL (query param or path segment) or selection
   const vipTableFromUrl = (() => {
@@ -625,7 +706,12 @@ export default function App() {
           onAcceptCall={handleAcceptCall}
           onCompleteCall={handleCompleteCall}
           onToggleDuty={handleToggleDuty}
-          onBackToMenu={() => navigateTo('/menu/prime-cafe')}
+          onBackToMenu={() => {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('waiter_viewing_menu', 'true');
+            }
+            navigateTo('/menu/prime-cafe');
+          }}
         />
       ) : isVipRoute && activeVipTable ? (
         /* 2. VIP Table Customer View */
@@ -682,7 +768,12 @@ export default function App() {
           categories={dbState.categories}
           items={dbState.items}
           onOpenAdmin={handleOpenAdminTrigger}
-          onOpenWaiterApp={() => navigateTo('/waiter')}
+          onOpenWaiterApp={() => {
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem('waiter_viewing_menu');
+            }
+            navigateTo('/waiter');
+          }}
         />
       )}
 

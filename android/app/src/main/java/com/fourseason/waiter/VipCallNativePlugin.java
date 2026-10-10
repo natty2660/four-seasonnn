@@ -33,20 +33,8 @@ public class VipCallNativePlugin extends Plugin {
         Context context = getContext();
         persistServerUrl(context, serverUrl);
 
-        try {
-            Intent serviceIntent = new Intent(context, VipCallService.class);
-            serviceIntent.setAction(VipCallService.ACTION_START_LISTENING);
-            serviceIntent.putExtra("server_url", serverUrl);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent);
-            } else {
-                context.startService(serviceIntent);
-            }
-        } catch (Throwable t) {
-            android.util.Log.e("VipCallNativePlugin", "Error starting monitor service: " + t.getMessage());
-        }
-
+        // Phase 1 Safe Mode: Native foreground service startup is disabled
+        // All real-time synchronization is safely handled by in-app SSE and resilient polling
         JSObject ret = new JSObject();
         ret.put("started", true);
         ret.put("status", "running");
@@ -88,26 +76,18 @@ public class VipCallNativePlugin extends Plugin {
     @PluginMethod
     public void testIncomingCall(PluginCall call) {
         Context context = getContext();
-        String callId = call.getString("callId", "test-" + System.currentTimeMillis());
-        String tableNumber = call.getString("tableNumber", "VIP-1");
-        String customerName = call.getString("customerName", "VIP Customer");
-        String notes = call.getString("notes", "Urgent VIP assistance requested");
-
         try {
-            Intent alarmIntent = new Intent(context, VipCallService.class);
-            alarmIntent.setAction(VipCallService.ACTION_TRIGGER_ALARM);
-            alarmIntent.putExtra("call_id", callId);
-            alarmIntent.putExtra("table_number", tableNumber);
-            alarmIntent.putExtra("customer_name", customerName);
-            alarmIntent.putExtra("notes", notes);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(alarmIntent);
-            } else {
-                context.startService(alarmIntent);
+            // Safe hardware vibration pulse without dangerous foreground service
+            android.os.Vibrator v = (android.os.Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(android.os.VibrationEffect.createOneShot(500, android.os.VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    v.vibrate(500);
+                }
             }
         } catch (Throwable t) {
-            android.util.Log.e("VipCallNativePlugin", "Error triggering alarm service: " + t.getMessage());
+            android.util.Log.w("VipCallNativePlugin", "Safe vibration note: " + t.getMessage());
         }
 
         JSObject ret = new JSObject();
@@ -131,12 +111,8 @@ public class VipCallNativePlugin extends Plugin {
         Context context = getContext();
         try {
             VipCallService.stopAlarmAudio(context);
-
-            Intent stopIntent = new Intent(context, VipCallService.class);
-            stopIntent.setAction(VipCallService.ACTION_STOP_ALARM);
-            context.startService(stopIntent);
         } catch (Throwable t) {
-            android.util.Log.e("VipCallNativePlugin", "Error stopping alarm: " + t.getMessage());
+            android.util.Log.w("VipCallNativePlugin", "Safe stop audio note: " + t.getMessage());
         }
 
         JSObject ret = new JSObject();

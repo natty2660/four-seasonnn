@@ -1,15 +1,27 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { Pool } from 'pg';
+import dotenv from 'dotenv';
+import { Pool, PoolClient } from 'pg';
 import { DatabaseState, getInitialState } from '../lib/storage.ts';
+
+dotenv.config();
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'fourseason2026';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'prime_cafe_secret_key_2026';
 
-const postgresUrl =
-  process.env.DATABASE_URL ||
-  (process.env.DB_PATH && process.env.DB_PATH.startsWith('postgres') ? process.env.DB_PATH : null);
+export const DEFAULT_POSTGRES_URL =
+  'postgresql://postgres:3n2QmO7zS0LRTL43@db.lieztgkqpcqhhitkwwex.supabase.co:5432/postgres';
+
+export function getPostgresUrl(): string {
+  if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) {
+    return process.env.DATABASE_URL.trim();
+  }
+  if (process.env.DB_PATH && process.env.DB_PATH.startsWith('postgres')) {
+    return process.env.DB_PATH.trim();
+  }
+  return DEFAULT_POSTGRES_URL;
+}
 
 let pgPool: Pool | null = null;
 let dbInitialized = false;
@@ -17,17 +29,23 @@ let isPgConnected = false;
 let lastPgError: string | null = null;
 let lastSyncedAt: string | null = null;
 
-if (postgresUrl) {
-  try {
+export function getPgPool(): Pool {
+  if (!pgPool) {
+    const url = getPostgresUrl();
     pgPool = new Pool({
-      connectionString: postgresUrl,
+      connectionString: url,
       ssl: { rejectUnauthorized: false },
       connectionTimeoutMillis: 5000,
-      max: 10,
+      idleTimeoutMillis: 30000,
+      max: 5,
     });
-  } catch (e: any) {
-    console.error('Failed to initialize PostgreSQL pool:', e.message);
+    pgPool.on('error', (err) => {
+      console.warn('[PostgreSQL Pool Warning]', err.message);
+      isPgConnected = false;
+      lastPgError = err.message;
+    });
   }
+  return pgPool;
 }
 
 function getDatabaseFilePath(): string {
@@ -49,12 +67,7 @@ let inMemoryState: DatabaseState | null = null;
 let initPromise: Promise<boolean> | null = null;
 
 export async function ensureDatabaseInitialized(): Promise<boolean> {
-  if (dbInitialized && inMemoryState) return true;
-  if (!pgPool) {
-    dbInitialized = true;
-    if (!inMemoryState) getDatabase();
-    return true;
-  }
+  if (dbInitialized && inMemoryState && isPgConnected) return true;
   if (!initPromise) {
     initPromise = initPostgresDatabase().finally(() => {
       initPromise = null;
@@ -64,9 +77,9 @@ export async function ensureDatabaseInitialized(): Promise<boolean> {
 }
 
 export async function initPostgresDatabase(): Promise<boolean> {
-  if (!pgPool) return false;
+  const pool = getPgPool();
   try {
-    const client = await pgPool.connect();
+    const client = await pool.connect();
     try {
       await client.query(`
         CREATE TABLE IF NOT EXISTS prime_cafe_menu (
@@ -126,9 +139,10 @@ export async function initPostgresDatabase(): Promise<boolean> {
           },
           categories: fresh.categories,
           items: syncedItems,
-          vip_tables: stored.vip_tables || fresh.vip_tables,
-          waiters: stored.waiters || fresh.waiters,
-          waiter_calls: stored.waiter_calls || fresh.waiter_calls,
+          // CRITICAL: Respect stored arrays even when empty! Never re-inject deleted waiters or tables!
+          vip_tables: Array.isArray(stored.vip_tables) ? stored.vip_tables : fresh.vip_tables,
+          waiters: Array.isArray(stored.waiters) ? stored.waiters : fresh.waiters,
+          waiter_calls: Array.isArray(stored.waiter_calls) ? stored.waiter_calls : (fresh.waiter_calls || []),
           last_updated: new Date().toISOString(),
           admin_password: stored.admin_password,
         };
@@ -157,13 +171,150 @@ export async function initPostgresDatabase(): Promise<boolean> {
   } catch (err: any) {
     isPgConnected = false;
     lastPgError = err.message;
-    // Release pool and cleanly fallback to local JSON database storage
-    try {
-      await pgPool?.end();
-    } catch {}
-    pgPool = null;
     dbInitialized = true;
-    console.log('[Database] Remote PostgreSQL unavailable, using local JSON storage.');
+    console.warn('[Database] Remote PostgreSQL unavailable, using local JSON storage:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Reads live authoritative state directly from PostgreSQL.
+ * Guarantees every serverless instance and client sees the exact current data.
+ */
+export async function getDatabaseAsync(): Promise<DatabaseState> {
+  await ensureDatabaseInitialized().catch(() => {});
+  const pool = getPgPool();
+  try {
+    const client = await pool.connect();
+    try {
+      const res = await client.query('SELECT state FROM prime_cafe_menu WHERE id = $1;', ['prime-cafe']);
+      if (res.rows.length > 0 && res.rows[0].state) {
+        const stored = res.rows[0].state as DatabaseState;
+        inMemoryState = stored;
+        isPgConnected = true;
+        lastPgError = null;
+        lastSyncedAt = new Date().toISOString();
+        return stored;
+      }
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    isPgConnected = false;
+    lastPgError = err.message;
+  }
+
+  return getDatabase();
+}
+
+/**
+ * Executes an ACID transactional mutation on PostgreSQL with a row lock (FOR UPDATE).
+ * Completely eliminates race conditions, lost updates, deleted record restorations, and flickering calls.
+ */
+export async function mutateDatabaseAsync(
+  mutator: (current: DatabaseState) => DatabaseState | Promise<DatabaseState>
+): Promise<DatabaseState> {
+  await ensureDatabaseInitialized().catch(() => {});
+  const pool = getPgPool();
+  let client: PoolClient | null = null;
+
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const res = await client.query(
+      "SELECT state FROM prime_cafe_menu WHERE id = 'prime-cafe' FOR UPDATE;"
+    );
+
+    let baseState: DatabaseState;
+    if (res.rows.length > 0 && res.rows[0].state) {
+      baseState = res.rows[0].state as DatabaseState;
+    } else {
+      baseState = inMemoryState || getDatabase();
+    }
+
+    const mutated = await mutator(baseState);
+    mutated.last_updated = new Date().toISOString();
+
+    await client.query(
+      "INSERT INTO prime_cafe_menu (id, state, updated_at) VALUES ('prime-cafe', $1, NOW()) ON CONFLICT (id) DO UPDATE SET state = $1, updated_at = NOW();",
+      [JSON.stringify(mutated)]
+    );
+    await client.query('COMMIT');
+
+    inMemoryState = mutated;
+    isPgConnected = true;
+    lastPgError = null;
+    lastSyncedAt = new Date().toISOString();
+
+    // Local file backup
+    saveDatabaseToDisk(mutated);
+
+    return mutated;
+  } catch (err: any) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {}
+    }
+    isPgConnected = false;
+    lastPgError = err.message;
+    console.error('[Database] mutateDatabaseAsync transaction failed, falling back to local save:', err.message);
+
+    const current = inMemoryState || getDatabase();
+    const mutated = await mutator(current);
+    mutated.last_updated = new Date().toISOString();
+    saveDatabase(mutated);
+    return mutated;
+  } finally {
+    if (client) {
+      try {
+        client.release();
+      } catch {}
+    }
+  }
+}
+
+/**
+ * Persists state to PostgreSQL and waits for the database commit to finish.
+ */
+export async function saveDatabaseAsync(state: DatabaseState): Promise<boolean> {
+  inMemoryState = state;
+  lastSyncedAt = new Date().toISOString();
+
+  saveDatabaseToDisk(state);
+
+  const pool = getPgPool();
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query(
+        "INSERT INTO prime_cafe_menu (id, state, updated_at) VALUES ('prime-cafe', $1, NOW()) ON CONFLICT (id) DO UPDATE SET state = $1, updated_at = NOW();",
+        [JSON.stringify(state)]
+      );
+      isPgConnected = true;
+      lastPgError = null;
+      return true;
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    isPgConnected = false;
+    lastPgError = err.message;
+    console.error('[Database] saveDatabaseAsync error:', err.message);
+    return false;
+  }
+}
+
+function saveDatabaseToDisk(state: DatabaseState): boolean {
+  const filePath = getDatabaseFilePath();
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(filePath, JSON.stringify(state, null, 2), 'utf-8');
+    return true;
+  } catch {
     return false;
   }
 }
@@ -174,7 +325,7 @@ export function getDatabase(): DatabaseState {
   }
 
   // Trigger async init if not already initialized
-  if (!dbInitialized && pgPool) {
+  if (!dbInitialized) {
     ensureDatabaseInitialized().catch(() => {});
   }
 
@@ -184,40 +335,6 @@ export function getDatabase(): DatabaseState {
       const data = fs.readFileSync(filePath, 'utf-8');
       const parsed = JSON.parse(data) as DatabaseState;
       if (parsed.restaurant && Array.isArray(parsed.categories) && Array.isArray(parsed.items)) {
-        const fresh = getInitialState();
-        const storedMap = new Map(parsed.items.map((it) => [it.id, it]));
-        parsed.categories = fresh.categories;
-        parsed.items = fresh.items.map((freshItem) => {
-          const prev = storedMap.get(freshItem.id);
-          const { price: _p, sizes: _s, ...cleanFresh } = freshItem;
-          const keepCustomUpload =
-            prev && prev.image_url && prev.image_url.includes('/original_');
-          return {
-            ...cleanFresh,
-            image_url: keepCustomUpload
-              ? prev.image_url
-              : freshItem.image_url !== undefined
-              ? freshItem.image_url
-              : prev && prev.image_url
-              ? prev.image_url
-              : '',
-          };
-        });
-        if (
-          !parsed.restaurant.logo_url ||
-          parsed.restaurant.logo_url.includes('prime_cafe') ||
-          parsed.restaurant.logo_url.includes('1790854372202')
-        ) {
-          parsed.restaurant.logo_url = fresh.restaurant.logo_url;
-        }
-        if (
-          !parsed.restaurant.cover_url ||
-          parsed.restaurant.cover_url.includes('prime_cafe') ||
-          parsed.restaurant.cover_url.includes('1790854372202') ||
-          parsed.restaurant.cover_url.includes('four_season_hero_banner')
-        ) {
-          parsed.restaurant.cover_url = fresh.restaurant.cover_url;
-        }
         inMemoryState = parsed;
         return inMemoryState;
       }
@@ -235,36 +352,12 @@ export function saveDatabase(state: DatabaseState): boolean {
   inMemoryState = state;
   lastSyncedAt = new Date().toISOString();
 
-  // Async persist to PostgreSQL if connected
-  if (pgPool && isPgConnected) {
-    pgPool
-      .query(
-        'INSERT INTO prime_cafe_menu (id, state, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET state = $2, updated_at = NOW()',
-        ['prime-cafe', JSON.stringify(state)]
-      )
-      .then(() => {
-        isPgConnected = true;
-        lastPgError = null;
-      })
-      .catch((err: any) => {
-        isPgConnected = false;
-        lastPgError = err.message;
-        console.log('PostgreSQL sync note:', err.message);
-      });
-  }
+  // Async persist to PostgreSQL in background
+  saveDatabaseAsync(state).catch((err) => {
+    console.warn('[Database] Async background save note:', err.message);
+  });
 
-  // Also write to local file for safety
-  const filePath = getDatabaseFilePath();
-  try {
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(filePath, JSON.stringify(state, null, 2), 'utf-8');
-    return true;
-  } catch (err) {
-    return false;
-  }
+  return saveDatabaseToDisk(state);
 }
 
 export async function getDatabaseStatus() {

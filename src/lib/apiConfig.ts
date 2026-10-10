@@ -47,7 +47,7 @@ export function isNativeApp(): boolean {
 
   // 5. Native protocols
   const protocol = window.location.protocol;
-  if (protocol === 'capacitor:' || protocol === 'ionic:') {
+  if (protocol === 'capacitor:' || protocol === 'ionic:' || protocol === 'file:') {
     return true;
   }
 
@@ -61,6 +61,13 @@ export function isNativeApp(): boolean {
     if (port !== '3000') {
       return true;
     }
+  }
+
+  // 7. Android WebView user agent check
+  const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
+  const isWebView = /wv|Android.*Version\/[\d.]+/i.test(ua);
+  if (isWebView && (hostname === 'localhost' || hostname === '127.0.0.1' || !hostname)) {
+    return true;
   }
 
   return false;
@@ -127,6 +134,17 @@ export function getApiUrl(endpoint: string): string {
   if (isNativeApp()) {
     const base = getServerBaseUrl();
     return `${base}${cleanEndpoint}`;
+  }
+
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && port !== '3000') {
+      return `${PRODUCTION_BACKEND_URL}${cleanEndpoint}`;
+    }
+    if (window.location.protocol === 'file:' || window.location.protocol === 'capacitor:') {
+      return `${PRODUCTION_BACKEND_URL}${cleanEndpoint}`;
+    }
   }
 
   return cleanEndpoint;

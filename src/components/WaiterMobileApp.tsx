@@ -113,9 +113,8 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     }
 
     const expectedPin = waiter.pin?.trim() || '1111';
-    const isMasterCode = pinToTest === '2026' || pinToTest === 'fourseason2026';
 
-    if (pinToTest === expectedPin || isMasterCode) {
+    if (pinToTest === expectedPin) {
       setSelectedWaiterId(waiter.id);
       setPendingWaiterId(waiter.id);
       setIsLocked(false);
@@ -232,8 +231,11 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   // 2. If unassigned OR escalated after 45s -> RINGS ALL ON-DUTY WAITERS!
   // 3. If assigned to another waiter and NOT escalated -> DOES NOT RING THIS WAITER!
   const now = Date.now();
-  const pendingCallsForMe = activeCalls.filter((c) => {
-    if (c.status !== 'pending') return false;
+  // All active pending calls in the restaurant (matching Admin Dashboard)
+  const allPendingCalls = activeCalls.filter((c) => c.status === 'pending');
+
+  // Calls that specifically trigger ringing and high-priority alerts for this waiter
+  const pendingCallsForMe = allPendingCalls.filter((c) => {
     if (!currentWaiter?.is_on_duty) return false;
 
     // If escalated after 45s (either flagged on backend OR 45 seconds elapsed from created_at), ring everyone on duty
@@ -252,12 +254,10 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     (c) => c.status === 'accepted' && c.accepted_by_waiter_id === selectedWaiterId
   );
 
-  // Other tables pending calls (for awareness, without ring)
-  const otherPendingCalls = activeCalls.filter((c) => {
-    if (c.status !== 'pending') return false;
-    if (c.is_escalated) return false;
-    return c.assigned_waiter_id && c.assigned_waiter_id !== selectedWaiterId;
-  });
+  // Other active restaurant calls (assigned to co-workers, or active while off-duty)
+  const otherPendingCalls = allPendingCalls.filter(
+    (c) => !pendingCallsForMe.some((myCall) => myCall.id === c.id)
+  );
 
   // Recent completed calls
   const completedCalls = activeCalls
@@ -393,6 +393,29 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
             </p>
           </div>
 
+          {/* Urgent Active Call Notification on Lock Screen */}
+          {allPendingCalls.length > 0 && (
+            <div className="mb-5 p-4 rounded-2xl bg-amber-950/80 border-2 border-amber-400 text-amber-200 animate-pulse shadow-2xl shadow-amber-950/70 relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BellRing className="w-5 h-5 text-amber-400 animate-bounce" />
+                  <span className="font-black text-sm text-[#FCF6BA]">
+                    {allPendingCalls.length} ACTIVE VIP {allPendingCalls.length === 1 ? 'CALL' : 'CALLS'} WAITING!
+                  </span>
+                </div>
+                <span className="text-[10px] bg-amber-400 text-black font-extrabold px-2 py-0.5 rounded-full uppercase">
+                  Action Required
+                </span>
+              </div>
+              <div className="mt-2 text-xs font-semibold text-white/90">
+                {allPendingCalls.map((c) => `${c.table_number} (${c.table_name})`).join(' · ')}
+              </div>
+              <div className="mt-1 text-[11px] text-amber-300">
+                Unlock below to accept and attend to table
+              </div>
+            </div>
+          )}
+
           {/* If a waiter is selected: Show PIN Keypad */}
           {activePendingWaiter ? (
             <div className="space-y-5 relative z-10">
@@ -522,7 +545,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
               </button>
 
               <div className="text-[10px] text-white/40 text-center">
-                Master manager passcode (2026) accepted for emergency override.
+                Secure staff access. Enter your personal staff PIN to proceed.
               </div>
             </div>
           ) : (
@@ -1096,27 +1119,57 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
           </div>
         )}
 
-        {/* OTHER TABLES ACTIVITY (FOR CO-WORKERS) */}
+        {/* OTHER TABLES ACTIVITY (FOR CO-WORKERS / ASSIST MODE) */}
         {otherPendingCalls.length > 0 && (
-          <div className="mb-6 space-y-2 opacity-75">
-            <h3 className="text-xs uppercase tracking-wider font-bold text-white/60 flex items-center gap-1.5">
-              <span>Other Tables Ringing Assigned Waiters ({otherPendingCalls.length})</span>
+          <div className="mb-6 space-y-3">
+            <h3 className="text-xs uppercase tracking-wider font-extrabold text-[#D4AF37] flex items-center justify-between">
+              <span>Active Restaurant Calls ({otherPendingCalls.length})</span>
+              <span className="text-[10px] text-white/50 normal-case font-normal">
+                {currentWaiter.is_on_duty ? 'Co-worker tables — Tap to assist' : 'You are off duty'}
+              </span>
             </h3>
             {otherPendingCalls.map((call) => {
               const waiter = waiters.find((w) => w.id === call.assigned_waiter_id);
               return (
                 <div
                   key={call.id}
-                  className="p-3 bg-[#111] border border-white/5 rounded-xl flex items-center justify-between text-xs"
+                  className="p-4 bg-[#141414] border border-[#D4AF37]/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-[#FCF6BA]">{call.table_number}</span>
-                    <span className="text-white/70">{call.table_name}</span>
-                    {getCallTypeBadge(call.call_type)}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-[#FCF6BA] font-mono font-bold flex items-center justify-center border border-amber-500/30">
+                      {call.table_number.replace('VIP-', '')}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
+                        <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
+                        {getCallTypeBadge(call.call_type)}
+                      </div>
+                      {call.message && (
+                        <p className="text-xs text-white/70 mt-1 italic">&ldquo;{call.message}&rdquo;</p>
+                      )}
+                      <div className="text-[11px] text-white/50 mt-1 flex items-center gap-2">
+                        <span>
+                          {waiter ? `Assigned to ${waiter.name}` : 'Unassigned (General Broadcast)'}
+                        </span>
+                        <span>·</span>
+                        <span>
+                          {new Date(call.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-[10px] text-amber-400">
-                    Ringing {waiter ? waiter.name : 'assigned waiter'}
-                  </span>
+
+                  <button
+                    onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer self-end sm:self-center"
+                  >
+                    <Check className="w-4 h-4 stroke-[2.5]" />
+                    <span>Accept & Assist</span>
+                  </button>
                 </div>
               );
             })}
@@ -1124,7 +1177,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
         )}
 
         {/* NO ACTIVE CALLS STATE */}
-        {pendingCallsForMe.length === 0 && inProgressCalls.length === 0 && (
+        {allPendingCalls.length === 0 && inProgressCalls.length === 0 && (
           <div className="p-8 text-center bg-[#111] border border-white/10 rounded-2xl my-4">
             <div className="w-12 h-12 rounded-full bg-white/5 text-[#D4AF37] flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="w-6 h-6" />

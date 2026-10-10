@@ -14,9 +14,6 @@ const config: CapacitorConfig = {
       iconColor: '#D4AF37',
       sound: 'restaurant_bell.wav',
     },
-    PushNotifications: {
-      presentationOptions: ['badge', 'sound', 'alert'],
-    },
   },
 };
 

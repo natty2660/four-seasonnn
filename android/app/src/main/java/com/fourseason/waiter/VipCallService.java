@@ -498,7 +498,7 @@ public class VipCallService extends Service {
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
                     .build();
-                Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.restaurant_bell);
+                Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
                 alarmChannel.setSound(soundUri, audioAttributes);
 
                 nm.createNotificationChannel(alarmChannel);

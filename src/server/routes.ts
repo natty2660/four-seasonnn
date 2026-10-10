@@ -4,7 +4,10 @@ import path from 'path';
 import { execSync } from 'child_process';
 import {
   getDatabase,
+  getDatabaseAsync,
   saveDatabase,
+  saveDatabaseAsync,
+  mutateDatabaseAsync,
   generateAdminToken,
   verifyAdminToken,
   checkAdminPassword,
@@ -542,128 +545,184 @@ apiRouter.post('/upload-brand-asset', (req: Request, res: Response) => {
 // ==========================================
 
 // 18.1 Get All VIP Tables
-apiRouter.get('/vip-tables', (_req: Request, res: Response) => {
-  const db = getDatabase();
+apiRouter.get('/vip-tables', async (_req: Request, res: Response) => {
+  const db = await getDatabaseAsync();
   res.json(db.vip_tables || []);
 });
 
 // 18.2 Create VIP Table (Admin)
-apiRouter.post('/vip-tables', requireAdmin, (req: Request, res: Response) => {
+apiRouter.post('/vip-tables', requireAdmin, async (req: Request, res: Response) => {
   const { table_number, name, secret_code, assigned_waiter_id, notes } = req.body;
   if (!table_number || !name) {
     res.status(400).json({ error: 'table_number and name are required.' });
     return;
   }
-  const db = getDatabase();
-  if (!Array.isArray(db.vip_tables)) db.vip_tables = [];
-  const newTable: VipTable = {
-    id: `vip_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-    table_number: String(table_number).trim(),
-    name: String(name).trim(),
-    secret_code: secret_code ? String(secret_code).trim() : undefined,
-    assigned_waiter_id: assigned_waiter_id || null,
-    is_active: true,
-    notes: notes ? String(notes).trim() : '',
-    created_at: new Date().toISOString(),
-  };
-  db.vip_tables.push(newTable);
-  saveDatabase(db);
+  let newTable: VipTable | null = null;
+  await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.vip_tables)) db.vip_tables = [];
+    newTable = {
+      id: `vip_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      table_number: String(table_number).trim(),
+      name: String(name).trim(),
+      secret_code: secret_code ? String(secret_code).trim() : undefined,
+      assigned_waiter_id: assigned_waiter_id || null,
+      is_active: true,
+      notes: notes ? String(notes).trim() : '',
+      created_at: new Date().toISOString(),
+    };
+    db.vip_tables.push(newTable);
+    return db;
+  });
+
+  broadcastWaiterUpdate();
   res.status(201).json(newTable);
 });
 
 // 18.3 Update VIP Table (Admin)
-apiRouter.put('/vip-tables/:id', requireAdmin, (req: Request, res: Response) => {
+apiRouter.put('/vip-tables/:id', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDatabase();
-  if (!Array.isArray(db.vip_tables)) db.vip_tables = [];
-  const index = db.vip_tables.findIndex((t) => t.id === id);
-  if (index === -1) {
+  let updatedTable: VipTable | null = null;
+  await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.vip_tables)) db.vip_tables = [];
+    const index = db.vip_tables.findIndex((t) => t.id === id);
+    if (index !== -1) {
+      db.vip_tables[index] = {
+        ...db.vip_tables[index],
+        ...req.body,
+        id,
+      };
+      updatedTable = db.vip_tables[index];
+    }
+    return db;
+  });
+
+  if (!updatedTable) {
     res.status(404).json({ error: 'VIP table not found.' });
     return;
   }
-  db.vip_tables[index] = {
-    ...db.vip_tables[index],
-    ...req.body,
-    id,
-  };
-  saveDatabase(db);
-  res.json(db.vip_tables[index]);
+
+  broadcastWaiterUpdate();
+  res.json(updatedTable);
 });
 
 // 18.4 Delete VIP Table (Admin)
-apiRouter.delete('/vip-tables/:id', requireAdmin, (req: Request, res: Response) => {
+apiRouter.delete('/vip-tables/:id', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDatabase();
-  if (!Array.isArray(db.vip_tables)) db.vip_tables = [];
-  db.vip_tables = db.vip_tables.filter((t) => t.id !== id);
-  saveDatabase(db);
+  await mutateDatabaseAsync((db) => {
+    if (Array.isArray(db.vip_tables)) {
+      db.vip_tables = db.vip_tables.filter((t) => t.id !== id);
+    }
+    return db;
+  });
+
+  broadcastWaiterUpdate();
   res.json({ success: true });
 });
 
 // 19. Waiters Management
 // 19.1 Get All Waiters
-apiRouter.get('/waiters', (_req: Request, res: Response) => {
-  const db = getDatabase();
+apiRouter.get('/waiters', async (_req: Request, res: Response) => {
+  const db = await getDatabaseAsync();
   res.json(db.waiters || []);
 });
 
 // 19.2 Create Waiter (Admin)
-apiRouter.post('/waiters', requireAdmin, (req: Request, res: Response) => {
+apiRouter.post('/waiters', requireAdmin, async (req: Request, res: Response) => {
   const { name, pin, phone } = req.body;
-  if (!name) {
+  if (!name || !String(name).trim()) {
     res.status(400).json({ error: 'Waiter name is required.' });
     return;
   }
-  const db = getDatabase();
-  if (!Array.isArray(db.waiters)) db.waiters = [];
-  const newWaiter: Waiter = {
-    id: `waiter_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-    name: String(name).trim(),
-    pin: pin ? String(pin).trim() : '1234',
-    phone: phone ? String(phone).trim() : undefined,
-    is_on_duty: true,
-    is_active: true,
-    created_at: new Date().toISOString(),
-  };
-  db.waiters.push(newWaiter);
-  saveDatabase(db);
-  res.status(201).json(newWaiter);
+  const cleanName = String(name).trim();
+  let createdWaiter: Waiter | null = null;
+
+  await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.waiters)) db.waiters = [];
+    // Idempotency: return existing waiter if identical name already exists
+    const existing = db.waiters.find((w) => w.name.toLowerCase() === cleanName.toLowerCase());
+    if (existing) {
+      createdWaiter = existing;
+      return db;
+    }
+
+    createdWaiter = {
+      id: `waiter_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      name: cleanName,
+      pin: pin ? String(pin).trim() : '1234',
+      phone: phone ? String(phone).trim() : undefined,
+      is_on_duty: true,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+    db.waiters.push(createdWaiter);
+    return db;
+  });
+
+  broadcastWaiterUpdate();
+  res.status(201).json(createdWaiter);
 });
 
 // 19.3 Update Waiter (Duty toggle or Admin edit)
-apiRouter.put('/waiters/:id', (req: Request, res: Response) => {
+apiRouter.put('/waiters/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDatabase();
-  if (!Array.isArray(db.waiters)) db.waiters = [];
-  const index = db.waiters.findIndex((w) => w.id === id);
-  if (index === -1) {
+  let updatedWaiter: Waiter | null = null;
+
+  await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.waiters)) db.waiters = [];
+    const index = db.waiters.findIndex((w) => w.id === id);
+    if (index !== -1) {
+      db.waiters[index] = {
+        ...db.waiters[index],
+        ...req.body,
+        id,
+      };
+      updatedWaiter = db.waiters[index];
+    }
+    return db;
+  });
+
+  if (!updatedWaiter) {
     res.status(404).json({ error: 'Waiter not found.' });
     return;
   }
-  db.waiters[index] = {
-    ...db.waiters[index],
-    ...req.body,
-    id,
-  };
-  saveDatabase(db);
+
   broadcastWaiterUpdate();
-  res.json(db.waiters[index]);
+  res.json(updatedWaiter);
 });
 
-// 19.4 Delete Waiter (Admin)
-apiRouter.delete('/waiters/:id', requireAdmin, (req: Request, res: Response) => {
+// 19.4 Delete Waiter (Admin) - Permanently persisted to PostgreSQL
+apiRouter.delete('/waiters/:id', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDatabase();
-  if (!Array.isArray(db.waiters)) db.waiters = [];
-  db.waiters = db.waiters.filter((w) => w.id !== id);
-  saveDatabase(db);
-  res.json({ success: true });
+  let deleted = false;
+  let remainingCount = 0;
+
+  await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.waiters)) db.waiters = [];
+    const prevLen = db.waiters.length;
+    db.waiters = db.waiters.filter((w) => w.id !== id);
+    deleted = db.waiters.length < prevLen;
+    remainingCount = db.waiters.length;
+
+    // Clean up foreign-key association: unassign waiter from any tables
+    if (Array.isArray(db.vip_tables)) {
+      db.vip_tables.forEach((t) => {
+        if (t.assigned_waiter_id === id) {
+          t.assigned_waiter_id = null;
+        }
+      });
+    }
+
+    return db;
+  });
+
+  broadcastWaiterUpdate();
+  res.json({ success: true, deleted_id: id, remaining: remainingCount, was_found: deleted });
 });
 
 // 20. Live Waiter Calls
 // 20.1 List Active & Recent Calls
-apiRouter.get('/waiter-calls', (_req: Request, res: Response) => {
-  const db = getDatabase();
+apiRouter.get('/waiter-calls', async (_req: Request, res: Response) => {
+  const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
   const now = Date.now();
   let changed = false;
@@ -677,15 +736,18 @@ apiRouter.get('/waiter-calls', (_req: Request, res: Response) => {
       }
     }
   }
-  if (changed) saveDatabase(db);
+  if (changed) {
+    await saveDatabaseAsync(db);
+    broadcastWaiterUpdate();
+  }
   res.json(calls);
 });
 
 // --- Real-Time Server-Sent Events (SSE) Stream for Waiter Dashboard ---
 const sseClients = new Set<Response>();
 
-export function broadcastWaiterUpdate() {
-  const db = getDatabase();
+export function broadcastWaiterUpdate(state?: DatabaseState) {
+  const db = state || getDatabase();
   const payload = JSON.stringify({
     type: 'update',
     calls: db.waiter_calls || [],
@@ -703,7 +765,7 @@ export function broadcastWaiterUpdate() {
 }
 
 // 20.1c Server-Sent Events (SSE) live stream for instant real-time waiter call alerts
-apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], (req: Request, res: Response) => {
+apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], async (_req: Request, res: Response) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
@@ -711,7 +773,7 @@ apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], (req: Request, res: Re
     'Access-Control-Allow-Origin': '*',
   });
 
-  const db = getDatabase();
+  const db = await getDatabaseAsync();
   const initial = JSON.stringify({
     type: 'init',
     calls: db.waiter_calls || [],
@@ -731,139 +793,209 @@ apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], (req: Request, res: Re
     }
   }, 15000);
 
-  req.on('close', () => {
+  res.on('close', () => {
     clearInterval(keepAlive);
     sseClients.delete(res);
   });
 });
 
-// 20.1b Waiter Calls Active Endpoint (used by Android native background polling)
-apiRouter.get(['/waiter/calls/active', '/waiter-calls/active'], (_req: Request, res: Response) => {
-  const db = getDatabase();
+// 20.1b Waiter Calls Active Endpoint (used by mobile and background polling)
+apiRouter.get(['/waiter/calls/active', '/waiter-calls/active'], async (_req: Request, res: Response) => {
+  const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
   const activeCalls = calls.filter((c) => c.status === 'pending');
   res.json({ calls: activeCalls });
 });
 
-// 20.3b Native Android call accept / dismiss aliases
-apiRouter.post(['/waiter/calls/:id/accept', '/waiter/calls/:id/dismiss', '/waiter-calls/:id/dismiss'], (req: Request, res: Response) => {
-  const { id } = req.params;
-  const isDismiss = req.path.includes('dismiss');
-  const db = getDatabase();
-  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
-  const call = db.waiter_calls.find((c) => c.id === id);
-  if (!call) {
-    res.json({ success: true, message: 'Call already cleared' });
-    return;
-  }
-  if (isDismiss) {
-    call.status = 'cancelled';
-  } else {
-    call.status = 'accepted';
-    call.accepted_at = new Date().toISOString();
-  }
-  saveDatabase(db);
-  broadcastWaiterUpdate();
-  res.json(call);
-});
+// 20.3b Call accept / dismiss aliases
+apiRouter.post(
+  ['/waiter/calls/:id/accept', '/waiter/calls/:id/dismiss', '/waiter-calls/:id/dismiss'],
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const isDismiss = req.path.includes('dismiss');
+    let targetCall: WaiterCall | null = null;
 
-// 20.2 Place Call from VIP Table
-apiRouter.post('/waiter-calls', (req: Request, res: Response) => {
+    await mutateDatabaseAsync((db) => {
+      if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+      const call = db.waiter_calls.find((c) => c.id === id);
+      if (call) {
+        if (isDismiss) {
+          call.status = 'cancelled';
+          call.completed_at = new Date().toISOString();
+        } else {
+          call.status = 'accepted';
+          call.accepted_at = new Date().toISOString();
+        }
+        targetCall = call;
+      }
+      return db;
+    });
+
+    if (!targetCall) {
+      res.json({ success: true, message: 'Call already cleared' });
+      return;
+    }
+
+    broadcastWaiterUpdate();
+    res.json(targetCall);
+  }
+);
+
+// 20.2 Place Call from VIP Table (Idempotent & Deduplicated)
+apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
   const { table_id, call_type = 'general', message = '' } = req.body;
   if (!table_id) {
     res.status(400).json({ error: 'table_id is required.' });
     return;
   }
-  const db = getDatabase();
-  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
-  const table = (db.vip_tables || []).find((t) => t.id === table_id);
-  if (!table) {
+
+  let finalCall: WaiterCall | null = null;
+  let isNew = false;
+
+  await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+    const table = (db.vip_tables || []).find((t) => t.id === table_id);
+    if (!table) {
+      return db;
+    }
+
+    // Idempotency check: If an active pending call already exists for this table, update and reuse it
+    const existingPending = db.waiter_calls.find(
+      (c) => c.table_id === table_id && c.status === 'pending'
+    );
+
+    if (existingPending) {
+      if (message) existingPending.message = String(message).trim();
+      if (call_type) existingPending.call_type = call_type as CallType;
+      finalCall = existingPending;
+      isNew = false;
+      return db;
+    }
+
+    const newCall: WaiterCall = {
+      id: `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      table_id: table.id,
+      table_number: table.table_number,
+      table_name: table.name,
+      call_type: call_type as CallType,
+      message: String(message || '').trim(),
+      status: 'pending',
+      assigned_waiter_id: table.assigned_waiter_id || null,
+      is_escalated: !table.assigned_waiter_id,
+      original_waiter_id: table.assigned_waiter_id || null,
+      created_at: new Date().toISOString(),
+    };
+
+    db.waiter_calls.push(newCall);
+    finalCall = newCall;
+    isNew = true;
+    return db;
+  });
+
+  if (!finalCall) {
     res.status(404).json({ error: 'VIP table not found.' });
     return;
   }
-  const newCall: WaiterCall = {
-    id: `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-    table_id: table.id,
-    table_number: table.table_number,
-    table_name: table.name,
-    call_type: call_type as CallType,
-    message: String(message || '').trim(),
-    status: 'pending',
-    assigned_waiter_id: table.assigned_waiter_id || null,
-    is_escalated: !table.assigned_waiter_id,
-    original_waiter_id: table.assigned_waiter_id || null,
-    created_at: new Date().toISOString(),
-  };
-  db.waiter_calls.push(newCall);
-  saveDatabase(db);
+
   broadcastWaiterUpdate();
-  res.status(201).json(newCall);
+  res.status(isNew ? 201 : 200).json(finalCall);
 });
 
 // 20.3 Waiter Accepts Call
-apiRouter.post('/waiter-calls/:id/accept', (req: Request, res: Response) => {
+apiRouter.post('/waiter-calls/:id/accept', async (req: Request, res: Response) => {
   const { id } = req.params;
   const { waiter_id, waiter_name } = req.body;
-  const db = getDatabase();
-  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
-  const call = db.waiter_calls.find((c) => c.id === id);
-  if (!call) {
+  let acceptedCall: WaiterCall | null = null;
+
+  await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+    const call = db.waiter_calls.find((c) => c.id === id);
+    if (call) {
+      if (call.status !== 'completed' && call.status !== 'cancelled') {
+        call.status = 'accepted';
+        call.accepted_by_waiter_id = waiter_id || null;
+        call.accepted_by_name = waiter_name || 'Staff Member';
+        call.accepted_at = new Date().toISOString();
+      }
+      acceptedCall = call;
+    }
+    return db;
+  });
+
+  if (!acceptedCall) {
     res.status(404).json({ error: 'Call not found.' });
     return;
   }
-  call.status = 'accepted';
-  call.accepted_by_waiter_id = waiter_id || null;
-  call.accepted_by_name = waiter_name || 'Staff Member';
-  call.accepted_at = new Date().toISOString();
-  saveDatabase(db);
+
   broadcastWaiterUpdate();
-  res.json(call);
+  res.json(acceptedCall);
 });
 
 // 20.4 Complete Call
-apiRouter.post('/waiter-calls/:id/complete', (req: Request, res: Response) => {
+apiRouter.post('/waiter-calls/:id/complete', async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDatabase();
-  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
-  const call = db.waiter_calls.find((c) => c.id === id);
-  if (!call) {
+  let completedCall: WaiterCall | null = null;
+
+  await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+    const call = db.waiter_calls.find((c) => c.id === id);
+    if (call) {
+      call.status = 'completed';
+      call.completed_at = new Date().toISOString();
+      completedCall = call;
+    }
+    return db;
+  });
+
+  if (!completedCall) {
     res.status(404).json({ error: 'Call not found.' });
     return;
   }
-  call.status = 'completed';
-  call.completed_at = new Date().toISOString();
-  saveDatabase(db);
+
   broadcastWaiterUpdate();
-  res.json(call);
+  res.json(completedCall);
 });
 
 // 20.5 Cancel Call
-apiRouter.post('/waiter-calls/:id/cancel', (req: Request, res: Response) => {
+apiRouter.post('/waiter-calls/:id/cancel', async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDatabase();
-  if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
-  const call = db.waiter_calls.find((c) => c.id === id);
-  if (!call) {
+  let cancelledCall: WaiterCall | null = null;
+
+  await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+    const call = db.waiter_calls.find((c) => c.id === id);
+    if (call) {
+      call.status = 'cancelled';
+      call.completed_at = new Date().toISOString();
+      cancelledCall = call;
+    }
+    return db;
+  });
+
+  if (!cancelledCall) {
     res.status(404).json({ error: 'Call not found.' });
     return;
   }
-  call.status = 'cancelled';
-  call.completed_at = new Date().toISOString();
-  saveDatabase(db);
+
   broadcastWaiterUpdate();
-  res.json(call);
+  res.json(cancelledCall);
 });
 
 // 20.6 Clear History (Admin)
-apiRouter.delete('/waiter-calls/history', requireAdmin, (_req: Request, res: Response) => {
-  const db = getDatabase();
-  if (Array.isArray(db.waiter_calls)) {
-    db.waiter_calls = db.waiter_calls.filter(
-      (c) => c.status === 'pending' || c.status === 'accepted'
-    );
-  }
-  saveDatabase(db);
-  res.json({ success: true, remaining: db.waiter_calls.length });
+apiRouter.delete('/waiter-calls/history', requireAdmin, async (_req: Request, res: Response) => {
+  let remainingCount = 0;
+  await mutateDatabaseAsync((db) => {
+    if (Array.isArray(db.waiter_calls)) {
+      db.waiter_calls = db.waiter_calls.filter(
+        (c) => c.status === 'pending' || c.status === 'accepted'
+      );
+      remainingCount = db.waiter_calls.length;
+    }
+    return db;
+  });
+
+  broadcastWaiterUpdate();
+  res.json({ success: true, remaining: remainingCount });
 });
 
 // 21. Device Push Tokens
