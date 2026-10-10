@@ -35,6 +35,19 @@ export function startVipSession(tableId: string, tableNumber: string): VipSessio
 }
 
 /**
+ * Ensures or retrieves the existing VIP session without resetting the timer on refresh.
+ * If a session already exists (even if page reloaded), preserves the original activatedAt and expiresAt.
+ * Only if NO session exists in storage, creates a fresh 4-hour session.
+ */
+export function ensureVipSession(tableId: string, tableNumber: string): VipSession {
+  const existing = getVipSession(tableId);
+  if (existing) {
+    return existing;
+  }
+  return startVipSession(tableId, tableNumber);
+}
+
+/**
  * Get the current VIP session for a table
  */
 export function getVipSession(tableId: string): VipSession | null {

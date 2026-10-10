@@ -17,7 +17,6 @@ export const VipTableSelectorModal: React.FC<VipTableSelectorModalProps> = ({
   onSelectTable,
 }) => {
   const [selectedTableId, setSelectedTableId] = useState<string>(vipTables[0]?.id || '');
-  const [secretCodeInput, setSecretCodeInput] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -29,14 +28,6 @@ export const VipTableSelectorModal: React.FC<VipTableSelectorModalProps> = ({
     if (!currentSelected) {
       setErrorMsg('Please select a VIP table.');
       return;
-    }
-
-    // If table has a secret code set, verify it
-    if (currentSelected.secret_code && currentSelected.secret_code.trim()) {
-      if (secretCodeInput.trim() !== currentSelected.secret_code.trim()) {
-        setErrorMsg(`Incorrect VIP access PIN for ${currentSelected.table_number}. Please check your reservation or table card.`);
-        return;
-      }
     }
 
     startVipSession(currentSelected.id, currentSelected.table_number);
@@ -99,34 +90,10 @@ export const VipTableSelectorModal: React.FC<VipTableSelectorModalProps> = ({
                     </span>
                   </div>
                   <div className="text-xs text-[#FCF6BA]/90 font-medium truncate">{t.name}</div>
-                  {t.secret_code && (
-                    <div className="text-[10px] text-amber-300/70 mt-1 flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3" /> PIN Protected
-                    </div>
-                  )}
                 </button>
               );
             })}
           </div>
-
-          {/* Secret Code Input (if protected) */}
-          {currentSelected?.secret_code && (
-            <div className="mt-3 bg-[#161616] p-3 rounded-xl border border-amber-500/30">
-              <label className="block text-xs font-semibold text-amber-300 mb-1">
-                Enter VIP Access PIN for {currentSelected.table_number}:
-              </label>
-              <input
-                type="text"
-                value={secretCodeInput}
-                onChange={(e) => setSecretCodeInput(e.target.value)}
-                placeholder="4-digit VIP Table PIN (e.g. 7771)"
-                className="w-full px-3 py-2 bg-[#0c0c0c] border border-amber-500/40 rounded-lg text-sm text-[#FCF6BA] focus:outline-none focus:border-[#D4AF37] text-center font-mono tracking-widest"
-              />
-              <p className="text-[10px] text-[#FCF6BA]/60 mt-1">
-                Found on your VIP table card or reservation invite.
-              </p>
-            </div>
-          )}
 
           {errorMsg && (
             <div className="p-3 bg-red-950/60 border border-red-500/50 rounded-lg text-red-200 text-xs text-center font-medium animate-shake">

@@ -899,6 +899,18 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
     return;
   }
 
+  const defaultMessages: Record<string, string> = {
+    general: 'VIP staff assistance requested',
+    order: 'Ready to order dishes / food request',
+    water: 'Water & drink refill requested',
+    bill: 'Bill & payment receipt requested',
+    urgent: 'URGENT assistance needed immediately!',
+  };
+  const cleanMessage =
+    String(message || '').trim() ||
+    defaultMessages[call_type] ||
+    'Assistance requested';
+
   let finalCall: WaiterCall | null = null;
   let isNew = false;
 
@@ -914,18 +926,25 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
       (w) => w.id === table.assigned_waiter_id && w.is_active
     );
     const validAssignedWaiterId = assignedStaff ? assignedStaff.id : null;
+    const isUrgent = call_type === 'urgent';
 
-    // Idempotency check: If an active pending call already exists for this table, update and reuse it
-    const existingPending = db.waiter_calls.find(
-      (c) => c.table_id === table_id && c.status === 'pending'
+    // If an active call (pending OR accepted) already exists for this table:
+    // Update it with the new call type and message, resetting status to 'pending' for a fresh ring alert!
+    const existingActive = db.waiter_calls.find(
+      (c) => c.table_id === table_id && (c.status === 'pending' || c.status === 'accepted')
     );
 
-    if (existingPending) {
-      if (message) existingPending.message = String(message).trim();
-      if (call_type) existingPending.call_type = call_type as CallType;
-      existingPending.assigned_waiter_id = validAssignedWaiterId;
-      existingPending.is_escalated = !validAssignedWaiterId || !assignedStaff?.is_on_duty;
-      finalCall = existingPending;
+    if (existingActive) {
+      existingActive.call_type = call_type as CallType;
+      existingActive.message = cleanMessage;
+      existingActive.status = 'pending'; // Reset to pending so waiter gets fresh ring
+      existingActive.assigned_waiter_id = validAssignedWaiterId;
+      existingActive.is_escalated = isUrgent || !validAssignedWaiterId || !assignedStaff?.is_on_duty;
+      existingActive.created_at = new Date().toISOString();
+      existingActive.accepted_by_waiter_id = null;
+      existingActive.accepted_by_name = null;
+      existingActive.accepted_at = null;
+      finalCall = existingActive;
       isNew = false;
       return db;
     }
@@ -936,10 +955,10 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
       table_number: table.table_number,
       table_name: table.name,
       call_type: call_type as CallType,
-      message: String(message || '').trim(),
+      message: cleanMessage,
       status: 'pending',
       assigned_waiter_id: validAssignedWaiterId,
-      is_escalated: !validAssignedWaiterId || !assignedStaff?.is_on_duty,
+      is_escalated: isUrgent || !validAssignedWaiterId || !assignedStaff?.is_on_duty,
       original_waiter_id: validAssignedWaiterId,
       created_at: new Date().toISOString(),
     };
@@ -959,35 +978,38 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
   res.status(isNew ? 201 : 200).json(finalCall);
 });
 
-// 20.3 Waiter Accepts Call
-apiRouter.post('/waiter-calls/:id/accept', async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { waiter_id, waiter_name } = req.body;
-  let acceptedCall: WaiterCall | null = null;
+// 20.3 Waiter Accepts Call (Supports all endpoint aliases)
+apiRouter.post(
+  ['/waiter-calls/:id/accept', '/waiter/calls/:id/accept'],
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { waiter_id, waiter_name } = req.body;
+    let acceptedCall: WaiterCall | null = null;
 
-  const updatedDb = await mutateDatabaseAsync((db) => {
-    if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
-    const call = db.waiter_calls.find((c) => c.id === id);
-    if (call) {
-      if (call.status !== 'completed' && call.status !== 'cancelled') {
-        call.status = 'accepted';
-        call.accepted_by_waiter_id = waiter_id || null;
-        call.accepted_by_name = waiter_name || 'Staff Member';
-        call.accepted_at = new Date().toISOString();
+    const updatedDb = await mutateDatabaseAsync((db) => {
+      if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+      const call = db.waiter_calls.find((c) => c.id === id);
+      if (call) {
+        if (call.status !== 'completed' && call.status !== 'cancelled') {
+          call.status = 'accepted';
+          call.accepted_by_waiter_id = waiter_id || null;
+          call.accepted_by_name = waiter_name || 'Staff Member';
+          call.accepted_at = new Date().toISOString();
+        }
+        acceptedCall = call;
       }
-      acceptedCall = call;
+      return db;
+    });
+
+    if (!acceptedCall) {
+      res.status(404).json({ error: 'Call not found.' });
+      return;
     }
-    return db;
-  });
 
-  if (!acceptedCall) {
-    res.status(404).json({ error: 'Call not found.' });
-    return;
+    broadcastWaiterUpdate(updatedDb);
+    res.json(acceptedCall);
   }
-
-  broadcastWaiterUpdate(updatedDb);
-  res.json(acceptedCall);
-});
+);
 
 // 20.4 Complete Call
 apiRouter.post('/waiter-calls/:id/complete', async (req: Request, res: Response) => {
