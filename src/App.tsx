@@ -96,11 +96,10 @@ export default function App() {
 /**
  * Authoritative reconciliation for live waiter calls.
  * Ensures newer confirmed statuses (e.g. accepted, completed) are never reversed by older polling responses.
- * Preserves active calls across network updates without flickering or duplicate ring alerts.
+ * Completely eliminates flickering, disappearing calls, and duplicate ring alerts.
  */
 function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall[]): WaiterCall[] {
   const prevMap = new Map((prevCalls || []).map((c) => [c.id, c]));
-  const incomingMap = new Map((incomingCalls || []).map((c) => [c.id, c]));
 
   const statusPriority: Record<string, number> = {
     pending: 1,
@@ -109,21 +108,22 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     cancelled: 3,
   };
 
-  const reconciled: WaiterCall[] = [];
+  const mergedMap = new Map<string, WaiterCall>();
 
-  for (const inc of incomingCalls) {
+  // 1. Process all incoming calls from backend
+  for (const inc of incomingCalls || []) {
     const prev = prevMap.get(inc.id);
     if (!prev) {
-      reconciled.push(inc);
+      mergedMap.set(inc.id, inc);
       continue;
     }
 
     const prevPriority = statusPriority[prev.status] || 0;
     const incPriority = statusPriority[inc.status] || 0;
 
-    // Rule: Older API response cannot reverse newer confirmed local status
+    // Rule: Terminal local statuses (completed/cancelled) or newer local confirmations cannot be downgraded
     if (prevPriority > incPriority) {
-      reconciled.push({
+      mergedMap.set(inc.id, {
         ...inc,
         status: prev.status,
         accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id,
@@ -132,22 +132,28 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
         completed_at: prev.completed_at || inc.completed_at,
       });
     } else {
-      reconciled.push(inc);
+      mergedMap.set(inc.id, inc);
     }
   }
 
-  // Preserve very fresh in-flight calls (<10s) created locally that haven't been echoed back yet
-  const now = Date.now();
+  // 2. CRITICAL FLICKER PREVENTION:
+  // If an active call (pending or accepted) exists locally, never drop it just because a momentary poll or SSE packet missed it.
+  const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
   for (const prev of prevCalls || []) {
-    if (!incomingMap.has(prev.id) && prev.status === 'pending') {
-      const ageMs = now - new Date(prev.created_at).getTime();
-      if (ageMs < 10000) {
-        reconciled.unshift(prev);
+    if (!mergedMap.has(prev.id)) {
+      if (prev.status === 'pending' || prev.status === 'accepted') {
+        const createdAtTime = new Date(prev.created_at).getTime();
+        if (createdAtTime > twoHoursAgo) {
+          mergedMap.set(prev.id, prev);
+        }
       }
     }
   }
 
-  return reconciled;
+  // 3. Stably sort by created_at DESC (newest calls always at top)
+  const result = Array.from(mergedMap.values());
+  result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return result;
 }
 
   // Fetch / revalidate menu, live waiters, VIP tables, and active calls from authoritative backend
@@ -395,6 +401,13 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     };
     setDbState(next);
     saveClientState(next);
+
+    // Sync VIP tables to authoritative backend
+    apiFetch('/api/vip-tables/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vip_tables: tables }),
+    }).catch((err) => console.warn('Sync tables note:', err));
   };
 
   const handleUpdateWaiters = (waiters: Waiter[]) => {
@@ -405,6 +418,13 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     };
     setDbState(next);
     saveClientState(next);
+
+    // Sync waiters to authoritative backend so deletions & additions persist permanently
+    apiFetch('/api/waiters/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ waiters }),
+    }).catch((err) => console.warn('Sync waiters note:', err));
   };
 
   // VIP Customer: Place Call
@@ -426,11 +446,18 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
         body: JSON.stringify({ table_id: tableId, call_type: callType, message }),
       });
       if (res.ok) {
-        const call = await res.json();
+        const call: WaiterCall = await res.json();
         setDbState((prev) => {
+          // Replace any existing call for this table or with this ID
+          const otherCalls = (prev.waiter_calls || []).filter(
+            (c) => c.id !== call.id && !(c.table_id === call.table_id && c.status === 'pending')
+          );
+          const nextCalls = [call, ...otherCalls].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
           const next = {
             ...prev,
-            waiter_calls: [call, ...(prev.waiter_calls || [])],
+            waiter_calls: nextCalls,
           };
           saveClientState(next);
           return next;

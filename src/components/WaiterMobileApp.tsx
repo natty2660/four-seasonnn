@@ -229,7 +229,8 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   // Rule:
   // 1. If assigned to this waiter -> RINGS ONLY THIS WAITER'S PHONE!
   // 2. If unassigned OR escalated after 45s -> RINGS ALL ON-DUTY WAITERS!
-  // 3. If assigned to another waiter and NOT escalated -> DOES NOT RING THIS WAITER!
+  // 3. If assigned to a deleted waiter or off-duty waiter -> RINGS ALL ON-DUTY WAITERS IMMEDIATELY!
+  // 4. If assigned to another on-duty waiter and NOT escalated -> DOES NOT RING THIS WAITER!
   const now = Date.now();
   // All active pending calls in the restaurant (matching Admin Dashboard)
   const allPendingCalls = activeCalls.filter((c) => c.status === 'pending');
@@ -243,6 +244,12 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     if (c.is_escalated || isEscalatedByTimer) return true;
 
     if (c.assigned_waiter_id) {
+      // Check if assigned waiter actually exists in staff roster
+      const assigned = waiters.find((w) => w.id === c.assigned_waiter_id);
+      if (!assigned || !assigned.is_active || !assigned.is_on_duty) {
+        // Ghost waiter or off duty -> ring all on-duty waiters immediately!
+        return true;
+      }
       return c.assigned_waiter_id === selectedWaiterId;
     }
     // Unassigned call: rings to all on-duty waiters
@@ -265,31 +272,32 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     .slice(0, 10);
 
   // RINGING AND VIBRATION CONTROLLER EFFECT
+  const activeTopCallId = pendingCallsForMe[0]?.id || null;
+
   useEffect(() => {
-    if (!currentWaiter || !currentWaiter.is_on_duty || isMuted) {
+    if (!currentWaiter || !currentWaiter.is_on_duty || isMuted || !activeTopCallId) {
       callSound.stopWaiterRingtone();
       nativeCallBridge.stopNativeCallAlert();
       lastRungCallId.current = null;
       return;
     }
 
-    if (pendingCallsForMe.length > 0) {
-      const topCall = pendingCallsForMe[0];
-      // Start real native ringing, lockscreen notification, and continuous pocket vibration
+    const topCall = pendingCallsForMe[0];
+    if (topCall && lastRungCallId.current !== topCall.id) {
+      // Start real ringing and alert without stuttering on simple re-renders
       callSound.startWaiterRingtone();
       nativeCallBridge.triggerNativeCallAlert(topCall);
       lastRungCallId.current = topCall.id;
-    } else {
-      callSound.stopWaiterRingtone();
-      nativeCallBridge.stopNativeCallAlert();
-      lastRungCallId.current = null;
     }
+  }, [activeTopCallId, currentWaiter?.is_on_duty, isMuted, currentWaiter?.id]);
 
+  // Clean up audio when component unmounts
+  useEffect(() => {
     return () => {
       callSound.stopWaiterRingtone();
       nativeCallBridge.stopNativeCallAlert();
     };
-  }, [pendingCallsForMe.length, currentWaiter?.is_on_duty, isMuted, currentWaiter]);
+  }, []);
 
   // Accept call action
   const handleAccept = async (callId: string, waiterId: string, waiterName: string) => {

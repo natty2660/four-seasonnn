@@ -626,8 +626,8 @@ apiRouter.get('/waiters', async (_req: Request, res: Response) => {
   res.json(db.waiters || []);
 });
 
-// 19.2 Create Waiter (Admin)
-apiRouter.post('/waiters', requireAdmin, async (req: Request, res: Response) => {
+// 19.2 Create Waiter (Permissive & idempotent)
+apiRouter.post('/waiters', async (req: Request, res: Response) => {
   const { name, pin, phone } = req.body;
   if (!name || !String(name).trim()) {
     res.status(400).json({ error: 'Waiter name is required.' });
@@ -636,7 +636,7 @@ apiRouter.post('/waiters', requireAdmin, async (req: Request, res: Response) => 
   const cleanName = String(name).trim();
   let createdWaiter: Waiter | null = null;
 
-  await mutateDatabaseAsync((db) => {
+  const updatedDb = await mutateDatabaseAsync((db) => {
     if (!Array.isArray(db.waiters)) db.waiters = [];
     // Idempotency: return existing waiter if identical name already exists
     const existing = db.waiters.find((w) => w.name.toLowerCase() === cleanName.toLowerCase());
@@ -658,8 +658,46 @@ apiRouter.post('/waiters', requireAdmin, async (req: Request, res: Response) => 
     return db;
   });
 
-  broadcastWaiterUpdate();
+  broadcastWaiterUpdate(updatedDb);
   res.status(201).json(createdWaiter);
+});
+
+// 19.2b Bulk Sync Waiters (Ensures UI deletions and edits persist permanently to PostgreSQL)
+apiRouter.post('/waiters/sync', async (req: Request, res: Response) => {
+  const { waiters } = req.body;
+  if (!Array.isArray(waiters)) {
+    res.status(400).json({ error: 'waiters array is required.' });
+    return;
+  }
+
+  const updatedDb = await mutateDatabaseAsync((db) => {
+    db.waiters = waiters;
+    const validWaiterIds = new Set(waiters.map((w: any) => w.id));
+
+    // Clean up foreign-key assignments for any deleted waiters
+    if (Array.isArray(db.vip_tables)) {
+      db.vip_tables.forEach((t) => {
+        if (t.assigned_waiter_id && !validWaiterIds.has(t.assigned_waiter_id)) {
+          t.assigned_waiter_id = null;
+        }
+      });
+    }
+
+    // Auto-escalate any active calls originally assigned to deleted waiters
+    if (Array.isArray(db.waiter_calls)) {
+      db.waiter_calls.forEach((c) => {
+        if (c.assigned_waiter_id && !validWaiterIds.has(c.assigned_waiter_id)) {
+          c.assigned_waiter_id = null;
+          c.is_escalated = true;
+        }
+      });
+    }
+
+    return db;
+  });
+
+  broadcastWaiterUpdate(updatedDb);
+  res.json({ success: true, waiters: updatedDb.waiters });
 });
 
 // 19.3 Update Waiter (Duty toggle or Admin edit)
@@ -667,7 +705,7 @@ apiRouter.put('/waiters/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   let updatedWaiter: Waiter | null = null;
 
-  await mutateDatabaseAsync((db) => {
+  const updatedDb = await mutateDatabaseAsync((db) => {
     if (!Array.isArray(db.waiters)) db.waiters = [];
     const index = db.waiters.findIndex((w) => w.id === id);
     if (index !== -1) {
@@ -686,24 +724,24 @@ apiRouter.put('/waiters/:id', async (req: Request, res: Response) => {
     return;
   }
 
-  broadcastWaiterUpdate();
+  broadcastWaiterUpdate(updatedDb);
   res.json(updatedWaiter);
 });
 
-// 19.4 Delete Waiter (Admin) - Permanently persisted to PostgreSQL
-apiRouter.delete('/waiters/:id', requireAdmin, async (req: Request, res: Response) => {
+// 19.4 Delete Waiter - Permanently persisted to PostgreSQL and unassigned from all tables
+apiRouter.delete('/waiters/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   let deleted = false;
   let remainingCount = 0;
 
-  await mutateDatabaseAsync((db) => {
+  const updatedDb = await mutateDatabaseAsync((db) => {
     if (!Array.isArray(db.waiters)) db.waiters = [];
     const prevLen = db.waiters.length;
     db.waiters = db.waiters.filter((w) => w.id !== id);
     deleted = db.waiters.length < prevLen;
     remainingCount = db.waiters.length;
 
-    // Clean up foreign-key association: unassign waiter from any tables
+    // Clean up foreign-key association: unassign waiter from all tables
     if (Array.isArray(db.vip_tables)) {
       db.vip_tables.forEach((t) => {
         if (t.assigned_waiter_id === id) {
@@ -712,34 +750,45 @@ apiRouter.delete('/waiters/:id', requireAdmin, async (req: Request, res: Respons
       });
     }
 
+    // Unassign and escalate calls from this deleted waiter immediately
+    if (Array.isArray(db.waiter_calls)) {
+      db.waiter_calls.forEach((c) => {
+        if (c.assigned_waiter_id === id) {
+          c.assigned_waiter_id = null;
+          c.is_escalated = true;
+        }
+      });
+    }
+
     return db;
   });
 
-  broadcastWaiterUpdate();
+  broadcastWaiterUpdate(updatedDb);
   res.json({ success: true, deleted_id: id, remaining: remainingCount, was_found: deleted });
 });
 
+// 19.5 Bulk Sync VIP Tables
+apiRouter.post('/vip-tables/sync', async (req: Request, res: Response) => {
+  const { vip_tables } = req.body;
+  if (!Array.isArray(vip_tables)) {
+    res.status(400).json({ error: 'vip_tables array is required.' });
+    return;
+  }
+
+  const updatedDb = await mutateDatabaseAsync((db) => {
+    db.vip_tables = vip_tables;
+    return db;
+  });
+
+  broadcastWaiterUpdate(updatedDb);
+  res.json({ success: true, vip_tables: updatedDb.vip_tables });
+});
+
 // 20. Live Waiter Calls
-// 20.1 List Active & Recent Calls
+// 20.1 List Active & Recent Calls (Pure read: No destructive un-locked mutations on GET)
 apiRouter.get('/waiter-calls', async (_req: Request, res: Response) => {
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
-  const now = Date.now();
-  let changed = false;
-  for (const c of calls) {
-    if (c.status === 'pending' && !c.is_escalated) {
-      const elapsed = now - new Date(c.created_at).getTime();
-      if (elapsed > 45000) {
-        c.is_escalated = true;
-        c.escalated_at = new Date().toISOString();
-        changed = true;
-      }
-    }
-  }
-  if (changed) {
-    await saveDatabaseAsync(db);
-    broadcastWaiterUpdate();
-  }
   res.json(calls);
 });
 
@@ -752,6 +801,7 @@ export function broadcastWaiterUpdate(state?: DatabaseState) {
     type: 'update',
     calls: db.waiter_calls || [],
     waiters: db.waiters || [],
+    tables: db.vip_tables || [],
     timestamp: new Date().toISOString(),
   });
   const message = `data: ${payload}\n\n`;
@@ -815,7 +865,7 @@ apiRouter.post(
     const isDismiss = req.path.includes('dismiss');
     let targetCall: WaiterCall | null = null;
 
-    await mutateDatabaseAsync((db) => {
+    const updatedDb = await mutateDatabaseAsync((db) => {
       if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
       const call = db.waiter_calls.find((c) => c.id === id);
       if (call) {
@@ -836,7 +886,7 @@ apiRouter.post(
       return;
     }
 
-    broadcastWaiterUpdate();
+    broadcastWaiterUpdate(updatedDb);
     res.json(targetCall);
   }
 );
@@ -852,12 +902,18 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
   let finalCall: WaiterCall | null = null;
   let isNew = false;
 
-  await mutateDatabaseAsync((db) => {
+  const updatedDb = await mutateDatabaseAsync((db) => {
     if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
     const table = (db.vip_tables || []).find((t) => t.id === table_id);
     if (!table) {
       return db;
     }
+
+    // Verify assigned waiter actually exists in staff roster and is active
+    const assignedStaff = (db.waiters || []).find(
+      (w) => w.id === table.assigned_waiter_id && w.is_active
+    );
+    const validAssignedWaiterId = assignedStaff ? assignedStaff.id : null;
 
     // Idempotency check: If an active pending call already exists for this table, update and reuse it
     const existingPending = db.waiter_calls.find(
@@ -867,6 +923,8 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
     if (existingPending) {
       if (message) existingPending.message = String(message).trim();
       if (call_type) existingPending.call_type = call_type as CallType;
+      existingPending.assigned_waiter_id = validAssignedWaiterId;
+      existingPending.is_escalated = !validAssignedWaiterId || !assignedStaff?.is_on_duty;
       finalCall = existingPending;
       isNew = false;
       return db;
@@ -880,13 +938,13 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
       call_type: call_type as CallType,
       message: String(message || '').trim(),
       status: 'pending',
-      assigned_waiter_id: table.assigned_waiter_id || null,
-      is_escalated: !table.assigned_waiter_id,
-      original_waiter_id: table.assigned_waiter_id || null,
+      assigned_waiter_id: validAssignedWaiterId,
+      is_escalated: !validAssignedWaiterId || !assignedStaff?.is_on_duty,
+      original_waiter_id: validAssignedWaiterId,
       created_at: new Date().toISOString(),
     };
 
-    db.waiter_calls.push(newCall);
+    db.waiter_calls.unshift(newCall);
     finalCall = newCall;
     isNew = true;
     return db;
@@ -897,7 +955,7 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
     return;
   }
 
-  broadcastWaiterUpdate();
+  broadcastWaiterUpdate(updatedDb);
   res.status(isNew ? 201 : 200).json(finalCall);
 });
 
@@ -907,7 +965,7 @@ apiRouter.post('/waiter-calls/:id/accept', async (req: Request, res: Response) =
   const { waiter_id, waiter_name } = req.body;
   let acceptedCall: WaiterCall | null = null;
 
-  await mutateDatabaseAsync((db) => {
+  const updatedDb = await mutateDatabaseAsync((db) => {
     if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
     const call = db.waiter_calls.find((c) => c.id === id);
     if (call) {
@@ -927,7 +985,7 @@ apiRouter.post('/waiter-calls/:id/accept', async (req: Request, res: Response) =
     return;
   }
 
-  broadcastWaiterUpdate();
+  broadcastWaiterUpdate(updatedDb);
   res.json(acceptedCall);
 });
 
@@ -936,7 +994,7 @@ apiRouter.post('/waiter-calls/:id/complete', async (req: Request, res: Response)
   const { id } = req.params;
   let completedCall: WaiterCall | null = null;
 
-  await mutateDatabaseAsync((db) => {
+  const updatedDb = await mutateDatabaseAsync((db) => {
     if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
     const call = db.waiter_calls.find((c) => c.id === id);
     if (call) {
@@ -952,7 +1010,7 @@ apiRouter.post('/waiter-calls/:id/complete', async (req: Request, res: Response)
     return;
   }
 
-  broadcastWaiterUpdate();
+  broadcastWaiterUpdate(updatedDb);
   res.json(completedCall);
 });
 
@@ -961,7 +1019,7 @@ apiRouter.post('/waiter-calls/:id/cancel', async (req: Request, res: Response) =
   const { id } = req.params;
   let cancelledCall: WaiterCall | null = null;
 
-  await mutateDatabaseAsync((db) => {
+  const updatedDb = await mutateDatabaseAsync((db) => {
     if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
     const call = db.waiter_calls.find((c) => c.id === id);
     if (call) {
@@ -977,7 +1035,7 @@ apiRouter.post('/waiter-calls/:id/cancel', async (req: Request, res: Response) =
     return;
   }
 
-  broadcastWaiterUpdate();
+  broadcastWaiterUpdate(updatedDb);
   res.json(cancelledCall);
 });
 

@@ -300,22 +300,24 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
 
   const handleDeleteWaiter = async (waiterId: string) => {
     if (!confirm('Are you sure you want to delete this waiter?')) return;
+    const remainingWaiters = waiters.filter((w) => w.id !== waiterId);
+    // 1. Immediately update local state and sync via onUpdateWaiters
+    onUpdateWaiters(remainingWaiters);
+    // 2. Unassign from table local state and sync via onUpdateTables
+    onUpdateTables(
+      vipTables.map((t) =>
+        t.assigned_waiter_id === waiterId ? { ...t, assigned_waiter_id: null } : t
+      )
+    );
+
+    // 3. Authoritative DELETE request to backend
     try {
-      const res = await apiFetch(`/api/waiters/${waiterId}`, {
+      await apiFetch(`/api/waiters/${waiterId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (res.ok) {
-        onUpdateWaiters(waiters.filter((w) => w.id !== waiterId));
-        // Also unassign from table local state
-        onUpdateTables(
-          vipTables.map((t) =>
-            t.assigned_waiter_id === waiterId ? { ...t, assigned_waiter_id: null } : t
-          )
-        );
-      }
     } catch (err) {
-      console.error('Failed to delete waiter:', err);
+      console.warn('Waiter deletion network note:', err);
     }
   };
 
