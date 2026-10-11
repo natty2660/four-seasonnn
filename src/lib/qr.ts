@@ -16,7 +16,7 @@ export function getMenuUrl(slug = 'prime-cafe'): string {
 
 export function getVipTableUrl(
   tableNumber: string,
-  pin?: string | null,
+  _pin?: string | null,
   grantAccess = true
 ): string {
   const origin =
@@ -25,9 +25,7 @@ export function getVipTableUrl(
       : 'https://fourseason.et';
   const params = new URLSearchParams();
   params.set('table', tableNumber);
-  if (pin && pin.trim()) {
-    params.set('pin', pin.trim());
-  }
+  params.set('entry', 'qr');
   if (grantAccess) {
     params.set('access', 'granted');
   }

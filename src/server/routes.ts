@@ -16,7 +16,7 @@ import {
   saveImageBlob,
   ensureDatabaseInitialized,
 } from './db.ts';
-import { buildMenuResponse, validateBirrPrice } from '../lib/storage.ts';
+import { buildMenuResponse, validateBirrPrice, DatabaseState } from '../lib/storage.ts';
 import { generateQRCodeDataUrl } from '../lib/qr.ts';
 import { MenuItem, Category, VipTable, Waiter, WaiterCall, CallType } from '../types/index.ts';
 
@@ -928,29 +928,16 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
     const validAssignedWaiterId = assignedStaff ? assignedStaff.id : null;
     const isUrgent = call_type === 'urgent';
 
-    // If an active call (pending OR accepted) already exists for this table:
-    // Update it with the new call type and message, resetting status to 'pending' for a fresh ring alert!
-    const existingActive = db.waiter_calls.find(
-      (c) => c.table_id === table_id && (c.status === 'pending' || c.status === 'accepted')
-    );
-
-    if (existingActive) {
-      existingActive.call_type = call_type as CallType;
-      existingActive.message = cleanMessage;
-      existingActive.status = 'pending'; // Reset to pending so waiter gets fresh ring
-      existingActive.assigned_waiter_id = validAssignedWaiterId;
-      existingActive.is_escalated = isUrgent || !validAssignedWaiterId || !assignedStaff?.is_on_duty;
-      existingActive.created_at = new Date().toISOString();
-      existingActive.accepted_by_waiter_id = null;
-      existingActive.accepted_by_name = null;
-      existingActive.accepted_at = null;
-      finalCall = existingActive;
-      isNew = false;
-      return db;
-    }
+    // Archive / complete any previous active call for this table so only the new request is live
+    db.waiter_calls.forEach((c) => {
+      if (c.table_id === table_id && (c.status === 'pending' || c.status === 'accepted')) {
+        c.status = 'completed';
+        c.completed_at = new Date().toISOString();
+      }
+    });
 
     const newCall: WaiterCall = {
-      id: `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      id: `call_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       table_id: table.id,
       table_number: table.table_number,
       table_name: table.name,

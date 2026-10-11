@@ -232,8 +232,10 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   // 3. If assigned to a deleted waiter or off-duty waiter -> RINGS ALL ON-DUTY WAITERS IMMEDIATELY!
   // 4. If assigned to another on-duty waiter and NOT escalated -> DOES NOT RING THIS WAITER!
   const now = Date.now();
-  // All active pending calls in the restaurant (matching Admin Dashboard)
-  const allPendingCalls = activeCalls.filter((c) => c.status === 'pending');
+  // All active pending calls in the restaurant (matching Admin Dashboard), newest first
+  const allPendingCalls = activeCalls
+    .filter((c) => c.status === 'pending')
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // Calls that specifically trigger ringing and high-priority alerts for this waiter
   const pendingCallsForMe = allPendingCalls.filter((c) => {
@@ -257,9 +259,13 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   });
 
   // Calls currently being attended by this waiter
-  const inProgressCalls = activeCalls.filter(
-    (c) => c.status === 'accepted' && c.accepted_by_waiter_id === selectedWaiterId
-  );
+  const inProgressCalls = activeCalls
+    .filter(
+      (c) =>
+        c.status === 'accepted' &&
+        (c.accepted_by_waiter_id === selectedWaiterId || c.accepted_by_name === currentWaiter?.name)
+    )
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // Other active restaurant calls (assigned to co-workers, or active while off-duty)
   const otherPendingCalls = allPendingCalls.filter(

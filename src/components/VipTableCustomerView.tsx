@@ -94,12 +94,29 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
   // Find assigned responsible waiter
   const assignedWaiter = waiters.find((w) => w.id === table.assigned_waiter_id);
 
-  // Find active call for this table
-  const currentCall = activeCalls.find(
-    (c) =>
-      c.table_id === table.id &&
-      (c.status === 'pending' || c.status === 'accepted')
-  );
+  // Find active call for this table (most recent call always takes priority)
+  const currentCall = activeCalls
+    .filter(
+      (c) =>
+        c.table_id === table.id &&
+        (c.status === 'pending' || c.status === 'accepted')
+    )
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+  const getPendingCallLabel = (type: CallType) => {
+    switch (type) {
+      case 'urgent':
+        return '🚨 URGENT: Alerting staff immediately...';
+      case 'water':
+        return '💧 Water refill requested — Alerting staff...';
+      case 'bill':
+        return '🧾 Bill & payment requested — Alerting staff...';
+      case 'order':
+        return '🍽️ Ready to order — Alerting staff...';
+      default:
+        return '🔔 Calling staff to table...';
+    }
+  };
 
   // Sound unlock on first click
   const handleInteraction = () => {
@@ -368,8 +385,8 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-white truncate">
                       {currentCall.status === 'pending'
-                        ? `Paging staff for ${currentCall.call_type}...`
-                        : `${currentCall.accepted_by_name || 'Waiter'} accepted & is coming!`}
+                        ? getPendingCallLabel(currentCall.call_type)
+                        : `✅ ${currentCall.accepted_by_name || 'Waiter'} accepted & is coming!`}
                     </p>
                     {currentCall.message && (
                       <p className="text-[10px] text-white/70 italic truncate">

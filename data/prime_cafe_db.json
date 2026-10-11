@@ -1509,8 +1509,25 @@
       "assigned_waiter_id": "waiter_1"
     }
   ],
-  "last_updated": "2026-10-10T10:46:41.464Z",
+  "last_updated": "2026-10-11T12:14:34.293Z",
   "waiter_calls": [
+    {
+      "id": "call_1791720864018_92",
+      "status": "completed",
+      "message": "Test order call",
+      "table_id": "vip_1",
+      "call_type": "order",
+      "created_at": "2026-10-11T12:14:24.628Z",
+      "table_name": "Royal Gold Suite",
+      "accepted_at": "2026-10-11T12:14:24.703Z",
+      "completed_at": "2026-10-11T12:14:34.199Z",
+      "is_escalated": false,
+      "table_number": "VIP-1",
+      "accepted_by_name": "Abebe Bikila",
+      "assigned_waiter_id": "waiter_1",
+      "original_waiter_id": "waiter_1",
+      "accepted_by_waiter_id": "waiter_1"
+    },
     {
       "id": "call_1791629201376_733",
       "status": "completed",
@@ -1519,11 +1536,11 @@
       "call_type": "water",
       "created_at": "2026-10-10T10:46:41.376Z",
       "table_name": "Royal Gold Suite",
+      "completed_at": "2026-10-11T12:14:34.292Z",
       "is_escalated": false,
       "table_number": "VIP-1",
       "assigned_waiter_id": "waiter_1",
-      "original_waiter_id": "waiter_1",
-      "completed_at": "2026-10-10T10:46:41.464Z"
+      "original_waiter_id": "waiter_1"
     },
     {
       "id": "call_1791084607049_42e6",

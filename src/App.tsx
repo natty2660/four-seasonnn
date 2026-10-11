@@ -96,21 +96,22 @@ export default function App() {
 /**
  * Authoritative reconciliation for live waiter calls.
  * Ensures newer confirmed statuses (e.g. accepted, completed) are never reversed by older polling responses.
- * Completely eliminates flickering, disappearing calls, and duplicate ring alerts.
+ * Completely eliminates flickering, disappearing calls, duplicate rings, and keeps accepted status locked.
  */
 function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall[]): WaiterCall[] {
   const prevMap = new Map((prevCalls || []).map((c) => [c.id, c]));
-
-  const statusPriority: Record<string, number> = {
-    pending: 1,
-    accepted: 2,
-    completed: 3,
-    cancelled: 3,
-  };
-
   const mergedMap = new Map<string, WaiterCall>();
 
-  // 1. Process all incoming calls from backend
+  // Lock duration for locally accepted calls: 60 seconds (prevents polling lag/stale snapshots from reverting to pending)
+  const ACCEPT_LOCK_WINDOW_MS = 60000;
+  // Terminal status lock duration (completed/cancelled shouldn't resurrect to pending within this window)
+  const TERMINAL_LOCK_WINDOW_MS = 30000;
+  // Preservation window for newly created/pending calls missing from incoming payload
+  const NEW_CALL_PERSIST_WINDOW_MS = 45000;
+
+  const now = Date.now();
+
+  // 1. Process all incoming authoritative calls from backend
   for (const inc of incomingCalls || []) {
     const prev = prevMap.get(inc.id);
     if (!prev) {
@@ -118,32 +119,60 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    const prevPriority = statusPriority[prev.status] || 0;
-    const incPriority = statusPriority[inc.status] || 0;
+    // Check if previously accepted locally with a specific waiter ID
+    const wasAcceptedWithWaiter =
+      prev.status === 'accepted' && Boolean(prev.accepted_by_waiter_id);
 
-    // Rule: Terminal local statuses (completed/cancelled) or newer local confirmations cannot be downgraded
-    if (prevPriority > incPriority) {
+    // Calculate how long ago it was accepted
+    const acceptedAtTime = prev.accepted_at ? new Date(prev.accepted_at).getTime() : now;
+    const isWithinAcceptLock = now - acceptedAtTime < ACCEPT_LOCK_WINDOW_MS;
+
+    // SCENARIO 1: Server returned 'pending' but call was already accepted locally
+    // Lock it to 'accepted' and cross-reference with accepted_by_waiter_id
+    if (wasAcceptedWithWaiter && inc.status === 'pending' && isWithinAcceptLock) {
       mergedMap.set(inc.id, {
         ...inc,
-        status: prev.status,
-        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id,
-        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name,
-        accepted_at: prev.accepted_at || inc.accepted_at,
-        completed_at: prev.completed_at || inc.completed_at,
+        status: 'accepted',
+        accepted_by_waiter_id: prev.accepted_by_waiter_id,
+        accepted_by_name: prev.accepted_by_name || 'Staff Member',
+        accepted_at: prev.accepted_at || new Date().toISOString(),
       });
-    } else {
-      mergedMap.set(inc.id, inc);
+      continue;
     }
+
+    // SCENARIO 2: Server returned 'accepted' - cross-reference accepted_by_waiter_id and metadata
+    if (inc.status === 'accepted') {
+      mergedMap.set(inc.id, {
+        ...inc,
+        accepted_by_waiter_id: inc.accepted_by_waiter_id || prev.accepted_by_waiter_id || null,
+        accepted_by_name: inc.accepted_by_name || prev.accepted_by_name || 'Staff Member',
+        accepted_at: inc.accepted_at || prev.accepted_at || new Date().toISOString(),
+      });
+      continue;
+    }
+
+    // SCENARIO 3: Call was completed or cancelled locally, but server poll returned pending
+    const wasCompletedLocally =
+      (prev.status === 'completed' || prev.status === 'cancelled') &&
+      inc.status === 'pending';
+    const completedAtTime = prev.completed_at ? new Date(prev.completed_at).getTime() : now;
+    const isWithinTerminalLock = now - completedAtTime < TERMINAL_LOCK_WINDOW_MS;
+
+    if (wasCompletedLocally && isWithinTerminalLock) {
+      mergedMap.set(inc.id, prev);
+      continue;
+    }
+
+    // Otherwise, accept server state
+    mergedMap.set(inc.id, inc);
   }
 
-  // 2. CRITICAL FLICKER PREVENTION:
-  // If an active call (pending or accepted) exists locally, never drop it just because a momentary poll or SSE packet missed it.
-  const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+  // 2. Flicker prevention for freshly created or accepted local calls missing from incoming backend snapshot
   for (const prev of prevCalls || []) {
     if (!mergedMap.has(prev.id)) {
       if (prev.status === 'pending' || prev.status === 'accepted') {
-        const createdAtTime = new Date(prev.created_at).getTime();
-        if (createdAtTime > twoHoursAgo) {
+        const timeRef = new Date(prev.accepted_at || prev.created_at).getTime();
+        if (now - timeRef < NEW_CALL_PERSIST_WINDOW_MS) {
           mergedMap.set(prev.id, prev);
         }
       }
@@ -448,11 +477,16 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       if (res.ok) {
         const call: WaiterCall = await res.json();
         setDbState((prev) => {
-          // Replace any existing call for this table or with this ID
-          const otherCalls = (prev.waiter_calls || []).filter(
-            (c) => c.id !== call.id && !(c.table_id === call.table_id && c.status === 'pending')
+          // Archive / complete any previous calls for this table in local state
+          const updatedPrevCalls = (prev.waiter_calls || []).map((c) =>
+            c.table_id === call.table_id && (c.status === 'pending' || c.status === 'accepted')
+              ? { ...c, status: 'completed' as const, completed_at: new Date().toISOString() }
+              : c
           );
-          const nextCalls = [call, ...otherCalls].sort(
+          const nextCalls = [
+            call,
+            ...updatedPrevCalls.filter((c) => c.id !== call.id),
+          ].sort(
             (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           );
           const next = {
@@ -476,15 +510,8 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     waiterId: string,
     waiterName: string
   ): Promise<void> => {
-    try {
-      await apiFetch(`/api/waiter-calls/${callId}/accept`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
-      });
-    } catch (e) {
-      console.warn(e);
-    }
+    const acceptedAt = new Date().toISOString();
+    // 1. Immediately update UI state optimistically so action responds with 0 latency
     setDbState((prev) => {
       const next = {
         ...prev,
@@ -495,7 +522,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
                 status: 'accepted' as const,
                 accepted_by_waiter_id: waiterId,
                 accepted_by_name: waiterName,
-                accepted_at: new Date().toISOString(),
+                accepted_at: acceptedAt,
               }
             : c
         ),
@@ -503,15 +530,22 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       saveClientState(next);
       return next;
     });
+
+    // 2. Authoritative backend synchronization
+    try {
+      await apiFetch(`/api/waiter-calls/${callId}/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
+      });
+    } catch (e) {
+      console.warn('Accept call network error:', e);
+    }
   };
 
   // Waiter & Admin: Complete Call
   const handleCompleteCall = async (callId: string): Promise<void> => {
-    try {
-      await apiFetch(`/api/waiter-calls/${callId}/complete`, { method: 'POST' });
-    } catch (e) {
-      console.warn(e);
-    }
+    const completedAt = new Date().toISOString();
     setDbState((prev) => {
       const next = {
         ...prev,
@@ -520,7 +554,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
             ? {
                 ...c,
                 status: 'completed' as const,
-                completed_at: new Date().toISOString(),
+                completed_at: completedAt,
               }
             : c
         ),
@@ -528,15 +562,17 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       saveClientState(next);
       return next;
     });
+
+    try {
+      await apiFetch(`/api/waiter-calls/${callId}/complete`, { method: 'POST' });
+    } catch (e) {
+      console.warn('Complete call network error:', e);
+    }
   };
 
   // Customer & Admin: Cancel Call
   const handleCancelCall = async (callId: string): Promise<void> => {
-    try {
-      await apiFetch(`/api/waiter-calls/${callId}/cancel`, { method: 'POST' });
-    } catch (e) {
-      console.warn(e);
-    }
+    const completedAt = new Date().toISOString();
     setDbState((prev) => {
       const next = {
         ...prev,
@@ -545,7 +581,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
             ? {
                 ...c,
                 status: 'cancelled' as const,
-                completed_at: new Date().toISOString(),
+                completed_at: completedAt,
               }
             : c
         ),
@@ -553,6 +589,12 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       saveClientState(next);
       return next;
     });
+
+    try {
+      await apiFetch(`/api/waiter-calls/${callId}/cancel`, { method: 'POST' });
+    } catch (e) {
+      console.warn('Cancel call network error:', e);
+    }
   };
 
   // Waiter: Toggle duty status
@@ -648,40 +690,50 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
   useEffect(() => {
     if (typeof window === 'undefined' || dbState.vip_tables.length === 0) return;
     const urlParams = new URLSearchParams(window.location.search);
-    const pin = urlParams.get('pin');
     const access = urlParams.get('access');
+    const entry = urlParams.get('entry');
+    const scan = urlParams.get('scan');
     const tableParam = urlParams.get('table') || urlParams.get('vip') || urlParams.get('vip_table');
 
     if (tableParam || isVipRoute) {
       const target = vipTableFromUrl || dbState.vip_tables[0];
       if (target) {
-        // Direct VIP access is granted if access=granted or pin matches table secret code
-        const isAccessGranted =
-          access === 'granted' ||
-          !target.secret_code ||
-          (pin && pin.trim() === target.secret_code.trim());
+        const existingSession = getVipSession(target.id);
+        const isFreshQrScan = scan === 'fresh' || scan === '1';
+        const isQrEntry = entry === 'qr' || access === 'granted';
 
-        if (isAccessGranted) {
-          const existingSession = getVipSession(target.id);
-          const isExplicitFreshScan =
-            urlParams.get('scan') === 'fresh' ||
-            urlParams.get('scan') === '1' ||
-            Boolean(pin && pin.trim() === target.secret_code?.trim());
+        if (isFreshQrScan) {
+          // Explicit physical QR stand re-scan: start fresh 4-hour session
+          startVipSession(target.id, target.table_number);
+          setSelectedVipTable(target);
 
-          if (existingSession && !isVipSessionValid(target.id) && !isExplicitFreshScan) {
-            // Session expired! Do not silently restart from saved link
-            setSelectedVipTable(target);
-          } else {
-            // First time scan, valid existing session, or fresh re-scan
-            if (!existingSession || isExplicitFreshScan) {
-              startVipSession(target.id, target.table_number);
-            }
-            setSelectedVipTable(target);
-          }
+          // Strip scan/entry tokens from URL so subsequent browser reloads do not reset timer
+          urlParams.delete('scan');
+          urlParams.delete('pin');
+          urlParams.delete('access');
+          urlParams.delete('entry');
+          const cleanQuery = urlParams.toString();
+          const cleanUrl = window.location.pathname + (cleanQuery ? `?${cleanQuery}` : '');
+          window.history.replaceState({}, '', cleanUrl);
+        } else if (existingSession) {
+          // Existing session exists (browser reload, page navigation, or returning tab):
+          // NEVER reset timer! Strictly preserves existing activatedAt and expiresAt!
+          setSelectedVipTable(target);
+        } else if (isQrEntry) {
+          // First time arrival from scanning physical QR stand
+          startVipSession(target.id, target.table_number);
+          setSelectedVipTable(target);
 
-          if (currentPath !== '/vip') {
-            setCurrentPath('/vip');
-          }
+          urlParams.delete('access');
+          urlParams.delete('entry');
+          urlParams.delete('pin');
+          const cleanQuery = urlParams.toString();
+          const cleanUrl = window.location.pathname + (cleanQuery ? `?${cleanQuery}` : '');
+          window.history.replaceState({}, '', cleanUrl);
+        }
+
+        if (currentPath !== '/vip') {
+          setCurrentPath('/vip');
         }
       }
     }

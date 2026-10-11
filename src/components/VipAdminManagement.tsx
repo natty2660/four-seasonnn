@@ -72,7 +72,6 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     vipTables[0]?.id || ''
   );
   const [directAccessMode, setDirectAccessMode] = useState<boolean>(true);
-  const [embedPin, setEmbedPin] = useState<boolean>(true);
   const [qrTheme, setQrTheme] = useState<'gold_luxury' | 'obsidian_dark' | 'minimal_white'>(
     'gold_luxury'
   );
@@ -99,7 +98,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     if (!currentStudioTable) return;
     const url = getVipTableUrl(
       currentStudioTable.table_number,
-      embedPin ? currentStudioTable.secret_code : null,
+      null,
       directAccessMode
     );
 
@@ -121,13 +120,13 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     })
       .then((dataUrl) => setStudioQrDataUrl(dataUrl))
       .catch((err) => console.error('Failed generating studio QR:', err));
-  }, [currentStudioTable, directAccessMode, embedPin, qrTheme]);
+  }, [currentStudioTable, directAccessMode, qrTheme]);
 
   const handleCopyStudioLink = async () => {
     if (!currentStudioTable) return;
     const url = getVipTableUrl(
       currentStudioTable.table_number,
-      embedPin ? currentStudioTable.secret_code : null,
+      null,
       directAccessMode
     );
     try {
@@ -141,14 +140,14 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     if (!currentStudioTable) return;
     await downloadVipQRPNG(
       currentStudioTable.table_number,
-      embedPin ? currentStudioTable.secret_code : null
+      null
     );
   };
 
   const handlePrepareBatchPrint = async () => {
     const map: Record<string, string> = {};
     for (const t of vipTables) {
-      const url = getVipTableUrl(t.table_number, t.secret_code, true);
+      const url = getVipTableUrl(t.table_number, null, true);
       try {
         const dUrl = await generateQRCodeDataUrl({
           url,
@@ -192,7 +191,6 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
         body: JSON.stringify({
           table_number: newTableNumber.trim().toUpperCase(),
           name: newTableName.trim() || `VIP Table ${newTableNumber.trim().toUpperCase()}`,
-          secret_code: newTableCode.trim() || undefined,
           assigned_waiter_id: newTableWaiterId || null,
           notes: newTableNotes.trim(),
         }),
@@ -666,7 +664,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                     <th className="p-3.5">Table #</th>
                     <th className="p-3.5">Name / Location</th>
                     <th className="p-3.5">Responsible Waiter</th>
-                    <th className="p-3.5">Access PIN</th>
+                    <th className="p-3.5">Access Method</th>
                     <th className="p-3.5 text-center">QR Code</th>
                     <th className="p-3.5 text-right">Actions</th>
                   </tr>
@@ -696,8 +694,10 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                           ))}
                         </select>
                       </td>
-                      <td className="p-3.5 font-mono text-amber-300">
-                        {t.secret_code ? t.secret_code : <span className="text-white/30">None (Open)</span>}
+                      <td className="p-3.5">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                          QR Code Only
+                        </span>
                       </td>
                       <td className="p-3.5 text-center">
                         <button
@@ -902,7 +902,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                     <div className="text-xs font-bold text-white truncate">{t.name}</div>
                     <div className="text-[10px] text-white/50 mt-1 flex items-center justify-between">
                       <span>{assignedWaiter ? `Staff: ${assignedWaiter.name}` : 'Pool Waiter'}</span>
-                      <span className="font-mono text-amber-300/80">PIN: {t.secret_code || 'None'}</span>
+                      <span className="font-mono text-emerald-400 font-semibold">Entry: QR Stand</span>
                     </div>
                   </button>
                 );
@@ -938,28 +938,21 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                           </span>
                         </div>
                         <p className="text-[11px] text-white/60 mt-0.5 leading-relaxed">
-                          When checked, scanning the QR code immediately authenticates the customer and unlocks the VIP Lounge without requesting a PIN.
+                          When checked, scanning the QR code immediately authenticates the customer and unlocks the VIP Lounge directly via QR stand.
                         </p>
                       </div>
                     </label>
                   </div>
 
-                  {/* Mode 2: Embed Table PIN Toggle */}
-                  <div className="bg-[#161616] border border-white/10 rounded-xl p-3.5">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={embedPin}
-                        onChange={(e) => setEmbedPin(e.target.checked)}
-                        className="mt-1 w-4 h-4 rounded text-[#D4AF37] focus:ring-[#D4AF37] accent-[#D4AF37]"
-                      />
-                      <div>
-                        <div className="text-xs font-bold text-white">Embed Verified PIN in QR Link</div>
-                        <p className="text-[11px] text-white/60 mt-0.5 leading-relaxed">
-                          Encodes the table access key ({currentStudioTable.secret_code || 'None'}) so guest devices are automatically recognized even on network drops.
-                        </p>
-                      </div>
-                    </label>
+                  {/* Strict 4-Hour Session Badge */}
+                  <div className="bg-[#161616] border border-amber-500/30 rounded-xl p-3.5 flex items-start gap-3">
+                    <Clock className="w-4 h-4 text-[#D4AF37] mt-0.5 shrink-0" />
+                    <div>
+                      <div className="text-xs font-bold text-[#FCF6BA]">Strict 4-Hour VIP Session</div>
+                      <p className="text-[11px] text-white/60 mt-0.5 leading-relaxed">
+                        Session strictly expires 4 hours after scanning. Browser reloads preserve countdown and cannot refresh timer without a physical re-scan.
+                      </p>
+                    </div>
                   </div>
 
                   {/* Visual Style Theme */}
@@ -1016,7 +1009,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                       <span className="truncate flex-1">
                         {getVipTableUrl(
                           currentStudioTable.table_number,
-                          embedPin ? currentStudioTable.secret_code : null,
+                          null,
                           directAccessMode
                         )}
                       </span>
@@ -1055,7 +1048,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                     <a
                       href={getVipTableUrl(
                         currentStudioTable.table_number,
-                        embedPin ? currentStudioTable.secret_code : null,
+                        null,
                         directAccessMode
                       )}
                       target="_blank"
@@ -1125,11 +1118,9 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                         ? `Dedicated Waiter: ${currentStudioWaiter.name}`
                         : 'Dedicated Priority Waiter Service'}
                     </div>
-                    {currentStudioTable.secret_code && (
-                      <div className="text-[9px] font-mono text-[#555] pt-0.5">
-                        Table PIN: {currentStudioTable.secret_code}
-                      </div>
-                    )}
+                    <div className="text-[9px] font-bold text-[#888] pt-0.5">
+                      Direct QR Stand Access · 4h Session
+                    </div>
                   </div>
                 </div>
 
@@ -1205,17 +1196,9 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#D4AF37] mb-1">
-                  Optional Secret Access PIN (For extra exclusivity)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 7775 (leave blank for open table access)"
-                  value={newTableCode}
-                  onChange={(e) => setNewTableCode(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0c0c0c] border border-white/20 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37] font-mono"
-                />
+              <div className="bg-[#0c0c0c] border border-amber-500/20 rounded-xl p-3 text-[11px] text-[#D4AF37]/80 flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                <span>Entry is strictly authenticated via physical QR code stand with a 4-hour session.</span>
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
@@ -1347,7 +1330,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
             </div>
 
             <p className="text-[11px] text-white/60 mb-4 font-mono break-all">
-              {getVipTableUrl(selectedQRTable.table_number, selectedQRTable.secret_code, true)}
+              {getVipTableUrl(selectedQRTable.table_number, null, true)}
             </p>
 
             <div className="flex gap-2">
