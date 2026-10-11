@@ -102,12 +102,12 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
   const prevMap = new Map((prevCalls || []).map((c) => [c.id, c]));
   const mergedMap = new Map<string, WaiterCall>();
 
-  // Lock duration for locally accepted calls: 60 seconds (prevents polling lag/stale snapshots from reverting to pending)
-  const ACCEPT_LOCK_WINDOW_MS = 60000;
-  // Terminal status lock duration (completed/cancelled shouldn't resurrect to pending within this window)
-  const TERMINAL_LOCK_WINDOW_MS = 30000;
+  // Lock duration for locally accepted calls: 120 seconds (generously absorbs polling delays, mobile network lag, or server queue delay)
+  const ACCEPT_LOCK_WINDOW_MS = 120000;
+  // Terminal status lock duration (completed/cancelled shouldn't resurrect to pending or accepted within this window)
+  const TERMINAL_LOCK_WINDOW_MS = 45000;
   // Preservation window for newly created/pending calls missing from incoming payload
-  const NEW_CALL_PERSIST_WINDOW_MS = 45000;
+  const NEW_CALL_PERSIST_WINDOW_MS = 60000;
 
   const now = Date.now();
 
@@ -119,28 +119,35 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    // Check if previously accepted locally with a specific waiter ID
-    const wasAcceptedWithWaiter =
-      prev.status === 'accepted' && Boolean(prev.accepted_by_waiter_id);
+    // SCENARIO 1: Call was completed or cancelled locally, but server poll returned pending or accepted
+    const wasCompletedLocally = prev.status === 'completed' || prev.status === 'cancelled';
+    const isStaleIncomingActive = inc.status === 'pending' || inc.status === 'accepted';
+    const completedAtTime = prev.completed_at ? new Date(prev.completed_at).getTime() : now;
+    const isWithinTerminalLock = now - completedAtTime < TERMINAL_LOCK_WINDOW_MS;
 
-    // Calculate how long ago it was accepted
+    if (wasCompletedLocally && isStaleIncomingActive && isWithinTerminalLock) {
+      mergedMap.set(inc.id, prev);
+      continue;
+    }
+
+    // SCENARIO 2: Server returned 'pending' but call was already accepted locally
+    // Strongly lock to 'accepted' and cross-reference with accepted_by_waiter_id
+    const wasAcceptedLocally = prev.status === 'accepted';
     const acceptedAtTime = prev.accepted_at ? new Date(prev.accepted_at).getTime() : now;
     const isWithinAcceptLock = now - acceptedAtTime < ACCEPT_LOCK_WINDOW_MS;
 
-    // SCENARIO 1: Server returned 'pending' but call was already accepted locally
-    // Lock it to 'accepted' and cross-reference with accepted_by_waiter_id
-    if (wasAcceptedWithWaiter && inc.status === 'pending' && isWithinAcceptLock) {
+    if (wasAcceptedLocally && inc.status === 'pending' && isWithinAcceptLock) {
       mergedMap.set(inc.id, {
         ...inc,
         status: 'accepted',
-        accepted_by_waiter_id: prev.accepted_by_waiter_id,
-        accepted_by_name: prev.accepted_by_name || 'Staff Member',
+        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
+        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
         accepted_at: prev.accepted_at || new Date().toISOString(),
       });
       continue;
     }
 
-    // SCENARIO 2: Server returned 'accepted' - cross-reference accepted_by_waiter_id and metadata
+    // SCENARIO 3: Server returned 'accepted' - cross-reference accepted_by_waiter_id and metadata
     if (inc.status === 'accepted') {
       mergedMap.set(inc.id, {
         ...inc,
@@ -148,18 +155,6 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
         accepted_by_name: inc.accepted_by_name || prev.accepted_by_name || 'Staff Member',
         accepted_at: inc.accepted_at || prev.accepted_at || new Date().toISOString(),
       });
-      continue;
-    }
-
-    // SCENARIO 3: Call was completed or cancelled locally, but server poll returned pending
-    const wasCompletedLocally =
-      (prev.status === 'completed' || prev.status === 'cancelled') &&
-      inc.status === 'pending';
-    const completedAtTime = prev.completed_at ? new Date(prev.completed_at).getTime() : now;
-    const isWithinTerminalLock = now - completedAtTime < TERMINAL_LOCK_WINDOW_MS;
-
-    if (wasCompletedLocally && isWithinTerminalLock) {
-      mergedMap.set(inc.id, prev);
       continue;
     }
 
