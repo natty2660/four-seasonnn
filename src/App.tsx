@@ -157,12 +157,12 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     }
 
     // SCENARIO 4: Server returned 'pending' but call was already accepted locally
-    // Strongly lock to 'accepted' and cross-reference with accepted_by_waiter_id
+    // Strongly lock to 'accepted' while within accept window (only if server returned pending)
     const wasAcceptedLocally = prev.status === 'accepted';
     const acceptedAtTime = prev.accepted_at ? new Date(prev.accepted_at).getTime() : now;
     const isWithinAcceptLock = now - acceptedAtTime < ACCEPT_LOCK_WINDOW_MS;
 
-    if (wasAcceptedLocally && (inc.status === 'pending' || inc.status === 'hold') && isWithinAcceptLock) {
+    if (wasAcceptedLocally && inc.status === 'pending' && isWithinAcceptLock) {
       mergedMap.set(inc.id, {
         ...inc,
         status: 'accepted',
@@ -185,7 +185,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    // SCENARIO 6: Server returned 'hold' - retain hold state and metadata
+    // SCENARIO 6: Server returned 'hold' - retain hold state and metadata across all devices
     if (inc.status === 'hold') {
       mergedMap.set(inc.id, {
         ...inc,
@@ -198,16 +198,17 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    // Otherwise, accept server state (including 'missed', etc.)
+    // Otherwise, accept authoritative server state (including 'missed', 'completed', etc.)
     mergedMap.set(inc.id, inc);
   }
 
-  // 2. Flicker prevention for freshly created or accepted local calls missing from incoming backend snapshot
+  // 2. Flicker prevention ONLY for brand-new local pending/hold calls created in the last 15 seconds
+  // missing from incoming backend snapshot due to network latency
   for (const prev of prevCalls || []) {
     if (!mergedMap.has(prev.id)) {
-      if (prev.status === 'pending' || prev.status === 'accepted' || prev.status === 'hold' || prev.status === 'missed') {
-        const timeRef = new Date(prev.accepted_at || prev.held_at || prev.missed_at || prev.created_at).getTime();
-        if (now - timeRef < NEW_CALL_PERSIST_WINDOW_MS) {
+      if (prev.status === 'pending' || prev.status === 'hold') {
+        const timeRef = new Date(prev.created_at).getTime();
+        if (now - timeRef < 15000) {
           mergedMap.set(prev.id, prev);
         }
       }

@@ -333,25 +333,27 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     .filter((c) => c.status === 'completed' || c.status === 'cancelled')
     .slice(0, 10);
 
+  // Track silenced/acknowledged calls to eliminate repeated re-ringing on simple re-renders
+  const [silencedCallIds, setSilencedCallIds] = useState<Set<string>>(new Set());
+
   // RINGING AND VIBRATION CONTROLLER EFFECT
-  const activeTopCallId = pendingCallsForMe[0]?.id || null;
+  const activeTopCall = pendingCallsForMe[0] || null;
+  const activeTopCallId = activeTopCall?.id || null;
 
   useEffect(() => {
     if (!currentWaiter || !currentWaiter.is_on_duty || isMuted || !activeTopCallId) {
       callSound.stopWaiterRingtone();
       nativeCallBridge.stopNativeCallAlert();
-      lastRungCallId.current = null;
       return;
     }
 
-    const topCall = pendingCallsForMe[0];
-    if (topCall && lastRungCallId.current !== topCall.id) {
-      // Start real ringing and alert without stuttering on simple re-renders
+    // Only start ringtone if this call hasn't already been silenced and hasn't already rung
+    if (activeTopCall && !silencedCallIds.has(activeTopCall.id) && lastRungCallId.current !== activeTopCall.id) {
       callSound.startWaiterRingtone();
-      nativeCallBridge.triggerNativeCallAlert(topCall);
-      lastRungCallId.current = topCall.id;
+      nativeCallBridge.triggerNativeCallAlert(activeTopCall);
+      lastRungCallId.current = activeTopCall.id;
     }
-  }, [activeTopCallId, currentWaiter?.is_on_duty, isMuted, currentWaiter?.id]);
+  }, [activeTopCallId, currentWaiter?.is_on_duty, isMuted, currentWaiter?.id, silencedCallIds]);
 
   // Clean up audio when component unmounts
   useEffect(() => {
@@ -361,10 +363,17 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     };
   }, []);
 
+  const handleSilenceCall = (callId: string) => {
+    callSound.stopWaiterRingtone();
+    nativeCallBridge.stopNativeCallAlert();
+    setSilencedCallIds((prev) => new Set(prev).add(callId));
+  };
+
   // Accept call action
   const handleAccept = async (callId: string, waiterId: string, waiterName: string) => {
     callSound.stopWaiterRingtone();
     await nativeCallBridge.stopNativeCallAlert();
+    setSilencedCallIds((prev) => new Set(prev).add(callId));
     await onAcceptCall(callId, waiterId, waiterName);
   };
 
@@ -1308,28 +1317,38 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
 
                     {/* BIG ACCEPT / HOLD BUTTON */}
                     <div className="flex flex-col sm:items-end gap-2 shrink-0">
-                      <button
-                        onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
-                        className={`w-full sm:w-auto px-6 py-3.5 rounded-xl font-black text-sm shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                          inProgressCalls.length > 0
-                            ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-[#D4AF37] text-black shadow-amber-950/50'
-                            : isUrgent
-                            ? 'bg-gradient-to-r from-red-500 via-red-600 to-amber-500 text-white shadow-red-900/50'
-                            : 'bg-gradient-to-r from-emerald-400 to-emerald-500 text-black shadow-emerald-900/50'
-                        }`}
-                      >
-                        {inProgressCalls.length > 0 ? (
-                          <>
-                            <Clock className="w-5 h-5 stroke-[2.5]" />
-                            <span>Accept &amp; Put on Hold</span>
-                          </>
-                        ) : (
-                          <>
-                            <Check className="w-5 h-5 stroke-[3]" />
-                            <span>I&apos;m on My Way / Accept</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          onClick={() => handleSilenceCall(call.id)}
+                          className="px-3.5 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-[#FCF6BA] font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/10 shrink-0"
+                          title="Silence ringtone alarm without accepting"
+                        >
+                          <VolumeX className="w-4 h-4 text-amber-300" />
+                          <span className="hidden sm:inline">Silence</span>
+                        </button>
+                        <button
+                          onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
+                          className={`flex-1 sm:flex-initial px-6 py-3.5 rounded-xl font-black text-sm shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                            inProgressCalls.length > 0
+                              ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-[#D4AF37] text-black shadow-amber-950/50'
+                              : isUrgent
+                              ? 'bg-gradient-to-r from-red-500 via-red-600 to-amber-500 text-white shadow-red-900/50'
+                              : 'bg-gradient-to-r from-emerald-400 to-emerald-500 text-black shadow-emerald-900/50'
+                          }`}
+                        >
+                          {inProgressCalls.length > 0 ? (
+                            <>
+                              <Clock className="w-5 h-5 stroke-[2.5]" />
+                              <span>Accept &amp; Put on Hold</span>
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-5 h-5 stroke-[3]" />
+                              <span>I&apos;m on My Way / Accept</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                       {inProgressCalls.length > 0 && (
                         <span className="text-[10px] text-amber-300 font-bold">
                           Attending {inProgressCalls[0].table_number} · Will place on Hold
@@ -1578,10 +1597,23 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
 
                   <button
                     onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer self-end sm:self-center shrink-0"
+                    className={`px-4 py-2 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer self-end sm:self-center shrink-0 ${
+                      inProgressCalls.length > 0
+                        ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-amber-950/40'
+                        : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black'
+                    }`}
                   >
-                    <Check className="w-4 h-4 stroke-[2.5]" />
-                    <span>Accept & Assist</span>
+                    {inProgressCalls.length > 0 ? (
+                      <>
+                        <Clock className="w-4 h-4 stroke-[2.5]" />
+                        <span>Queue on Hold</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 stroke-[2.5]" />
+                        <span>Accept &amp; Assist</span>
+                      </>
+                    )}
                   </button>
                 </div>
               );

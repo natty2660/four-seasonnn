@@ -811,11 +811,21 @@ export function syncCallTimeouts(calls: WaiterCall[]): void {
  */
 export async function syncAndPersistTimeouts(): Promise<void> {
   const now = Date.now();
-  let timedOutCount = 0;
+  const db = getDatabase();
+  const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
+  
+  // Fast check: Only mutate the database if there is actually a pending call >= 60 seconds old
+  const hasTimedOutCall = calls.some(
+    (c) => c.status === 'pending' && now - new Date(c.created_at).getTime() >= 60000
+  );
+  if (!hasTimedOutCall) {
+    return; // Completely skip database transaction when no calls need timeout!
+  }
 
-  const updatedDb = await mutateDatabaseAsync((db) => {
-    if (!Array.isArray(db.waiter_calls)) return db;
-    for (const c of db.waiter_calls) {
+  let timedOutCount = 0;
+  const updatedDb = await mutateDatabaseAsync((state) => {
+    if (!Array.isArray(state.waiter_calls)) return state;
+    for (const c of state.waiter_calls) {
       if (c.status === 'pending') {
         const elapsed = now - new Date(c.created_at).getTime();
         if (elapsed >= 60000) {
@@ -825,7 +835,7 @@ export async function syncAndPersistTimeouts(): Promise<void> {
         }
       }
     }
-    return db;
+    return state;
   });
 
   if (timedOutCount > 0) {

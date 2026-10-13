@@ -1509,8 +1509,45 @@
       "assigned_waiter_id": "waiter_1"
     }
   ],
-  "last_updated": "2026-10-13T12:29:19.944Z",
+  "last_updated": "2026-10-13T13:29:14.791Z",
   "waiter_calls": [
+    {
+      "id": "call_1791898154583_s1iq",
+      "status": "completed",
+      "held_at": null,
+      "message": "Test Verification Call 2",
+      "table_id": "vip_2",
+      "call_type": "order",
+      "created_at": "2026-10-13T13:29:14.583Z",
+      "table_name": "Executive Lounge",
+      "hold_reason": null,
+      "is_escalated": false,
+      "table_number": "VIP-2",
+      "accepted_by_name": "Abebe Bikila",
+      "assigned_waiter_id": "waiter_2",
+      "original_waiter_id": "waiter_2",
+      "accepted_by_waiter_id": "waiter_1",
+      "completed_at": "2026-10-13T13:29:14.791Z"
+    },
+    {
+      "id": "call_1791898154394_lfl9",
+      "status": "completed",
+      "held_at": null,
+      "message": "Test Verification Call 1",
+      "table_id": "vip_1",
+      "call_type": "urgent",
+      "created_at": "2026-10-13T13:29:14.395Z",
+      "table_name": "Royal Gold Suite",
+      "accepted_at": "2026-10-13T13:29:14.510Z",
+      "hold_reason": null,
+      "completed_at": "2026-10-13T13:29:14.719Z",
+      "is_escalated": true,
+      "table_number": "VIP-1",
+      "accepted_by_name": "Abebe Bikila",
+      "assigned_waiter_id": "waiter_1",
+      "original_waiter_id": "waiter_1",
+      "accepted_by_waiter_id": "waiter_1"
+    },
     {
       "id": "call_1791894519782_b6dg",
       "status": "completed",
@@ -1521,13 +1558,13 @@
       "created_at": "2026-10-13T12:28:39.782Z",
       "table_name": "Executive Lounge",
       "hold_reason": "Waiter Abebe Kebede is attending Table VIP-1",
+      "completed_at": "2026-10-13T12:29:19.944Z",
       "is_escalated": false,
       "table_number": "VIP-2",
       "accepted_by_name": "Abebe Kebede",
       "assigned_waiter_id": "waiter_2",
       "original_waiter_id": "waiter_2",
-      "accepted_by_waiter_id": "waiter_1",
-      "completed_at": "2026-10-13T12:29:19.944Z"
+      "accepted_by_waiter_id": "waiter_1"
     },
     {
       "id": "call_1791894512991_vsn3",
