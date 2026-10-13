@@ -18,7 +18,7 @@ import {
 } from './db.ts';
 import { buildMenuResponse, validateBirrPrice, DatabaseState } from '../lib/storage.ts';
 import { generateQRCodeDataUrl } from '../lib/qr.ts';
-import { MenuItem, Category, VipTable, Waiter, WaiterCall, CallType } from '../types/index.ts';
+import { MenuItem, Category, VipTable, Waiter, WaiterCall, CallType, CallStatus, getCallPriorityWeight } from '../types/index.ts';
 
 export const apiRouter = Router();
 
@@ -117,11 +117,16 @@ apiRouter.post('/db/resync', requireAdmin, async (_req: Request, res: Response) 
   }
 });
 
-// 2. Public Menu Fetch by Slug (Single-query fast fetch)
-apiRouter.get('/menu/:slug', (req: Request, res: Response) => {
-  const { slug } = req.params;
+// 2. Public Menu Fetch by Slug (Single-query fast fetch with resilient slug fallback)
+apiRouter.get(['/menu/:slug', '/menu'], (req: Request, res: Response) => {
+  const slug = req.params.slug || 'prime-cafe';
   const db = getDatabase();
-  const menu = buildMenuResponse(db, slug);
+  let menu = buildMenuResponse(db, slug);
+
+  // If slug requested isn't found, smoothly fallback to the active restaurant's menu
+  if (!menu && db.restaurant) {
+    menu = buildMenuResponse(db, db.restaurant.slug);
+  }
 
   if (!menu) {
     res.status(404).json({ error: `Menu not found for restaurant slug "${slug}".` });
@@ -785,11 +790,47 @@ apiRouter.post('/vip-tables/sync', async (req: Request, res: Response) => {
 });
 
 // 20. Live Waiter Calls
+// Auto-detect and sync call timeouts (unanswered pending calls >= 60s become 'missed')
+export function syncCallTimeouts(calls: WaiterCall[]): void {
+  const now = Date.now();
+  for (const c of calls) {
+    if (c.status === 'pending') {
+      const elapsed = now - new Date(c.created_at).getTime();
+      if (elapsed >= 60000) {
+        c.status = 'missed';
+        if (!c.missed_at) c.missed_at = new Date().toISOString();
+      }
+    }
+  }
+}
+
+// Helper to sort waiter calls hierarchically: Active status > Priority rank (Urgent > Bill > Order > Water > General) > Newest first
+export function sortCallsByPriority(calls: WaiterCall[]): WaiterCall[] {
+  syncCallTimeouts(calls);
+  return [...calls].sort((a, b) => {
+    const statusScore = (s: string) => {
+      if (s === 'accepted') return 5000;
+      if (s === 'pending') return 4000;
+      if (s === 'hold') return 3000;
+      if (s === 'missed') return 2000;
+      return 1000;
+    };
+    const scoreDiff = statusScore(b.status) - statusScore(a.status);
+    if (scoreDiff !== 0) return scoreDiff;
+
+    const weightA = getCallPriorityWeight(a.call_type);
+    const weightB = getCallPriorityWeight(b.call_type);
+    if (weightB !== weightA) return weightB - weightA;
+
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+}
+
 // 20.1 List Active & Recent Calls (Pure read: No destructive un-locked mutations on GET)
 apiRouter.get('/waiter-calls', async (_req: Request, res: Response) => {
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
-  res.json(calls);
+  res.json(sortCallsByPriority(calls));
 });
 
 // --- Real-Time Server-Sent Events (SSE) Stream for Waiter Dashboard ---
@@ -797,9 +838,10 @@ const sseClients = new Set<Response>();
 
 export function broadcastWaiterUpdate(state?: DatabaseState) {
   const db = state || getDatabase();
+  const sortedCalls = sortCallsByPriority(db.waiter_calls || []);
   const payload = JSON.stringify({
     type: 'update',
-    calls: db.waiter_calls || [],
+    calls: sortedCalls,
     waiters: db.waiters || [],
     tables: db.vip_tables || [],
     timestamp: new Date().toISOString(),
@@ -808,6 +850,9 @@ export function broadcastWaiterUpdate(state?: DatabaseState) {
   for (const client of sseClients) {
     try {
       client.write(message);
+      if (typeof (client as any).flush === 'function') {
+        (client as any).flush();
+      }
     } catch {
       sseClients.delete(client);
     }
@@ -820,14 +865,19 @@ apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], async (_req: Request, 
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
     'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
     'Access-Control-Allow-Origin': '*',
   });
+  if (typeof (res as any).flushHeaders === 'function') {
+    (res as any).flushHeaders();
+  }
 
   const db = await getDatabaseAsync();
   const initial = JSON.stringify({
     type: 'init',
-    calls: db.waiter_calls || [],
+    calls: sortCallsByPriority(db.waiter_calls || []),
     waiters: db.waiters || [],
+    tables: db.vip_tables || [],
     timestamp: new Date().toISOString(),
   });
   res.write(`data: ${initial}\n\n`);
@@ -837,45 +887,46 @@ apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], async (_req: Request, 
   const keepAlive = setInterval(() => {
     try {
       res.write(': keepalive\n\n');
+      if (typeof (res as any).flush === 'function') {
+        (res as any).flush();
+      }
     } catch {
       clearInterval(keepAlive);
       sseClients.delete(res);
     }
   }, 15000);
 
-  res.on('close', () => {
+  const cleanup = () => {
     clearInterval(keepAlive);
     sseClients.delete(res);
-  });
+  };
+
+  res.on('close', cleanup);
+  res.on('error', cleanup);
 });
 
 // 20.1b Waiter Calls Active Endpoint (used by mobile and background polling)
 apiRouter.get(['/waiter/calls/active', '/waiter-calls/active'], async (_req: Request, res: Response) => {
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
-  const activeCalls = calls.filter((c) => c.status === 'pending');
-  res.json({ calls: activeCalls });
+  syncCallTimeouts(calls);
+  const activeCalls = calls.filter((c) => ['pending', 'accepted', 'hold', 'missed'].includes(c.status));
+  res.json({ calls: sortCallsByPriority(activeCalls) });
 });
 
-// 20.3b Call accept / dismiss aliases
+// 20.3b Call dismiss aliases
 apiRouter.post(
-  ['/waiter/calls/:id/accept', '/waiter/calls/:id/dismiss', '/waiter-calls/:id/dismiss'],
+  ['/waiter/calls/:id/dismiss', '/waiter-calls/:id/dismiss'],
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const isDismiss = req.path.includes('dismiss');
     let targetCall: WaiterCall | null = null;
 
     const updatedDb = await mutateDatabaseAsync((db) => {
       if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
       const call = db.waiter_calls.find((c) => c.id === id);
       if (call) {
-        if (isDismiss) {
-          call.status = 'cancelled';
-          call.completed_at = new Date().toISOString();
-        } else {
-          call.status = 'accepted';
-          call.accepted_at = new Date().toISOString();
-        }
+        call.status = 'cancelled';
+        call.completed_at = new Date().toISOString();
         targetCall = call;
       }
       return db;
@@ -916,7 +967,13 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
 
   const updatedDb = await mutateDatabaseAsync((db) => {
     if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
-    const table = (db.vip_tables || []).find((t) => t.id === table_id);
+    const normalizedTableId = String(table_id || '').toLowerCase().trim();
+    const table = (db.vip_tables || []).find(
+      (t) =>
+        t.id.toLowerCase() === normalizedTableId ||
+        t.table_number.toLowerCase() === normalizedTableId ||
+        t.table_number.toLowerCase().replace('-', '') === normalizedTableId.replace('-', '')
+    );
     if (!table) {
       return db;
     }
@@ -928,9 +985,28 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
     const validAssignedWaiterId = assignedStaff ? assignedStaff.id : null;
     const isUrgent = call_type === 'urgent';
 
-    // Archive / complete any previous active call for this table so only the new request is live
+    // Check if the assigned waiter (or floor staff) is currently on call with another customer
+    const isWaiterBusyWithAnotherCustomer = (db.waiter_calls || []).some((c) => {
+      if (c.status !== 'accepted') return false;
+      // Is it a DIFFERENT table?
+      if (c.table_id === table.id || c.table_number === table.table_number) return false;
+      if (validAssignedWaiterId) {
+        return (
+          c.accepted_by_waiter_id === validAssignedWaiterId ||
+          c.assigned_waiter_id === validAssignedWaiterId
+        );
+      }
+      return true; // Floor staff attending another table
+    });
+
+    const initialStatus: CallStatus = isWaiterBusyWithAnotherCustomer ? 'hold' : 'pending';
+
+    // Archive / complete any previous pending, hold, or missed call for this table
     db.waiter_calls.forEach((c) => {
-      if (c.table_id === table_id && (c.status === 'pending' || c.status === 'accepted')) {
+      if (
+        (c.table_id === table.id || c.table_number === table.table_number) &&
+        (c.status === 'pending' || c.status === 'hold' || c.status === 'missed')
+      ) {
         c.status = 'completed';
         c.completed_at = new Date().toISOString();
       }
@@ -943,11 +1019,13 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
       table_name: table.name,
       call_type: call_type as CallType,
       message: cleanMessage,
-      status: 'pending',
+      status: initialStatus,
       assigned_waiter_id: validAssignedWaiterId,
       is_escalated: isUrgent || !validAssignedWaiterId || !assignedStaff?.is_on_duty,
       original_waiter_id: validAssignedWaiterId,
       created_at: new Date().toISOString(),
+      held_at: initialStatus === 'hold' ? new Date().toISOString() : null,
+      hold_reason: initialStatus === 'hold' ? 'Waiter currently attending another customer' : null,
     };
 
     db.waiter_calls.unshift(newCall);
@@ -998,8 +1076,8 @@ apiRouter.post(
   }
 );
 
-// 20.4 Complete Call
-apiRouter.post('/waiter-calls/:id/complete', async (req: Request, res: Response) => {
+// 20.4 Complete Call (Supports all endpoint aliases and releases next held call)
+apiRouter.post(['/waiter-calls/:id/complete', '/waiter/calls/:id/complete'], async (req: Request, res: Response) => {
   const { id } = req.params;
   let completedCall: WaiterCall | null = null;
 
@@ -1010,6 +1088,18 @@ apiRouter.post('/waiter-calls/:id/complete', async (req: Request, res: Response)
       call.status = 'completed';
       call.completed_at = new Date().toISOString();
       completedCall = call;
+
+      // Automatically promote next queued held call to active ringing ('pending')
+      const nextHeldCall = db.waiter_calls.find(
+        (c) =>
+          c.status === 'hold' &&
+          (!c.assigned_waiter_id ||
+            c.assigned_waiter_id === call.accepted_by_waiter_id ||
+            c.is_escalated)
+      );
+      if (nextHeldCall) {
+        nextHeldCall.status = 'pending';
+      }
     }
     return db;
   });
@@ -1023,8 +1113,8 @@ apiRouter.post('/waiter-calls/:id/complete', async (req: Request, res: Response)
   res.json(completedCall);
 });
 
-// 20.5 Cancel Call
-apiRouter.post('/waiter-calls/:id/cancel', async (req: Request, res: Response) => {
+// 20.5 Cancel Call (Supports all endpoint aliases)
+apiRouter.post(['/waiter-calls/:id/cancel', '/waiter/calls/:id/cancel'], async (req: Request, res: Response) => {
   const { id } = req.params;
   let cancelledCall: WaiterCall | null = null;
 

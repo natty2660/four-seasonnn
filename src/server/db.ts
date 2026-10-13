@@ -35,9 +35,9 @@ export function getPgPool(): Pool {
     pgPool = new Pool({
       connectionString: url,
       ssl: { rejectUnauthorized: false },
-      connectionTimeoutMillis: 5000,
-      idleTimeoutMillis: 30000,
-      max: 5,
+      connectionTimeoutMillis: 3000,
+      idleTimeoutMillis: 20000,
+      max: 10,
     });
     pgPool.on('error', (err) => {
       console.warn('[PostgreSQL Pool Warning]', err.message);
@@ -63,11 +63,19 @@ function getDatabaseFilePath(): string {
 }
 
 let inMemoryState: DatabaseState | null = null;
+let lastDbFetchTime = 0;
+const FAST_CACHE_TTL_MS = 1000; // 1s fresh cache for lightning-fast sub-millisecond reads
 
 let initPromise: Promise<boolean> | null = null;
+let lastInitAttemptTime = 0;
 
 export async function ensureDatabaseInitialized(): Promise<boolean> {
-  if (dbInitialized && inMemoryState && isPgConnected) return true;
+  if (dbInitialized && inMemoryState) {
+    if (isPgConnected) return true;
+    // When disconnected or in fallback, avoid stalling requests on every call
+    if (Date.now() - lastInitAttemptTime < 15000) return true;
+  }
+  lastInitAttemptTime = Date.now();
   if (!initPromise) {
     initPromise = initPostgresDatabase().finally(() => {
       initPromise = null;
@@ -191,7 +199,12 @@ export async function initPostgresDatabase(): Promise<boolean> {
  * Reads live authoritative state directly from PostgreSQL.
  * Guarantees every serverless instance and client sees the exact current data.
  */
-export async function getDatabaseAsync(): Promise<DatabaseState> {
+export async function getDatabaseAsync(forceFresh = false): Promise<DatabaseState> {
+  // Ultra-fast sub-millisecond read path: return in-memory state if fresh within TTL
+  if (!forceFresh && inMemoryState && Date.now() - lastDbFetchTime < FAST_CACHE_TTL_MS) {
+    return inMemoryState;
+  }
+
   await ensureDatabaseInitialized().catch(() => {});
   const pool = getPgPool();
   try {
@@ -201,6 +214,7 @@ export async function getDatabaseAsync(): Promise<DatabaseState> {
       if (res.rows.length > 0 && res.rows[0].state) {
         const stored = res.rows[0].state as DatabaseState;
         inMemoryState = stored;
+        lastDbFetchTime = Date.now();
         isPgConnected = true;
         lastPgError = null;
         lastSyncedAt = new Date().toISOString();
@@ -252,6 +266,7 @@ export async function mutateDatabaseAsync(
     await client.query('COMMIT');
 
     inMemoryState = mutated;
+    lastDbFetchTime = Date.now();
     isPgConnected = true;
     lastPgError = null;
     lastSyncedAt = new Date().toISOString();

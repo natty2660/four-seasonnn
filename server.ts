@@ -15,6 +15,26 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Global resilience handlers: Prevent process crashes from background errors
+process.on('unhandledRejection', (reason) => {
+  console.warn('[Server Warning] Unhandled Rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[Server Warning] Uncaught Exception:', err.message);
+});
+
+// Performance & latency measurement header
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (req.path.startsWith('/api') && duration > 500) {
+      console.warn(`[Slow Request] ${req.method} ${req.path} took ${duration}ms`);
+    }
+  });
+  next();
+});
+
 // Enable CORS for Capacitor Android WebView and web clients
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -40,7 +60,9 @@ app.use('/assets/images', (req, res, next) => {
       const ext = path.extname(decodedName).toLowerCase();
       res.setHeader('Content-Type', ext === '.png' ? 'image/png' : ext === '.svg' ? 'image/svg+xml' : 'image/jpeg');
       res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
-      return fs.createReadStream(realPath).pipe(res);
+      const stream = fs.createReadStream(realPath);
+      stream.on('error', () => next());
+      return stream.pipe(res);
     }
   } catch {
     // continue to next
@@ -84,10 +106,24 @@ async function setupServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`☕ Prime Cafe server running on http://0.0.0.0:${PORT}`);
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`☕ Prime Cafe server running smoothly on http://0.0.0.0:${PORT}`);
     console.log(`📱 Digital menu: http://0.0.0.0:${PORT}/menu/prime-cafe`);
   });
+
+  // Keep-alive tuning for reverse proxies (prevents 502 Bad Gateway race conditions)
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
+
+  // Graceful shutdown handling
+  const shutdown = () => {
+    server.close(() => {
+      console.log('Server shut down gracefully.');
+      process.exit(0);
+    });
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 setupServer().catch((err) => {

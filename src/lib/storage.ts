@@ -182,7 +182,10 @@ export function getSuggestedMealTime(_date = new Date()): MealTime {
 
 // Generate menu response for a given slug
 export function buildMenuResponse(state: DatabaseState, slug = 'prime-cafe'): MenuResponse | null {
-  if (state.restaurant.slug !== slug) {
+  const normalizedSlug = (slug || '').toLowerCase().trim();
+  const restSlug = (state.restaurant.slug || '').toLowerCase().trim();
+  const validSlugs = new Set([restSlug, 'prime-cafe', 'four-season', 'four-season-cafe', 'fourseason', 'menu', 'default']);
+  if (!validSlugs.has(normalizedSlug) && state.restaurant.slug !== slug) {
     return null;
   }
 

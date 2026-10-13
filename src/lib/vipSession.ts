@@ -3,6 +3,7 @@ export interface VipSession {
   tableNumber: string;
   activatedAt: number; // timestamp in ms
   expiresAt: number;   // timestamp in ms (activatedAt + 4 hours)
+  scannedPass?: string; // Hidden pass token from physical QR code scan
 }
 
 export const VIP_SESSION_DURATION_MS = 4 * 60 * 60 * 1000; // 4 Hours in milliseconds
@@ -13,13 +14,14 @@ const ACTIVE_TABLE_KEY = 'four_season_active_vip_table';
 /**
  * Start or renew a 4-hour VIP session for a specific table
  */
-export function startVipSession(tableId: string, tableNumber: string): VipSession {
+export function startVipSession(tableId: string, tableNumber: string, scannedPass?: string): VipSession {
   const now = Date.now();
   const session: VipSession = {
     tableId,
     tableNumber,
     activatedAt: now,
     expiresAt: now + VIP_SESSION_DURATION_MS,
+    scannedPass,
   };
 
   try {

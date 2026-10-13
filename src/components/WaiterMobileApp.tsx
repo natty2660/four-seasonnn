@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Waiter, VipTable, WaiterCall, CallType } from '../types/index.ts';
+import { Waiter, VipTable, WaiterCall, CallType, CALL_PRIORITY_MAP, getCallPriorityWeight } from '../types/index.ts';
 import { callSound } from '../lib/callSound.ts';
 import { nativeCallBridge } from '../lib/nativeCallBridge.ts';
 import { getServerBaseUrl, setServerBaseUrl, PRODUCTION_BACKEND_URL } from '../lib/apiConfig.ts';
@@ -31,6 +31,9 @@ import {
   ShieldCheck,
   Delete,
   X,
+  Zap,
+  Flame,
+  ArrowUpRight,
 } from 'lucide-react';
 
 interface WaiterMobileAppProps {
@@ -232,45 +235,98 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   // 3. If assigned to a deleted waiter or off-duty waiter -> RINGS ALL ON-DUTY WAITERS IMMEDIATELY!
   // 4. If assigned to another on-duty waiter and NOT escalated -> DOES NOT RING THIS WAITER!
   const now = Date.now();
-  // All active pending calls in the restaurant (matching Admin Dashboard), newest first
+  // All active pending calls in the restaurant, sorted by priority ranking (Urgent > Bill > Order > Water > General) then newest first
   const allPendingCalls = activeCalls
     .filter((c) => c.status === 'pending')
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    .sort((a, b) => {
+      // 1. High-priority calls always jump to top
+      const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
+      if (priorityDiff !== 0) return priorityDiff;
+      // 2. Newest first
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   // Calls that specifically trigger ringing and high-priority alerts for this waiter
-  const pendingCallsForMe = allPendingCalls.filter((c) => {
-    if (!currentWaiter?.is_on_duty) return false;
+  // High-priority calls always jump to the top of the ringing alert queue
+  const pendingCallsForMe = allPendingCalls
+    .filter((c) => {
+      if (!currentWaiter?.is_on_duty) return false;
 
-    // If escalated after 45s (either flagged on backend OR 45 seconds elapsed from created_at), ring everyone on duty
-    const isEscalatedByTimer = now - new Date(c.created_at).getTime() >= 45000;
-    if (c.is_escalated || isEscalatedByTimer) return true;
+      // If escalated after 45s (either flagged on backend OR 45 seconds elapsed from created_at), ring everyone on duty
+      const isEscalatedByTimer = now - new Date(c.created_at).getTime() >= 45000;
+      if (c.is_escalated || isEscalatedByTimer) return true;
 
-    if (c.assigned_waiter_id) {
-      // Check if assigned waiter actually exists in staff roster
-      const assigned = waiters.find((w) => w.id === c.assigned_waiter_id);
-      if (!assigned || !assigned.is_active || !assigned.is_on_duty) {
-        // Ghost waiter or off duty -> ring all on-duty waiters immediately!
-        return true;
+      if (c.assigned_waiter_id) {
+        // Check if assigned waiter actually exists in staff roster
+        const assigned = waiters.find((w) => w.id === c.assigned_waiter_id);
+        if (!assigned || !assigned.is_active || !assigned.is_on_duty) {
+          // Ghost waiter or off duty -> ring all on-duty waiters immediately!
+          return true;
+        }
+        return c.assigned_waiter_id === selectedWaiterId;
       }
-      return c.assigned_waiter_id === selectedWaiterId;
-    }
-    // Unassigned call: rings to all on-duty waiters
-    return true;
-  });
+      // Unassigned call: rings to all on-duty waiters
+      return true;
+    })
+    .sort((a, b) => {
+      // 1. High priority calls always jump to top of waiter's dashboard
+      const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
+      if (priorityDiff !== 0) return priorityDiff;
 
-  // Calls currently being attended by this waiter
+      // 2. If same priority, my directly assigned tables come first
+      const aIsMine = a.assigned_waiter_id === selectedWaiterId ? 1 : 0;
+      const bIsMine = b.assigned_waiter_id === selectedWaiterId ? 1 : 0;
+      if (bIsMine !== aIsMine) return bIsMine - aIsMine;
+
+      // 3. Newest first
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+  // Counts of pending calls by priority level for the live dashboard hierarchy
+  const urgentCount = allPendingCalls.filter((c) => c.call_type === 'urgent').length;
+  const billCount = allPendingCalls.filter((c) => c.call_type === 'bill').length;
+  const orderCount = allPendingCalls.filter((c) => c.call_type === 'order').length;
+  const waterCount = allPendingCalls.filter((c) => c.call_type === 'water').length;
+
+  // Calls currently being attended by this waiter (sorted by priority then newest)
   const inProgressCalls = activeCalls
     .filter(
       (c) =>
         c.status === 'accepted' &&
         (c.accepted_by_waiter_id === selectedWaiterId || c.accepted_by_name === currentWaiter?.name)
     )
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    .sort((a, b) => {
+      const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   // Other active restaurant calls (assigned to co-workers, or active while off-duty)
-  const otherPendingCalls = allPendingCalls.filter(
-    (c) => !pendingCallsForMe.some((myCall) => myCall.id === c.id)
-  );
+  const otherPendingCalls = allPendingCalls
+    .filter((c) => !pendingCallsForMe.some((myCall) => myCall.id === c.id))
+    .sort((a, b) => {
+      const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+  // Calls on HOLD (waiting because waiter was attending another customer)
+  const heldCalls = activeCalls
+    .filter((c) => c.status === 'hold')
+    .sort((a, b) => {
+      const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+  // Calls MISSED (timed out after 60s without answer, displaying on waiter's list)
+  const missedCalls = activeCalls
+    .filter((c) => c.status === 'missed')
+    .sort((a, b) => {
+      const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(b.missed_at || b.created_at).getTime() - new Date(a.missed_at || a.created_at).getTime();
+    });
 
   // Recent completed calls
   const completedCalls = activeCalls
@@ -341,39 +397,100 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     }
   };
 
-  // Helper for call icon
+  // Helper for priority ranking badge
   const getCallTypeBadge = (type: CallType) => {
     switch (type) {
-      case 'order':
+      case 'urgent':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold">
-            <Utensils className="w-3.5 h-3.5" /> Order Request
-          </span>
-        );
-      case 'water':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/40 text-xs font-bold">
-            <Droplets className="w-3.5 h-3.5" /> Water / Refill
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/25 text-red-200 border border-red-500/50 text-xs font-black shadow-sm shadow-red-500/20 animate-pulse">
+            <span className="px-1.5 py-0.2 rounded bg-red-500 text-white text-[10px] font-black uppercase tracking-wider">
+              P1
+            </span>
+            <AlertTriangle className="w-3.5 h-3.5 text-red-300" />
+            <span>Urgent Assistance</span>
           </span>
         );
       case 'bill':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold">
-            <Receipt className="w-3.5 h-3.5" /> Bill / Payment
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/25 text-emerald-200 border border-emerald-500/50 text-xs font-black shadow-sm shadow-emerald-500/20">
+            <span className="px-1.5 py-0.2 rounded bg-emerald-400 text-black text-[10px] font-black uppercase tracking-wider">
+              P2
+            </span>
+            <Receipt className="w-3.5 h-3.5 text-emerald-300" />
+            <span>Bill & Payment</span>
           </span>
         );
-      case 'urgent':
+      case 'order':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-500/20 text-red-300 border border-red-500/40 text-xs font-bold animate-pulse">
-            <AlertTriangle className="w-3.5 h-3.5" /> Urgent Assistance
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/25 text-amber-200 border border-amber-500/50 text-xs font-black shadow-sm shadow-amber-500/20">
+            <span className="px-1.5 py-0.2 rounded bg-amber-400 text-black text-[10px] font-black uppercase tracking-wider">
+              P3
+            </span>
+            <Utensils className="w-3.5 h-3.5 text-amber-300" />
+            <span>Order Request</span>
+          </span>
+        );
+      case 'water':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/25 text-sky-200 border border-sky-500/50 text-xs font-black shadow-sm shadow-sky-500/20">
+            <span className="px-1.5 py-0.2 rounded bg-sky-400 text-black text-[10px] font-black uppercase tracking-wider">
+              P4
+            </span>
+            <Droplets className="w-3.5 h-3.5 text-sky-300" />
+            <span>Water / Refill</span>
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#D4AF37]/20 text-[#FCF6BA] border border-[#D4AF37]/40 text-xs font-bold">
-            <Bell className="w-3.5 h-3.5" /> General Call
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#D4AF37]/25 text-[#FCF6BA] border border-[#D4AF37]/50 text-xs font-black shadow-sm shadow-[#D4AF37]/20">
+            <span className="px-1.5 py-0.2 rounded bg-[#D4AF37] text-black text-[10px] font-black uppercase tracking-wider">
+              P5
+            </span>
+            <Bell className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <span>General Call</span>
           </span>
         );
+    }
+  };
+
+  // Helper for priority card visual theme
+  const getCallPriorityCardTheme = (type: CallType) => {
+    switch (type) {
+      case 'urgent':
+        return {
+          wrapper: 'bg-gradient-to-r from-red-950/90 via-[#330d0d] to-red-900/60 border-2 border-red-500/90 shadow-2xl shadow-red-900/60 animate-pulse',
+          numberBg: 'bg-red-500 text-white',
+          topBanner: 'bg-red-500 text-white',
+          priorityLabel: 'P1 · HIGHEST PRIORITY (URGENT)',
+        };
+      case 'bill':
+        return {
+          wrapper: 'bg-gradient-to-r from-emerald-950/80 via-[#0e2718] to-emerald-900/50 border-2 border-emerald-400/80 shadow-xl shadow-emerald-900/40',
+          numberBg: 'bg-emerald-400 text-black',
+          topBanner: 'bg-emerald-500/30 text-emerald-200 border-b border-emerald-500/30',
+          priorityLabel: 'P2 · HIGH PRIORITY (BILL)',
+        };
+      case 'order':
+        return {
+          wrapper: 'bg-gradient-to-r from-amber-950/80 via-[#261505] to-amber-900/60 border-2 border-amber-400/80 shadow-xl shadow-amber-900/40',
+          numberBg: 'bg-amber-400 text-black',
+          topBanner: 'bg-amber-500/30 text-amber-200 border-b border-amber-500/30',
+          priorityLabel: 'P3 · MEDIUM PRIORITY (ORDER)',
+        };
+      case 'water':
+        return {
+          wrapper: 'bg-gradient-to-r from-sky-950/80 via-[#081e2b] to-sky-900/50 border-2 border-sky-400/70 shadow-xl shadow-sky-900/30',
+          numberBg: 'bg-sky-400 text-black',
+          topBanner: 'bg-sky-500/30 text-sky-200 border-b border-sky-500/30',
+          priorityLabel: 'P4 · STANDARD PRIORITY (WATER)',
+        };
+      default:
+        return {
+          wrapper: 'bg-gradient-to-r from-[#211a0c] via-[#1a1408] to-[#120f06] border-2 border-[#D4AF37]/60 shadow-lg shadow-black/40',
+          numberBg: 'bg-[#D4AF37] text-black',
+          topBanner: 'bg-[#D4AF37]/20 text-[#FCF6BA] border-b border-[#D4AF37]/30',
+          priorityLabel: 'P5 · GENERAL PRIORITY',
+        };
     }
   };
 
@@ -1003,6 +1120,106 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
           </div>
         </div>
 
+        {/* PRIORITY RANKING HIERARCHY BAR */}
+        <div className="bg-[#141414] border border-[#D4AF37]/30 rounded-2xl p-3.5 mb-5 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#D4AF37]" />
+              <span className="text-xs font-black uppercase tracking-wider text-[#FCF6BA]">
+                Priority Dispatch Ranking
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#FCF6BA] font-bold border border-[#D4AF37]/40">
+                Auto-Prioritized
+              </span>
+            </div>
+            <span className="text-[11px] text-white/50">
+              High-priority calls (Urgent &gt; Bill &gt; Order &gt; Water) automatically jump to the top
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div
+              className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                urgentCount > 0
+                  ? 'bg-red-500/20 border-red-500 text-red-200 animate-pulse shadow-md shadow-red-900/30'
+                  : 'bg-white/5 border-white/10 text-white/70'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className={`w-4 h-4 ${urgentCount > 0 ? 'text-red-400' : 'text-red-400/60'}`} />
+                <span className="text-xs font-black">1. Urgent</span>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                  urgentCount > 0 ? 'bg-red-500 text-white' : 'bg-white/10 text-white/60'
+                }`}
+              >
+                {urgentCount}
+              </span>
+            </div>
+
+            <div
+              className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                billCount > 0
+                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-200 shadow-md shadow-emerald-900/20'
+                  : 'bg-white/5 border-white/10 text-white/70'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <Receipt className={`w-4 h-4 ${billCount > 0 ? 'text-emerald-400' : 'text-emerald-400/60'}`} />
+                <span className="text-xs font-black">2. Bill</span>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                  billCount > 0 ? 'bg-emerald-500 text-black' : 'bg-white/10 text-white/60'
+                }`}
+              >
+                {billCount}
+              </span>
+            </div>
+
+            <div
+              className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                orderCount > 0
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-200 shadow-md shadow-amber-900/20'
+                  : 'bg-white/5 border-white/10 text-white/70'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <Utensils className={`w-4 h-4 ${orderCount > 0 ? 'text-amber-400' : 'text-amber-400/60'}`} />
+                <span className="text-xs font-black">3. Order</span>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                  orderCount > 0 ? 'bg-amber-400 text-black' : 'bg-white/10 text-white/60'
+                }`}
+              >
+                {orderCount}
+              </span>
+            </div>
+
+            <div
+              className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                waterCount > 0
+                  ? 'bg-sky-500/20 border-sky-500 text-sky-200 shadow-md shadow-sky-900/20'
+                  : 'bg-white/5 border-white/10 text-white/70'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <Droplets className={`w-4 h-4 ${waterCount > 0 ? 'text-sky-400' : 'text-sky-400/60'}`} />
+                <span className="text-xs font-black">4. Water</span>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                  waterCount > 0 ? 'bg-sky-400 text-black' : 'bg-white/10 text-white/60'
+                }`}
+              >
+                {waterCount}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* CRITICAL INCOMING CALLS (RINGING & VIBRATING FOR ME) */}
         {pendingCallsForMe.length > 0 && (
           <div className="mb-6 space-y-3">
@@ -1011,19 +1228,45 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                 <BellRing className="w-5 h-5 text-amber-400 animate-bounce" />
                 Incoming VIP Calls ({pendingCallsForMe.length}) — Ringing!
               </h2>
-              <span className="text-xs text-amber-300 font-mono">Action Required</span>
+              <span className="text-xs text-amber-300 font-mono font-bold flex items-center gap-1">
+                <Zap className="w-3.5 h-3.5 text-amber-400" /> Ranked Queue
+              </span>
             </div>
 
-            {pendingCallsForMe.map((call) => {
+            {pendingCallsForMe.map((call, index) => {
               const isAssignedToMe = call.assigned_waiter_id === selectedWaiterId;
+              const theme = getCallPriorityCardTheme(call.call_type);
+              const isUrgent = call.call_type === 'urgent';
+
               return (
                 <div
                   key={call.id}
-                  className="bg-gradient-to-r from-amber-950/80 via-[#261505] to-amber-900/60 border-2 border-amber-400 rounded-2xl p-5 shadow-2xl shadow-amber-900/50 animate-pulse relative overflow-hidden"
+                  className={`${theme.wrapper} rounded-2xl p-5 relative overflow-hidden transition-all`}
                 >
+                  {/* Priority & Queue Position Pill */}
+                  <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-white/10 text-xs">
+                    <span className="font-mono font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-md bg-black/40 font-black text-[#FCF6BA] border border-white/10">
+                        Queue #{index + 1}
+                      </span>
+                      <span className={isUrgent ? 'text-red-300 animate-pulse font-bold' : 'text-white/80'}>
+                        {theme.priorityLabel}
+                      </span>
+                    </span>
+                    {isAssignedToMe ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4AF37] text-black font-extrabold uppercase shrink-0">
+                        Your Assigned Table
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shrink-0">
+                        Unassigned (First to accept)
+                      </span>
+                    )}
+                  </div>
+
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-3.5">
-                      <div className="w-12 h-12 rounded-2xl bg-amber-400 text-black flex items-center justify-center font-black text-xl shadow-lg shrink-0">
+                      <div className={`w-12 h-12 rounded-2xl ${theme.numberBg} flex items-center justify-center font-black text-xl shadow-lg shrink-0`}>
                         {call.table_number.replace('VIP-', '')}
                       </div>
 
@@ -1036,26 +1279,17 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                             {call.table_name}
                           </span>
                           {getCallTypeBadge(call.call_type)}
-                          {isAssignedToMe ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4AF37] text-black font-extrabold uppercase">
-                              Your Assigned Table
-                            </span>
-                          ) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40">
-                              Unassigned (First to accept)
-                            </span>
-                          )}
                         </div>
 
                         {call.message && (
-                          <div className="mt-2 text-xs text-amber-200 bg-black/40 p-2 rounded-lg border border-amber-500/30">
+                          <div className="mt-2 text-xs text-amber-200 bg-black/50 p-2 rounded-lg border border-white/10 font-medium">
                             &ldquo;{call.message}&rdquo;
                           </div>
                         )}
 
-                        <div className="text-[11px] text-amber-300/80 mt-2 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>
+                        <div className="text-[11px] text-white/70 mt-2 flex items-center gap-2 flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
                             Called{' '}
                             {new Date(call.created_at).toLocaleTimeString([], {
                               hour: '2-digit',
@@ -1063,6 +1297,11 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                               second: '2-digit',
                             })}
                           </span>
+                          {call.is_escalated && (
+                            <span className="text-red-400 font-bold bg-red-500/20 px-1.5 py-0.5 rounded text-[10px] border border-red-500/40">
+                              ⚡ Escalated Broadcast
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1071,7 +1310,11 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                     <div className="flex flex-col sm:items-end gap-2 shrink-0">
                       <button
                         onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
-                        className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 text-black font-black text-sm shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        className={`w-full sm:w-auto px-6 py-3.5 rounded-xl font-black text-sm shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                          isUrgent
+                            ? 'bg-gradient-to-r from-red-500 via-red-600 to-amber-500 text-white shadow-red-900/50'
+                            : 'bg-gradient-to-r from-emerald-400 to-emerald-500 text-black shadow-emerald-900/50'
+                        }`}
                       >
                         <Check className="w-5 h-5 stroke-[3]" />
                         <span>I&apos;m on My Way / Accept</span>
@@ -1081,6 +1324,128 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* MISSED VIP CALLS (ATTENTION REQUIRED) */}
+        {missedCalls.length > 0 && (
+          <div className="mb-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-black uppercase tracking-wider text-rose-400 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-400 animate-pulse" />
+                Missed VIP Calls ({missedCalls.length}) — Attention Required
+              </h2>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                Customer Waiting
+              </span>
+            </div>
+
+            {missedCalls.map((call) => {
+              return (
+                <div
+                  key={call.id}
+                  className="bg-[#181111] border-2 border-rose-500/60 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-rose-950/80 text-rose-300 font-mono font-black text-lg flex items-center justify-center border border-rose-500/40 shrink-0">
+                      {call.table_number.replace('VIP-', '')}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
+                        <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
+                        {getCallTypeBadge(call.call_type)}
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 border border-rose-500/40 font-bold">
+                          Missed Call
+                        </span>
+                      </div>
+                      {call.message && (
+                        <p className="text-xs text-amber-200/90 mt-1 italic">&ldquo;{call.message}&rdquo;</p>
+                      )}
+                      <div className="text-[10px] text-white/50 mt-1 flex items-center gap-2">
+                        <span>
+                          Missed at{' '}
+                          {new Date(call.missed_at || call.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    <button
+                      onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>Attend Missed Call</span>
+                    </button>
+                    <button
+                      onClick={() => onCompleteCall(call.id)}
+                      className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-medium text-xs border border-white/10 transition-colors cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* QUEUED ON HOLD CALLS */}
+        {heldCalls.length > 0 && (
+          <div className="mb-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-amber-400" />
+                Queued on Hold ({heldCalls.length}) — Customer Waiting
+              </h2>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+                Next in Line
+              </span>
+            </div>
+
+            {heldCalls.map((call) => (
+              <div
+                key={call.id}
+                className="bg-[#19150e] border-2 border-amber-500/50 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-amber-950/80 text-amber-300 font-mono font-black text-lg flex items-center justify-center border border-amber-500/40 shrink-0">
+                    {call.table_number.replace('VIP-', '')}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
+                      <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
+                      {getCallTypeBadge(call.call_type)}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 border border-amber-500/40 font-bold">
+                        On Hold
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-200/90 mt-1">
+                      Customer is queued waiting for you to complete your current table.
+                    </p>
+                    {call.message && (
+                      <p className="text-xs text-white/70 mt-0.5 italic">&ldquo;{call.message}&rdquo;</p>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#FBF5B7] text-[#0A0A0A] font-black text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer self-end sm:self-center shrink-0"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Accept Now</span>
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
@@ -1144,13 +1509,20 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
             </h3>
             {otherPendingCalls.map((call) => {
               const waiter = waiters.find((w) => w.id === call.assigned_waiter_id);
+              const theme = getCallPriorityCardTheme(call.call_type);
+              const isUrgent = call.call_type === 'urgent';
+
               return (
                 <div
                   key={call.id}
-                  className="p-4 bg-[#141414] border border-[#D4AF37]/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md"
+                  className={`p-4 bg-[#141414] border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md transition-all ${
+                    isUrgent
+                      ? 'border-red-500/80 shadow-red-950/40 animate-pulse'
+                      : 'border-[#D4AF37]/30'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-[#FCF6BA] font-mono font-bold flex items-center justify-center border border-amber-500/30">
+                    <div className={`w-10 h-10 rounded-xl ${theme.numberBg} font-mono font-bold flex items-center justify-center border border-white/10 shrink-0`}>
                       {call.table_number.replace('VIP-', '')}
                     </div>
                     <div>
@@ -1162,7 +1534,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                       {call.message && (
                         <p className="text-xs text-white/70 mt-1 italic">&ldquo;{call.message}&rdquo;</p>
                       )}
-                      <div className="text-[11px] text-white/50 mt-1 flex items-center gap-2">
+                      <div className="text-[11px] text-white/50 mt-1 flex items-center gap-2 flex-wrap">
                         <span>
                           {waiter ? `Assigned to ${waiter.name}` : 'Unassigned (General Broadcast)'}
                         </span>
@@ -1173,13 +1545,18 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                             minute: '2-digit',
                           })}
                         </span>
+                        {call.is_escalated && (
+                          <span className="text-red-400 font-bold bg-red-500/20 px-1.5 py-0.5 rounded text-[10px] border border-red-500/40">
+                            ⚡ Escalated Broadcast
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <button
                     onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer self-end sm:self-center"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer self-end sm:self-center shrink-0"
                   >
                     <Check className="w-4 h-4 stroke-[2.5]" />
                     <span>Accept & Assist</span>

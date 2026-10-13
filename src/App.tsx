@@ -7,6 +7,7 @@ import {
   Waiter,
   WaiterCall,
   CallType,
+  getCallPriorityWeight,
 } from './types/index.ts';
 import {
   loadClientState,
@@ -119,13 +120,13 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    // SCENARIO 1: Call was completed or cancelled locally, but server poll returned pending or accepted
+    // SCENARIO 1: Call was completed or cancelled locally, but server poll returned pending
     const wasCompletedLocally = prev.status === 'completed' || prev.status === 'cancelled';
-    const isStaleIncomingActive = inc.status === 'pending' || inc.status === 'accepted';
+    const isStaleIncomingPending = inc.status === 'pending';
     const completedAtTime = prev.completed_at ? new Date(prev.completed_at).getTime() : now;
     const isWithinTerminalLock = now - completedAtTime < TERMINAL_LOCK_WINDOW_MS;
 
-    if (wasCompletedLocally && isStaleIncomingActive && isWithinTerminalLock) {
+    if (wasCompletedLocally && isStaleIncomingPending && isWithinTerminalLock) {
       mergedMap.set(inc.id, prev);
       continue;
     }
@@ -147,10 +148,11 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    // SCENARIO 3: Server returned 'accepted' - cross-reference accepted_by_waiter_id and metadata
+    // SCENARIO 3: Server returned 'accepted' - waiter accepted the call! Lock it in firmly!
     if (inc.status === 'accepted') {
       mergedMap.set(inc.id, {
         ...inc,
+        status: 'accepted',
         accepted_by_waiter_id: inc.accepted_by_waiter_id || prev.accepted_by_waiter_id || null,
         accepted_by_name: inc.accepted_by_name || prev.accepted_by_name || 'Staff Member',
         accepted_at: inc.accepted_at || prev.accepted_at || new Date().toISOString(),
@@ -158,14 +160,14 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    // Otherwise, accept server state
+    // Otherwise, accept server state (including 'hold', 'missed', etc.)
     mergedMap.set(inc.id, inc);
   }
 
   // 2. Flicker prevention for freshly created or accepted local calls missing from incoming backend snapshot
   for (const prev of prevCalls || []) {
     if (!mergedMap.has(prev.id)) {
-      if (prev.status === 'pending' || prev.status === 'accepted') {
+      if (prev.status === 'pending' || prev.status === 'accepted' || prev.status === 'hold') {
         const timeRef = new Date(prev.accepted_at || prev.created_at).getTime();
         if (now - timeRef < NEW_CALL_PERSIST_WINDOW_MS) {
           mergedMap.set(prev.id, prev);
@@ -174,9 +176,28 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     }
   }
 
-  // 3. Stably sort by created_at DESC (newest calls always at top)
+  // 3. Stably sort by lifecycle status: accepted (4000) > pending (3000) > hold (2500) > missed (1500) > resolved (1000)
+  const getStatusOrder = (status: string): number => {
+    if (status === 'accepted') return 4000;
+    if (status === 'pending') return 3000;
+    if (status === 'hold') return 2500;
+    if (status === 'missed') return 1500;
+    return 1000;
+  };
+
   const result = Array.from(mergedMap.values());
-  result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  result.sort((a, b) => {
+    // 1. Prioritize active pending calls first, followed by in-progress accepted, then resolved
+    const statusDiff = getStatusOrder(b.status) - getStatusOrder(a.status);
+    if (statusDiff !== 0) return statusDiff;
+
+    // 2. Prioritize by call type priority ranking: Urgent (500) > Bill (400) > Order (300) > Water (200) > General (100)
+    const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
+    if (priorityDiff !== 0) return priorityDiff;
+
+    // 3. Tie-breaker: newest calls first
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
   return result;
 }
 
@@ -472,9 +493,11 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       if (res.ok) {
         const call: WaiterCall = await res.json();
         setDbState((prev) => {
-          // Archive / complete any previous calls for this table in local state
+          // Archive previous pending, hold, or missed calls for this table in local state
           const updatedPrevCalls = (prev.waiter_calls || []).map((c) =>
-            c.table_id === call.table_id && (c.status === 'pending' || c.status === 'accepted')
+            (c.table_id === call.table_id || c.table_number === call.table_number) &&
+            c.id !== call.id &&
+            (c.status === 'pending' || c.status === 'hold' || c.status === 'missed')
               ? { ...c, status: 'completed' as const, completed_at: new Date().toISOString() }
               : c
           );
@@ -685,6 +708,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
   useEffect(() => {
     if (typeof window === 'undefined' || dbState.vip_tables.length === 0) return;
     const urlParams = new URLSearchParams(window.location.search);
+    const pass = urlParams.get('pass') || urlParams.get('scanned_pass') || urlParams.get('token');
     const access = urlParams.get('access');
     const entry = urlParams.get('entry');
     const scan = urlParams.get('scan');
@@ -694,15 +718,24 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       const target = vipTableFromUrl || dbState.vip_tables[0];
       if (target) {
         const existingSession = getVipSession(target.id);
-        const isFreshQrScan = scan === 'fresh' || scan === '1';
-        const isQrEntry = entry === 'qr' || access === 'granted';
+        // Detect authentic physical QR stand camera scan via embedded hidden pass or scan token
+        const isPhysicalQrScan = Boolean(
+          pass ||
+          scan === 'camera' ||
+          scan === 'fresh' ||
+          scan === '1' ||
+          (entry === 'qr' && (pass || access === 'granted'))
+        );
 
-        if (isFreshQrScan) {
-          // Explicit physical QR stand re-scan: start fresh 4-hour session
-          startVipSession(target.id, target.table_number);
+        if (isPhysicalQrScan) {
+          // Physical QR stand scanned with smartphone camera: ALWAYS start a fresh 4-hour session
+          startVipSession(target.id, target.table_number, pass || undefined);
           setSelectedVipTable(target);
 
-          // Strip scan/entry tokens from URL so subsequent browser reloads do not reset timer
+          // Strip scan/pass/entry tokens from browser URL so subsequent page reloads/refreshes do not reset timer
+          urlParams.delete('pass');
+          urlParams.delete('scanned_pass');
+          urlParams.delete('token');
           urlParams.delete('scan');
           urlParams.delete('pin');
           urlParams.delete('access');
@@ -710,21 +743,13 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
           const cleanQuery = urlParams.toString();
           const cleanUrl = window.location.pathname + (cleanQuery ? `?${cleanQuery}` : '');
           window.history.replaceState({}, '', cleanUrl);
-        } else if (existingSession) {
-          // Existing session exists (browser reload, page navigation, or returning tab):
+        } else if (existingSession && Date.now() < existingSession.expiresAt) {
+          // Existing session exists and is unexpired (browser reload, page navigation, or returning tab):
           // NEVER reset timer! Strictly preserves existing activatedAt and expiresAt!
           setSelectedVipTable(target);
-        } else if (isQrEntry) {
-          // First time arrival from scanning physical QR stand
-          startVipSession(target.id, target.table_number);
+        } else {
+          // No active valid session or session expired:
           setSelectedVipTable(target);
-
-          urlParams.delete('access');
-          urlParams.delete('entry');
-          urlParams.delete('pin');
-          const cleanQuery = urlParams.toString();
-          const cleanUrl = window.location.pathname + (cleanQuery ? `?${cleanQuery}` : '');
-          window.history.replaceState({}, '', cleanUrl);
         }
 
         if (currentPath !== '/vip') {

@@ -76,7 +76,73 @@ export interface AuthState {
 }
 
 export type CallType = 'general' | 'order' | 'water' | 'bill' | 'urgent';
-export type CallStatus = 'pending' | 'accepted' | 'completed' | 'cancelled';
+export type CallStatus = 'pending' | 'accepted' | 'completed' | 'cancelled' | 'hold' | 'missed';
+
+export type CallPriorityLevel = 1 | 2 | 3 | 4 | 5;
+
+export interface PriorityInfo {
+  rank: CallPriorityLevel;
+  code: 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+  title: string;
+  weight: number;
+  badgeClass: string;
+  cardBorderClass: string;
+  glowClass: string;
+}
+
+export const CALL_PRIORITY_MAP: Record<CallType, PriorityInfo> = {
+  urgent: {
+    rank: 1,
+    code: 'P1',
+    title: 'Urgent',
+    weight: 500,
+    badgeClass: 'bg-red-500/25 text-red-300 border-red-500/50 shadow-sm shadow-red-500/20',
+    cardBorderClass: 'border-red-500/90 from-red-950/90 via-[#2a0c0c] to-red-900/60 shadow-red-900/50',
+    glowClass: 'text-red-400',
+  },
+  bill: {
+    rank: 2,
+    code: 'P2',
+    title: 'Bill / Payment',
+    weight: 400,
+    badgeClass: 'bg-emerald-500/25 text-emerald-300 border-emerald-500/50 shadow-sm shadow-emerald-500/20',
+    cardBorderClass: 'border-emerald-500/80 from-emerald-950/80 via-[#0e2417] to-emerald-900/50 shadow-emerald-900/40',
+    glowClass: 'text-emerald-400',
+  },
+  order: {
+    rank: 3,
+    code: 'P3',
+    title: 'Order Request',
+    weight: 300,
+    badgeClass: 'bg-amber-500/25 text-amber-300 border-amber-500/50 shadow-sm shadow-amber-500/20',
+    cardBorderClass: 'border-amber-500/80 from-amber-950/80 via-[#241708] to-amber-900/50 shadow-amber-900/40',
+    glowClass: 'text-amber-400',
+  },
+  water: {
+    rank: 4,
+    code: 'P4',
+    title: 'Water / Refill',
+    weight: 200,
+    badgeClass: 'bg-sky-500/25 text-sky-300 border-sky-500/50 shadow-sm shadow-sky-500/20',
+    cardBorderClass: 'border-sky-500/70 from-sky-950/70 via-[#081e2b] to-sky-900/40 shadow-sky-900/40',
+    glowClass: 'text-sky-400',
+  },
+  general: {
+    rank: 5,
+    code: 'P5',
+    title: 'General Call',
+    weight: 100,
+    badgeClass: 'bg-[#D4AF37]/25 text-[#FCF6BA] border-[#D4AF37]/50 shadow-sm shadow-[#D4AF37]/20',
+    cardBorderClass: 'border-[#D4AF37]/70 from-[#211a0c] via-[#1a1408] to-[#120f06] shadow-amber-950/40',
+    glowClass: 'text-[#FCF6BA]',
+  },
+};
+
+export const getCallPriorityWeight = (type?: string | null): number => {
+  if (!type) return 100;
+  const key = type.toLowerCase() as CallType;
+  return CALL_PRIORITY_MAP[key]?.weight || 100;
+};
 
 export interface VipTable {
   id: string;
@@ -116,4 +182,7 @@ export interface WaiterCall {
   created_at: string;
   accepted_at?: string | null;
   completed_at?: string | null;
+  held_at?: string | null;
+  hold_reason?: string | null;
+  missed_at?: string | null;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Restaurant, Category, MenuItem, VipTable, Waiter, WaiterCall, CallType } from '../types/index.ts';
 import { ItemCard } from './ItemCard.tsx';
 import { callSound } from '../lib/callSound.ts';
@@ -8,7 +8,6 @@ import {
   formatRemainingTime,
   clearVipSession,
 } from '../lib/vipSession.ts';
-import { VipQrScannerModal } from './VipQrScannerModal.tsx';
 import {
   Bell,
   BellRing,
@@ -67,7 +66,6 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
   // VIP Expiration (4 Hours)
   const [remainingMs, setRemainingMs] = useState<number>(() => getRemainingVipTime(table.id));
   const [isExpired, setIsExpired] = useState<boolean>(() => !isVipSessionValid(table.id));
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Detail Modal for touched menu item (Fixes glitch where touching card called waiter)
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
@@ -94,14 +92,71 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
   // Find assigned responsible waiter
   const assignedWaiter = waiters.find((w) => w.id === table.assigned_waiter_id);
 
-  // Find active call for this table (most recent call always takes priority)
-  const currentCall = activeCalls
-    .filter(
-      (c) =>
-        c.table_id === table.id &&
-        (c.status === 'pending' || c.status === 'accepted')
-    )
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+  // Match calls by table_id or table_number (supporting both formats seamlessly)
+  const tableCalls = activeCalls.filter(
+    (c) =>
+      c.table_id === table.id ||
+      c.table_id === table.table_number ||
+      c.table_number === table.table_number
+  );
+
+  // Priority of status to display to the customer:
+  // 1. accepted (4000): Waiter accepted and is on the way! (Most critical to confirm!)
+  // 2. pending (3000): Currently paging/alerting staff
+  // 3. hold (2000): Staff currently attending another customer, customer is on hold
+  // 4. missed (1000): Call was unanswered, please wait a few minutes
+  const currentCall = tableCalls
+    .filter((c) => ['accepted', 'pending', 'hold', 'missed'].includes(c.status))
+    .sort((a, b) => {
+      const statusWeight = (s: string) => {
+        if (s === 'accepted') return 4000;
+        if (s === 'pending') return 3000;
+        if (s === 'hold') return 2000;
+        if (s === 'missed') return 1000;
+        return 0;
+      };
+      const diff = statusWeight(b.status) - statusWeight(a.status);
+      if (diff !== 0) return diff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    })[0] || null;
+
+  // Sound chime notification when waiter accepts the call
+  const prevCallStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (currentCall) {
+      if (currentCall.status === 'accepted' && prevCallStatusRef.current !== 'accepted') {
+        callSound.playCustomerConfirmationChime();
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([100, 50, 150]);
+        }
+      }
+      prevCallStatusRef.current = currentCall.status;
+    } else {
+      prevCallStatusRef.current = null;
+    }
+  }, [currentCall?.status, currentCall?.id]);
+
+  // Missed call cooldown calculation (2 minutes from when missed)
+  const [cooldownRemainingSec, setCooldownRemainingSec] = useState<number>(0);
+  useEffect(() => {
+    if (!currentCall || currentCall.status !== 'missed') {
+      setCooldownRemainingSec(0);
+      return;
+    }
+    const MISSED_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes cooldown
+    const missedTime = currentCall.missed_at
+      ? new Date(currentCall.missed_at).getTime()
+      : new Date(currentCall.created_at).getTime();
+
+    const updateCooldown = () => {
+      const rem = Math.max(0, Math.ceil((missedTime + MISSED_COOLDOWN_MS - Date.now()) / 1000));
+      setCooldownRemainingSec(rem);
+    };
+
+    updateCooldown();
+    const interval = setInterval(updateCooldown, 1000);
+    return () => clearInterval(interval);
+  }, [currentCall?.status, currentCall?.missed_at, currentCall?.created_at]);
 
   const getPendingCallLabel = (type: CallType) => {
     switch (type) {
@@ -129,6 +184,13 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
     // Check 4-hour expiration before placing call
     if (!isVipSessionValid(table.id)) {
       setIsExpired(true);
+      return;
+    }
+
+    // Check if under missed call cooldown
+    if (cooldownRemainingSec > 0) {
+      setCallSuccessFeedback(`Staff was notified. Please wait ${cooldownRemainingSec}s before calling again.`);
+      setTimeout(() => setCallSuccessFeedback(null), 3000);
       return;
     }
 
@@ -211,54 +273,32 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
           </span>
 
           <h2 className="text-xl sm:text-2xl font-black text-[#FCF6BA] font-display mb-2">
-            VIP Access Expired
+            Session Expired
           </h2>
 
-          <p className="text-xs text-[#EDEDED]/80 leading-relaxed mb-4">
-            For security and privacy, VIP table access automatically expires <strong className="text-amber-300">4 hours</strong> after scanning to prevent accidental waiter calling from outside the venue.
+          <p className="text-sm text-[#EDEDED]/90 leading-relaxed mb-6">
+            Your session is expired. Please scan the menu using your smart phone to start a new 4-hour session.
           </p>
 
-          <div className="p-3 bg-[#181818] rounded-xl border border-white/10 mb-6 text-left">
+          <div className="p-3.5 bg-[#181818] rounded-xl border border-white/10 mb-6 text-left">
             <div className="text-[11px] text-[#D4AF37] font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5" />
               Table: {table.table_number} ({table.name})
             </div>
             <p className="text-xs text-white/70">
-              Please scan the QR stand located inside your VIP room again to restore full access.
+              For security and privacy, VIP table access automatically expires after 4 hours. Scanning the physical acrylic stand with your smart phone instantly reactivates full VIP access.
             </p>
           </div>
 
           {/* Actions */}
-          <div className="space-y-2.5">
-            <button
-              type="button"
-              onClick={() => setIsScannerOpen(true)}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#FBF5B7] to-[#AA771C] text-[#0A0A0A] font-extrabold text-sm shadow-lg hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <QrCode className="w-4 h-4" />
-              <span>Scan VIP QR Stand Again</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onExitVip}
-              className="w-full py-2.5 px-4 rounded-xl bg-[#1c1c1c] hover:bg-[#252525] text-[#FCF6BA] text-xs font-semibold border border-white/10 transition-colors cursor-pointer"
-            >
-              Browse Standard Menu
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onExitVip}
+            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#FBF5B7] to-[#AA771C] text-[#0A0A0A] font-extrabold text-sm shadow-lg hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
+          >
+            Browse Standard Menu
+          </button>
         </div>
-
-        {/* QR Scanner / PIN Modal */}
-        <VipQrScannerModal
-          isOpen={isScannerOpen}
-          onClose={() => setIsScannerOpen(false)}
-          table={table}
-          onSessionRenewed={() => {
-            setIsExpired(false);
-            setRemainingMs(getRemainingVipTime(table.id));
-          }}
-        />
       </div>
     );
   }
@@ -358,49 +398,104 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
             </div>
           </div>
 
-          {/* ACTIVE CALL STATE BANNER (Compact) */}
+          {/* ACTIVE CALL STATE BANNER (Compact & Status-Aware) */}
           {currentCall && (
             <div
-              className={`mt-2.5 p-2.5 rounded-xl border transition-all ${
-                currentCall.status === 'pending'
-                  ? 'bg-amber-950/40 border-amber-500/60 shadow-md shadow-amber-950/40'
-                  : 'bg-emerald-950/40 border-emerald-500/60 shadow-md shadow-emerald-950/40'
+              className={`mt-2.5 p-3 rounded-xl border transition-all ${
+                currentCall.status === 'accepted'
+                  ? 'bg-emerald-950/70 border-emerald-500/80 shadow-md shadow-emerald-950/50'
+                  : currentCall.status === 'hold'
+                  ? 'bg-amber-950/70 border-amber-500/80 shadow-md shadow-amber-950/50'
+                  : currentCall.status === 'missed'
+                  ? 'bg-rose-950/70 border-rose-500/80 shadow-md shadow-rose-950/50'
+                  : 'bg-amber-950/40 border-amber-500/60 shadow-md shadow-amber-950/40'
               }`}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
                     className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                      currentCall.status === 'pending'
-                        ? 'bg-amber-500 text-black animate-pulse'
-                        : 'bg-emerald-500 text-black'
+                      currentCall.status === 'accepted'
+                        ? 'bg-emerald-400 text-black font-black'
+                        : currentCall.status === 'hold'
+                        ? 'bg-amber-400 text-black font-black animate-pulse'
+                        : currentCall.status === 'missed'
+                        ? 'bg-rose-500 text-white font-black'
+                        : 'bg-amber-500 text-black animate-pulse'
                     }`}
                   >
-                    {currentCall.status === 'pending' ? (
-                      <BellRing className="w-3.5 h-3.5" />
+                    {currentCall.status === 'accepted' ? (
+                      <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                    ) : currentCall.status === 'hold' ? (
+                      <Clock className="w-4 h-4 stroke-[2.5]" />
+                    ) : currentCall.status === 'missed' ? (
+                      <AlertTriangle className="w-4 h-4 stroke-[2.5]" />
                     ) : (
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <BellRing className="w-3.5 h-3.5" />
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">
-                      {currentCall.status === 'pending'
-                        ? getPendingCallLabel(currentCall.call_type)
-                        : `✅ ${currentCall.accepted_by_name || 'Waiter'} accepted & is coming!`}
-                    </p>
-                    {currentCall.message && (
-                      <p className="text-[10px] text-white/70 italic truncate">
-                        &ldquo;{currentCall.message}&rdquo;
-                      </p>
+                    {currentCall.status === 'accepted' ? (
+                      <div>
+                        <p className="text-xs sm:text-sm font-extrabold text-emerald-300 truncate">
+                          ✅ {currentCall.accepted_by_name || 'Waiter'} accepted &amp; is coming!
+                        </p>
+                        <p className="text-[10px] sm:text-[11px] text-emerald-100/80">
+                          Staff is on the way to {table.table_number}.
+                        </p>
+                      </div>
+                    ) : currentCall.status === 'hold' ? (
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-1.5 py-0.2 rounded bg-amber-400 text-black text-[9px] font-black uppercase tracking-wider">
+                            CALL ON HOLD
+                          </span>
+                          <p className="text-xs font-bold text-[#FCF6BA] truncate">
+                            Staff attending another customer
+                          </p>
+                        </div>
+                        <p className="text-[10px] text-amber-200/90 mt-0.5">
+                          Your request is queued. You are next in line!
+                        </p>
+                      </div>
+                    ) : currentCall.status === 'missed' ? (
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-1.5 py-0.2 rounded bg-rose-500 text-white text-[9px] font-black uppercase tracking-wider">
+                            CALL NOT ANSWERED
+                          </span>
+                          <p className="text-xs font-bold text-rose-200 truncate">
+                            Staff is currently occupied
+                          </p>
+                        </div>
+                        <p className="text-[10px] text-rose-100/90 mt-0.5">
+                          {cooldownRemainingSec > 0
+                            ? `Please wait ${Math.floor(cooldownRemainingSec / 60)}m ${cooldownRemainingSec % 60}s before calling again.`
+                            : 'Staff was notified. You can call again if still needed.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-xs font-bold text-white truncate">
+                          {getPendingCallLabel(currentCall.call_type)}
+                        </p>
+                        {currentCall.message && (
+                          <p className="text-[10px] text-white/70 italic truncate">
+                            &ldquo;{currentCall.message}&rdquo;
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
 
                 <button
                   onClick={() => onCancelCall(currentCall.id)}
-                  className="px-2 py-1 rounded-md bg-black/60 hover:bg-black/90 text-white/80 hover:text-white text-[10px] border border-white/20 transition-all shrink-0 cursor-pointer"
+                  className="px-2.5 py-1 rounded-md bg-black/60 hover:bg-black/90 text-white/80 hover:text-white text-[10px] border border-white/20 transition-all shrink-0 cursor-pointer"
                 >
-                  Cancel
+                  {currentCall.status === 'accepted' || currentCall.status === 'missed'
+                    ? 'Dismiss'
+                    : 'Cancel'}
                 </button>
               </div>
             </div>
@@ -729,17 +824,6 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
           <span>Call Waiter</span>
         </button>
       </div>
-
-      {/* QR Scanner / PIN Modal */}
-      <VipQrScannerModal
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        table={table}
-        onSessionRenewed={() => {
-          setIsExpired(false);
-          setRemainingMs(getRemainingVipTime(table.id));
-        }}
-      />
     </div>
   );
 };

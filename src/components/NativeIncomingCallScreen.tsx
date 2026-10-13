@@ -50,16 +50,46 @@ export const NativeIncomingCallScreen: React.FC<NativeIncomingCallScreenProps> =
 
   const getReasonLabel = () => {
     switch (call.call_type) {
-      case 'order':
-        return { label: 'READY TO ORDER DISHES', icon: Utensils, color: 'text-amber-400' };
-      case 'water':
-        return { label: 'WATER & DRINK REFILL', icon: Droplets, color: 'text-sky-400' };
-      case 'bill':
-        return { label: 'REQUESTING BILL / PAYMENT', icon: Receipt, color: 'text-emerald-400' };
       case 'urgent':
-        return { label: 'URGENT ASSISTANCE NEEDED', icon: AlertTriangle, color: 'text-red-400' };
+        return {
+          label: 'URGENT ASSISTANCE NEEDED',
+          priorityTag: 'P1 · HIGHEST PRIORITY',
+          icon: AlertTriangle,
+          color: 'text-red-400',
+          badgeBg: 'bg-red-500/25 border-red-500/60 text-red-200 animate-pulse',
+        };
+      case 'bill':
+        return {
+          label: 'REQUESTING BILL & PAYMENT',
+          priorityTag: 'P2 · HIGH PRIORITY',
+          icon: Receipt,
+          color: 'text-emerald-400',
+          badgeBg: 'bg-emerald-500/25 border-emerald-500/60 text-emerald-200',
+        };
+      case 'order':
+        return {
+          label: 'READY TO ORDER DISHES',
+          priorityTag: 'P3 · MEDIUM PRIORITY',
+          icon: Utensils,
+          color: 'text-amber-400',
+          badgeBg: 'bg-amber-500/25 border-amber-500/60 text-amber-200',
+        };
+      case 'water':
+        return {
+          label: 'WATER & DRINK REFILL',
+          priorityTag: 'P4 · STANDARD PRIORITY',
+          icon: Droplets,
+          color: 'text-sky-400',
+          badgeBg: 'bg-sky-500/25 border-sky-500/60 text-sky-200',
+        };
       default:
-        return { label: 'CALLING WAITER', icon: PhoneCall, color: 'text-[#D4AF37]' };
+        return {
+          label: 'CALLING WAITER',
+          priorityTag: 'P5 · GENERAL PRIORITY',
+          icon: PhoneCall,
+          color: 'text-[#D4AF37]',
+          badgeBg: 'bg-[#D4AF37]/25 border-[#D4AF37]/60 text-[#FCF6BA]',
+        };
     }
   };
 
@@ -126,8 +156,11 @@ export const NativeIncomingCallScreen: React.FC<NativeIncomingCallScreenProps> =
           {call.table_name}
         </h2>
 
-        {/* Reason Badge */}
-        <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-extrabold tracking-wide">
+        {/* Reason & Priority Badge */}
+        <div className={`mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-extrabold tracking-wide shadow-md ${reason.badgeBg}`}>
+          <span className="px-1.5 py-0.5 rounded bg-black/40 text-[11px] font-mono font-black uppercase tracking-wider">
+            {reason.priorityTag}
+          </span>
           <Icon className={`w-5 h-5 ${reason.color}`} />
           <span className={reason.color}>{reason.label}</span>
         </div>

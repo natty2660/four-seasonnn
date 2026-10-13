@@ -14,9 +14,27 @@ export function getMenuUrl(slug = 'prime-cafe'): string {
   return `https://primecafe.et/menu/${slug}`;
 }
 
+/**
+ * Generates a deterministic hidden pass/token for physical QR code stands.
+ * This embedded pass allows the system to distinguish between a physical camera QR scan
+ * and a browser refresh/reload without ever prompting the customer to enter passwords manually.
+ */
+export function generateTableScanPass(tableNumber: string, secretCode?: string | null): string {
+  const clean = (tableNumber || '').toUpperCase().trim();
+  const code = (secretCode || 'FOUR_SEASON_AUTH').trim();
+  let hash = 0x811c9dc5;
+  const str = `${clean}::${code}::VIP_PHYSICAL_STAND`;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  const hex = (hash >>> 0).toString(16).padStart(8, '0');
+  return `fs_pass_${hex}`;
+}
+
 export function getVipTableUrl(
   tableNumber: string,
-  _pin?: string | null,
+  secretCode?: string | null,
   grantAccess = true
 ): string {
   const origin =
@@ -26,6 +44,10 @@ export function getVipTableUrl(
   const params = new URLSearchParams();
   params.set('table', tableNumber);
   params.set('entry', 'qr');
+  params.set('scan', 'camera');
+  // Embed hidden pass token for automatic 4-hour physical scan validation
+  const scanPass = generateTableScanPass(tableNumber, secretCode);
+  params.set('pass', scanPass);
   if (grantAccess) {
     params.set('access', 'granted');
   }
