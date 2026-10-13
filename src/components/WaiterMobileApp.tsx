@@ -1306,19 +1306,35 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                       </div>
                     </div>
 
-                    {/* BIG ACCEPT BUTTON */}
+                    {/* BIG ACCEPT / HOLD BUTTON */}
                     <div className="flex flex-col sm:items-end gap-2 shrink-0">
                       <button
                         onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
                         className={`w-full sm:w-auto px-6 py-3.5 rounded-xl font-black text-sm shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                          isUrgent
+                          inProgressCalls.length > 0
+                            ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-[#D4AF37] text-black shadow-amber-950/50'
+                            : isUrgent
                             ? 'bg-gradient-to-r from-red-500 via-red-600 to-amber-500 text-white shadow-red-900/50'
                             : 'bg-gradient-to-r from-emerald-400 to-emerald-500 text-black shadow-emerald-900/50'
                         }`}
                       >
-                        <Check className="w-5 h-5 stroke-[3]" />
-                        <span>I&apos;m on My Way / Accept</span>
+                        {inProgressCalls.length > 0 ? (
+                          <>
+                            <Clock className="w-5 h-5 stroke-[2.5]" />
+                            <span>Accept &amp; Put on Hold</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-5 h-5 stroke-[3]" />
+                            <span>I&apos;m on My Way / Accept</span>
+                          </>
+                        )}
                       </button>
+                      {inProgressCalls.length > 0 && (
+                        <span className="text-[10px] text-amber-300 font-bold">
+                          Attending {inProgressCalls[0].table_number} · Will place on Hold
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1424,11 +1440,17 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                       <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
                       <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
                       {getCallTypeBadge(call.call_type)}
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 border border-amber-500/40 font-bold">
-                        On Hold
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-amber-400 text-black font-black uppercase tracking-wider shadow-sm">
+                        <Clock className="w-3 h-3 stroke-[3]" />
+                        Hold
                       </span>
                     </div>
-                    <p className="text-xs text-amber-200/90 mt-1">
+                    {call.hold_reason && (
+                      <p className="text-[11px] text-amber-300 font-semibold mt-1">
+                        📌 {call.hold_reason}
+                      </p>
+                    )}
+                    <p className="text-xs text-amber-200/80 mt-0.5">
                       Customer is queued waiting for you to complete your current table.
                     </p>
                     {call.message && (

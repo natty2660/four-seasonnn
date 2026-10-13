@@ -7,6 +7,7 @@ import {
   Waiter,
   WaiterCall,
   CallType,
+  CallStatus,
   getCallPriorityWeight,
 } from './types/index.ts';
 import {
@@ -120,24 +121,48 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    // SCENARIO 1: Call was completed or cancelled locally, but server poll returned pending
+    // SCENARIO 1: Call was completed or cancelled locally, but server poll returned pending, hold, or missed
     const wasCompletedLocally = prev.status === 'completed' || prev.status === 'cancelled';
-    const isStaleIncomingPending = inc.status === 'pending';
+    const isStaleIncomingActive = inc.status === 'pending' || inc.status === 'hold';
     const completedAtTime = prev.completed_at ? new Date(prev.completed_at).getTime() : now;
     const isWithinTerminalLock = now - completedAtTime < TERMINAL_LOCK_WINDOW_MS;
 
-    if (wasCompletedLocally && isStaleIncomingPending && isWithinTerminalLock) {
+    if (wasCompletedLocally && isStaleIncomingActive && isWithinTerminalLock) {
       mergedMap.set(inc.id, prev);
       continue;
     }
 
-    // SCENARIO 2: Server returned 'pending' but call was already accepted locally
+    // SCENARIO 2: Call was placed on HOLD locally, but server returned pending
+    const wasHoldLocally = prev.status === 'hold';
+    const heldAtTime = prev.held_at ? new Date(prev.held_at).getTime() : now;
+    const isWithinHoldLock = now - heldAtTime < ACCEPT_LOCK_WINDOW_MS;
+
+    if (wasHoldLocally && inc.status === 'pending' && isWithinHoldLock) {
+      mergedMap.set(inc.id, {
+        ...inc,
+        status: 'hold',
+        held_at: prev.held_at || new Date().toISOString(),
+        hold_reason: prev.hold_reason || 'Waiter currently attending another customer',
+        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
+        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
+      });
+      continue;
+    }
+
+    // SCENARIO 3: Call was marked MISSED (timed out). Stale pending must NEVER resurrect it to ring again!
+    const wasMissed = prev.status === 'missed';
+    if (wasMissed && inc.status === 'pending') {
+      mergedMap.set(inc.id, prev);
+      continue;
+    }
+
+    // SCENARIO 4: Server returned 'pending' but call was already accepted locally
     // Strongly lock to 'accepted' and cross-reference with accepted_by_waiter_id
     const wasAcceptedLocally = prev.status === 'accepted';
     const acceptedAtTime = prev.accepted_at ? new Date(prev.accepted_at).getTime() : now;
     const isWithinAcceptLock = now - acceptedAtTime < ACCEPT_LOCK_WINDOW_MS;
 
-    if (wasAcceptedLocally && inc.status === 'pending' && isWithinAcceptLock) {
+    if (wasAcceptedLocally && (inc.status === 'pending' || inc.status === 'hold') && isWithinAcceptLock) {
       mergedMap.set(inc.id, {
         ...inc,
         status: 'accepted',
@@ -148,7 +173,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    // SCENARIO 3: Server returned 'accepted' - waiter accepted the call! Lock it in firmly!
+    // SCENARIO 5: Server returned 'accepted' - waiter accepted the call! Lock it in firmly!
     if (inc.status === 'accepted') {
       mergedMap.set(inc.id, {
         ...inc,
@@ -160,15 +185,28 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       continue;
     }
 
-    // Otherwise, accept server state (including 'hold', 'missed', etc.)
+    // SCENARIO 6: Server returned 'hold' - retain hold state and metadata
+    if (inc.status === 'hold') {
+      mergedMap.set(inc.id, {
+        ...inc,
+        status: 'hold',
+        held_at: inc.held_at || prev.held_at || new Date().toISOString(),
+        hold_reason: inc.hold_reason || prev.hold_reason || 'Waiter currently attending another customer',
+        accepted_by_waiter_id: inc.accepted_by_waiter_id || prev.accepted_by_waiter_id || null,
+        accepted_by_name: inc.accepted_by_name || prev.accepted_by_name || 'Staff Member',
+      });
+      continue;
+    }
+
+    // Otherwise, accept server state (including 'missed', etc.)
     mergedMap.set(inc.id, inc);
   }
 
   // 2. Flicker prevention for freshly created or accepted local calls missing from incoming backend snapshot
   for (const prev of prevCalls || []) {
     if (!mergedMap.has(prev.id)) {
-      if (prev.status === 'pending' || prev.status === 'accepted' || prev.status === 'hold') {
-        const timeRef = new Date(prev.accepted_at || prev.created_at).getTime();
+      if (prev.status === 'pending' || prev.status === 'accepted' || prev.status === 'hold' || prev.status === 'missed') {
+        const timeRef = new Date(prev.accepted_at || prev.held_at || prev.missed_at || prev.created_at).getTime();
         if (now - timeRef < NEW_CALL_PERSIST_WINDOW_MS) {
           mergedMap.set(prev.id, prev);
         }
@@ -522,13 +560,29 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     return false;
   };
 
-  // Waiter & Admin: Accept Call
+  // Waiter & Admin: Accept Call (Auto-places on HOLD if waiter already attending another table)
   const handleAcceptCall = async (
     callId: string,
     waiterId: string,
     waiterName: string
   ): Promise<void> => {
     const acceptedAt = new Date().toISOString();
+
+    // Check if this waiter already has another active accepted call in progress
+    const alreadyAttendingCall = (dbState.waiter_calls || []).find(
+      (c) =>
+        c.id !== callId &&
+        c.status === 'accepted' &&
+        (c.accepted_by_waiter_id === waiterId || c.assigned_waiter_id === waiterId)
+    );
+
+    const isPlacingOnHold = Boolean(alreadyAttendingCall);
+    const targetStatus: CallStatus = isPlacingOnHold ? 'hold' : 'accepted';
+    const heldAt = isPlacingOnHold ? acceptedAt : null;
+    const holdReason = isPlacingOnHold
+      ? `Waiter ${waiterName || 'Staff'} is attending Table ${alreadyAttendingCall?.table_number}`
+      : null;
+
     // 1. Immediately update UI state optimistically so action responds with 0 latency
     setDbState((prev) => {
       const next = {
@@ -537,10 +591,12 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
           c.id === callId
             ? {
                 ...c,
-                status: 'accepted' as const,
+                status: targetStatus,
                 accepted_by_waiter_id: waiterId,
                 accepted_by_name: waiterName,
-                accepted_at: acceptedAt,
+                accepted_at: isPlacingOnHold ? c.accepted_at || null : acceptedAt,
+                held_at: isPlacingOnHold ? heldAt : null,
+                hold_reason: isPlacingOnHold ? holdReason : null,
               }
             : c
         ),
@@ -551,31 +607,74 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
 
     // 2. Authoritative backend synchronization
     try {
-      await apiFetch(`/api/waiter-calls/${callId}/accept`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
-      });
+      if (isPlacingOnHold) {
+        await apiFetch(`/api/waiter-calls/${callId}/hold`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            waiter_id: waiterId,
+            waiter_name: waiterName,
+            hold_reason: holdReason,
+          }),
+        }).catch(async () => {
+          await apiFetch(`/api/waiter-calls/${callId}/accept`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              waiter_id: waiterId,
+              waiter_name: waiterName,
+              force_hold: true,
+              hold_reason: holdReason,
+            }),
+          });
+        });
+      } else {
+        await apiFetch(`/api/waiter-calls/${callId}/accept`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
+        });
+      }
     } catch (e) {
       console.warn('Accept call network error:', e);
     }
   };
 
-  // Waiter & Admin: Complete Call
+  // Waiter & Admin: Complete Call (Releases and promotes next queued held call)
   const handleCompleteCall = async (callId: string): Promise<void> => {
     const completedAt = new Date().toISOString();
     setDbState((prev) => {
+      const currentCall = (prev.waiter_calls || []).find((c) => c.id === callId);
+      const completingWaiterId = currentCall?.accepted_by_waiter_id;
+
+      let promotedHeld = false;
+      const nextCalls = (prev.waiter_calls || []).map((c) => {
+        if (c.id === callId) {
+          return {
+            ...c,
+            status: 'completed' as const,
+            completed_at: completedAt,
+          };
+        }
+        if (
+          !promotedHeld &&
+          c.status === 'hold' &&
+          (!c.accepted_by_waiter_id || c.accepted_by_waiter_id === completingWaiterId)
+        ) {
+          promotedHeld = true;
+          return {
+            ...c,
+            status: 'pending' as const,
+            held_at: null,
+            hold_reason: null,
+          };
+        }
+        return c;
+      });
+
       const next = {
         ...prev,
-        waiter_calls: (prev.waiter_calls || []).map((c) =>
-          c.id === callId
-            ? {
-                ...c,
-                status: 'completed' as const,
-                completed_at: completedAt,
-              }
-            : c
-        ),
+        waiter_calls: nextCalls,
       };
       saveClientState(next);
       return next;

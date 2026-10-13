@@ -804,6 +804,42 @@ export function syncCallTimeouts(calls: WaiterCall[]): void {
   }
 }
 
+/**
+ * Periodically and transactionally checks for calls that have timed out (> 60s unanswered).
+ * Commits changes to PostgreSQL / Database and broadcasts update via SSE.
+ * Permanently prevents calls from appearing, disappearing, or re-ringing after timeout.
+ */
+export async function syncAndPersistTimeouts(): Promise<void> {
+  const now = Date.now();
+  let timedOutCount = 0;
+
+  const updatedDb = await mutateDatabaseAsync((db) => {
+    if (!Array.isArray(db.waiter_calls)) return db;
+    for (const c of db.waiter_calls) {
+      if (c.status === 'pending') {
+        const elapsed = now - new Date(c.created_at).getTime();
+        if (elapsed >= 60000) {
+          c.status = 'missed';
+          if (!c.missed_at) c.missed_at = new Date().toISOString();
+          timedOutCount++;
+        }
+      }
+    }
+    return db;
+  });
+
+  if (timedOutCount > 0) {
+    broadcastWaiterUpdate(updatedDb);
+  }
+}
+
+// Background sweep every 3 seconds to guarantee instant and persistent timeouts
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    syncAndPersistTimeouts().catch(() => {});
+  }, 3000);
+}
+
 // Helper to sort waiter calls hierarchically: Active status > Priority rank (Urgent > Bill > Order > Water > General) > Newest first
 export function sortCallsByPriority(calls: WaiterCall[]): WaiterCall[] {
   syncCallTimeouts(calls);
@@ -830,6 +866,7 @@ export function sortCallsByPriority(calls: WaiterCall[]): WaiterCall[] {
 apiRouter.get('/waiter-calls', async (_req: Request, res: Response) => {
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
+  syncCallTimeouts(calls);
   res.json(sortCallsByPriority(calls));
 });
 
@@ -985,7 +1022,7 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
     const validAssignedWaiterId = assignedStaff ? assignedStaff.id : null;
     const isUrgent = call_type === 'urgent';
 
-    // Check if the assigned waiter (or floor staff) is currently on call with another customer
+    // Check if the assigned waiter is currently on call with another customer
     const isWaiterBusyWithAnotherCustomer = (db.waiter_calls || []).some((c) => {
       if (c.status !== 'accepted') return false;
       // Is it a DIFFERENT table?
@@ -996,7 +1033,7 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
           c.assigned_waiter_id === validAssignedWaiterId
         );
       }
-      return true; // Floor staff attending another table
+      return false; // If unassigned, floor staff on duty can accept it
     });
 
     const initialStatus: CallStatus = isWaiterBusyWithAnotherCustomer ? 'hold' : 'pending';
@@ -1043,36 +1080,92 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
   res.status(isNew ? 201 : 200).json(finalCall);
 });
 
-// 20.3 Waiter Accepts Call (Supports all endpoint aliases)
+// 20.3 Waiter Accepts Call (Supports all endpoint aliases; places on hold if waiter is already in accepted status)
 apiRouter.post(
   ['/waiter-calls/:id/accept', '/waiter/calls/:id/accept'],
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { waiter_id, waiter_name } = req.body;
-    let acceptedCall: WaiterCall | null = null;
+    const { waiter_id, waiter_name, force_hold, hold_reason } = req.body;
+    let resultingCall: WaiterCall | null = null;
 
     const updatedDb = await mutateDatabaseAsync((db) => {
       if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
       const call = db.waiter_calls.find((c) => c.id === id);
       if (call) {
         if (call.status !== 'completed' && call.status !== 'cancelled') {
-          call.status = 'accepted';
-          call.accepted_by_waiter_id = waiter_id || null;
-          call.accepted_by_name = waiter_name || 'Staff Member';
-          call.accepted_at = new Date().toISOString();
+          // Check if this waiter is already in 'accepted' status for another active call
+          const alreadyAttendingCall = waiter_id
+            ? db.waiter_calls.find(
+                (c) =>
+                  c.id !== id &&
+                  c.status === 'accepted' &&
+                  (c.accepted_by_waiter_id === waiter_id || c.assigned_waiter_id === waiter_id)
+              )
+            : null;
+
+          if (alreadyAttendingCall || force_hold) {
+            call.status = 'hold';
+            call.held_at = new Date().toISOString();
+            call.hold_reason =
+              hold_reason ||
+              `Waiter ${waiter_name || 'Staff'} is attending Table ${alreadyAttendingCall?.table_number || ''}`;
+            call.accepted_by_waiter_id = waiter_id || call.accepted_by_waiter_id;
+            call.accepted_by_name = waiter_name || call.accepted_by_name || 'Staff Member';
+          } else {
+            call.status = 'accepted';
+            call.accepted_by_waiter_id = waiter_id || null;
+            call.accepted_by_name = waiter_name || 'Staff Member';
+            call.accepted_at = new Date().toISOString();
+            call.held_at = null;
+            call.hold_reason = null;
+          }
         }
-        acceptedCall = call;
+        resultingCall = call;
       }
       return db;
     });
 
-    if (!acceptedCall) {
+    if (!resultingCall) {
       res.status(404).json({ error: 'Call not found.' });
       return;
     }
 
     broadcastWaiterUpdate(updatedDb);
-    res.json(acceptedCall);
+    res.json(resultingCall);
+  }
+);
+
+// 20.3b Waiter Places Call on HOLD (Explicit hold route)
+apiRouter.post(
+  ['/waiter-calls/:id/hold', '/waiter/calls/:id/hold'],
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { waiter_id, waiter_name, hold_reason } = req.body;
+    let heldCall: WaiterCall | null = null;
+
+    const updatedDb = await mutateDatabaseAsync((db) => {
+      if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+      const call = db.waiter_calls.find((c) => c.id === id);
+      if (call) {
+        if (call.status !== 'completed' && call.status !== 'cancelled') {
+          call.status = 'hold';
+          call.held_at = new Date().toISOString();
+          call.hold_reason = hold_reason || 'Waiter currently attending another customer';
+          if (waiter_id) call.accepted_by_waiter_id = waiter_id;
+          if (waiter_name) call.accepted_by_name = waiter_name;
+        }
+        heldCall = call;
+      }
+      return db;
+    });
+
+    if (!heldCall) {
+      res.status(404).json({ error: 'Call not found.' });
+      return;
+    }
+
+    broadcastWaiterUpdate(updatedDb);
+    res.json(heldCall);
   }
 );
 
@@ -1095,10 +1188,13 @@ apiRouter.post(['/waiter-calls/:id/complete', '/waiter/calls/:id/complete'], asy
           c.status === 'hold' &&
           (!c.assigned_waiter_id ||
             c.assigned_waiter_id === call.accepted_by_waiter_id ||
+            c.accepted_by_waiter_id === call.accepted_by_waiter_id ||
             c.is_escalated)
       );
       if (nextHeldCall) {
         nextHeldCall.status = 'pending';
+        nextHeldCall.held_at = null;
+        nextHeldCall.hold_reason = null;
       }
     }
     return db;

@@ -21,9 +21,9 @@ import {
   ExternalLink,
   Sparkles,
   ShieldCheck,
-  ArrowRight,
   Eye,
   ArrowLeft,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface VipAdminManagementProps {
@@ -372,6 +372,8 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
 
   const pendingCalls = calls.filter((c) => c.status === 'pending');
   const acceptedCalls = calls.filter((c) => c.status === 'accepted');
+  const heldCalls = calls.filter((c) => c.status === 'hold');
+  const missedCalls = calls.filter((c) => c.status === 'missed');
   const pastCalls = calls.filter((c) => c.status === 'completed' || c.status === 'cancelled');
 
   return (
@@ -572,6 +574,143 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
               </div>
             )}
           </div>
+
+          {/* QUEUED ON HOLD CALLS */}
+          {heldCalls.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  Queued on Hold ({heldCalls.length})
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40">
+                  Waiter Attending Another Table
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {heldCalls.map((call) => {
+                  const assignedWaiter = waiters.find((w) => w.id === call.assigned_waiter_id);
+                  return (
+                    <div
+                      key={call.id}
+                      className="p-4 rounded-xl bg-[#19150e] border-2 border-amber-500/60 shadow-lg text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm text-[#FCF6BA]">
+                            {call.table_number}
+                          </span>
+                          <span className="text-white/90 font-medium">{call.table_name}</span>
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-black font-black uppercase tracking-wider shadow-sm">
+                            <Clock className="w-3 h-3 stroke-[3]" />
+                            Hold
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-white/50 font-mono">
+                          {new Date(call.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      {call.hold_reason && (
+                        <p className="text-[11px] text-amber-300/90 font-medium mb-2">
+                          📌 {call.hold_reason}
+                        </p>
+                      )}
+                      <div className="pt-2 border-t border-amber-500/20 flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-white/60">
+                          Waiter: <strong className="text-white">{call.accepted_by_name || assignedWaiter?.name || 'Staff'}</strong>
+                        </span>
+                        <button
+                          onClick={() =>
+                            onAcceptCall(
+                              call.id,
+                              call.accepted_by_waiter_id || assignedWaiter?.id || 'admin',
+                              call.accepted_by_name || assignedWaiter?.name || 'Admin Host'
+                            )
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#FBF5B7] text-black font-black text-xs hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                        >
+                          Accept Now
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* MISSED CALLS (ATTENTION REQUIRED) */}
+          {missedCalls.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-black uppercase tracking-wider text-rose-400 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 animate-pulse" />
+                  Missed VIP Calls ({missedCalls.length})
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40">
+                  Timed Out (Unanswered &gt; 60s)
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {missedCalls.map((call) => {
+                  const assignedWaiter = waiters.find((w) => w.id === call.assigned_waiter_id);
+                  return (
+                    <div
+                      key={call.id}
+                      className="p-4 rounded-xl bg-[#181111] border-2 border-rose-500/60 shadow-lg text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm text-[#FCF6BA]">
+                            {call.table_number}
+                          </span>
+                          <span className="text-white/90 font-medium">{call.table_name}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 text-white font-black uppercase tracking-wider">
+                            Missed
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-white/50 font-mono">
+                          Missed at{' '}
+                          {new Date(call.missed_at || call.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <div className="pt-2 border-t border-rose-500/20 flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-white/60">
+                          Assigned: <strong className="text-white">{assignedWaiter?.name || 'Floor Staff'}</strong>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() =>
+                              onAcceptCall(
+                                call.id,
+                                assignedWaiter?.id || 'admin',
+                                assignedWaiter?.name || 'Admin Host'
+                              )
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-emerald-500 text-black font-extrabold text-xs hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
+                          >
+                            Attend Missed
+                          </button>
+                          <button
+                            onClick={() => onCancelCall(call.id)}
+                            className="px-2.5 py-1.5 rounded-lg bg-white/10 text-white/70 hover:text-white text-xs transition-colors cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* IN-PROGRESS ACCEPTED CALLS */}
           {acceptedCalls.length > 0 && (

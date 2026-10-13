@@ -1509,8 +1509,45 @@
       "assigned_waiter_id": "waiter_1"
     }
   ],
-  "last_updated": "2026-10-13T05:42:45.035Z",
+  "last_updated": "2026-10-13T12:29:19.944Z",
   "waiter_calls": [
+    {
+      "id": "call_1791894519782_b6dg",
+      "status": "completed",
+      "held_at": "2026-10-13T12:28:44.203Z",
+      "message": "VIP test call 2",
+      "table_id": "vip_2",
+      "call_type": "order",
+      "created_at": "2026-10-13T12:28:39.782Z",
+      "table_name": "Executive Lounge",
+      "hold_reason": "Waiter Abebe Kebede is attending Table VIP-1",
+      "is_escalated": false,
+      "table_number": "VIP-2",
+      "accepted_by_name": "Abebe Kebede",
+      "assigned_waiter_id": "waiter_2",
+      "original_waiter_id": "waiter_2",
+      "accepted_by_waiter_id": "waiter_1",
+      "completed_at": "2026-10-13T12:29:19.944Z"
+    },
+    {
+      "id": "call_1791894512991_vsn3",
+      "status": "completed",
+      "held_at": null,
+      "message": "VIP test call 1",
+      "table_id": "vip_1",
+      "call_type": "urgent",
+      "created_at": "2026-10-13T12:28:32.991Z",
+      "table_name": "Royal Gold Suite",
+      "accepted_at": "2026-10-13T12:28:36.628Z",
+      "hold_reason": null,
+      "completed_at": "2026-10-13T12:28:49.381Z",
+      "is_escalated": true,
+      "table_number": "VIP-1",
+      "accepted_by_name": "Abebe Kebede",
+      "assigned_waiter_id": "waiter_1",
+      "original_waiter_id": "waiter_1",
+      "accepted_by_waiter_id": "waiter_1"
+    },
     {
       "id": "call_1791870152731_h9ie",
       "status": "completed",
@@ -1521,11 +1558,11 @@
       "created_at": "2026-10-13T05:42:32.731Z",
       "table_name": "Penthouse Salon",
       "hold_reason": "Waiter currently attending another customer",
+      "completed_at": "2026-10-13T05:42:45.035Z",
       "is_escalated": false,
       "table_number": "VIP-4",
       "assigned_waiter_id": "waiter_1",
-      "original_waiter_id": "waiter_1",
-      "completed_at": "2026-10-13T05:42:45.035Z"
+      "original_waiter_id": "waiter_1"
     },
     {
       "id": "call_1791870145140_rqkw",
