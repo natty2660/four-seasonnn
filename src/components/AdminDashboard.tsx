@@ -5,7 +5,9 @@ import { enhanceOriginalDishPhoto, matchFilenameToMenuItems } from '../lib/image
 import { apiFetch } from '../lib/apiConfig.ts';
 import { BrandLogo } from './BrandLogo.tsx';
 import { VipAdminManagement } from './VipAdminManagement.tsx';
+import { SystemStatus } from './SystemStatus.tsx';
 import {
+  Activity,
   Plus,
   Edit2,
   Trash2,
@@ -87,7 +89,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onViewMenu,
   onLogout,
 }) => {
-  const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'restaurant' | 'flags' | 'gallery' | 'vip'>('items');
+  const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'restaurant' | 'flags' | 'gallery' | 'vip' | 'system'>('items');
   const [vipSubTab, setVipSubTab] = useState<'calls' | 'tables' | 'waiters' | 'qr_system'>('calls');
   const [galleryCategory, setGalleryCategory] = useState<string>('all');
   const [gallerySearch, setGallerySearch] = useState<string>('');
@@ -569,6 +571,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <div
+              onClick={() => setActiveTab('system')}
+              className="cursor-pointer transition-transform hover:scale-[1.02]"
+              title="Click to view full real-time System Status & diagnostics"
+            >
+              <SystemStatus compact token={token} />
+            </div>
             {onOpenPhotoEnhancer && (
               <button
                 onClick={onOpenPhotoEnhancer}
@@ -696,6 +705,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <Crown className="w-3.5 h-3.5" />
             <span>VIP Tables & Waiters ({vipTables.length} Tables, {waiters.length} Staff)</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('system')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'system'
+                ? 'bg-shiny-gold text-[#080808]'
+                : 'bg-[#141414] text-[#D4C9B0] hover:text-[#FCF6BA] border border-[#D4AF37]/30'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>System Status</span>
           </button>
           <button
             onClick={() => setActiveTab('restaurant')}
@@ -1706,6 +1726,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             onAcceptCall={onAcceptCall}
             onCompleteCall={onCompleteCall}
             onCancelCall={onCancelCall}
+          />
+        )}
+
+        {/* TAB 7: SYSTEM STATUS & REAL-TIME CONNECTIVITY */}
+        {activeTab === 'system' && (
+          <SystemStatus
+            token={token}
+            onResyncDatabase={handleResyncDatabase}
           />
         )}
       </main>

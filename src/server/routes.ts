@@ -22,6 +22,9 @@ import { MenuItem, Category, VipTable, Waiter, WaiterCall, CallType, CallStatus,
 
 export const apiRouter = Router();
 
+// Active Server-Sent Events (SSE) connections for Waiter mobile apps & dashboards
+export const sseClients = new Set<Response>();
+
 // Ensure PostgreSQL state is loaded before handling API requests on serverless cold boots
 apiRouter.use(async (_req: Request, _res: Response, next: NextFunction) => {
   await ensureDatabaseInitialized().catch(() => {});
@@ -102,6 +105,43 @@ apiRouter.get('/db/status', async (_req: Request, res: Response) => {
     res.json(status);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// Real-time System Status & Periodic Latency Ping (Database + Waiter App Connection)
+apiRouter.get(['/system/status', '/system/ping'], async (_req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { getDatabaseStatus } = await import('./db.ts');
+    const dbStatus = await getDatabaseStatus();
+    const serverProcessingMs = Date.now() - startTime;
+    const db = getDatabase();
+    const activeCalls = (db.waiter_calls || []).filter((c) =>
+      ['pending', 'hold', 'accepted'].includes(c.status)
+    );
+    const onDutyWaiters = (db.waiters || []).filter((w) => w.is_on_duty);
+
+    res.json({
+      online: true,
+      timestamp: new Date().toISOString(),
+      server_latency_ms: serverProcessingMs,
+      database: dbStatus,
+      waiter_connection: {
+        status: dbStatus.connected ? 'online' : 'degraded',
+        active_calls_count: activeCalls.length,
+        on_duty_waiters_count: onDutyWaiters.length,
+        sse_clients_count: sseClients.size,
+        sync_mode: 'Real-time SSE + Polling Fallback',
+        latency_ms: dbStatus.latency_ms || serverProcessingMs,
+      },
+    });
+  } catch (e: any) {
+    res.status(500).json({
+      online: false,
+      error: e.message,
+      timestamp: new Date().toISOString(),
+      server_latency_ms: Date.now() - startTime,
+    });
   }
 });
 
@@ -876,12 +916,21 @@ export function sortCallsByPriority(calls: WaiterCall[]): WaiterCall[] {
 apiRouter.get('/waiter-calls', async (_req: Request, res: Response) => {
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
+  const now = Date.now();
+  const hasTimedOutCall = calls.some(
+    (c) => c.status === 'pending' && now - new Date(c.created_at).getTime() >= 60000
+  );
+  if (hasTimedOutCall) {
+    await syncAndPersistTimeouts();
+    const freshDb = await getDatabaseAsync();
+    res.json(sortCallsByPriority(freshDb.waiter_calls || []));
+    return;
+  }
   syncCallTimeouts(calls);
   res.json(sortCallsByPriority(calls));
 });
 
 // --- Real-Time Server-Sent Events (SSE) Stream for Waiter Dashboard ---
-const sseClients = new Set<Response>();
 
 export function broadcastWaiterUpdate(state?: DatabaseState) {
   const db = state || getDatabase();
@@ -956,6 +1005,18 @@ apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], async (_req: Request, 
 apiRouter.get(['/waiter/calls/active', '/waiter-calls/active'], async (_req: Request, res: Response) => {
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
+  const now = Date.now();
+  const hasTimedOutCall = calls.some(
+    (c) => c.status === 'pending' && now - new Date(c.created_at).getTime() >= 60000
+  );
+  if (hasTimedOutCall) {
+    await syncAndPersistTimeouts();
+    const freshDb = await getDatabaseAsync();
+    const freshCalls = Array.isArray(freshDb.waiter_calls) ? freshDb.waiter_calls : [];
+    const activeCalls = freshCalls.filter((c) => ['pending', 'accepted', 'hold', 'missed'].includes(c.status));
+    res.json({ calls: sortCallsByPriority(activeCalls) });
+    return;
+  }
   syncCallTimeouts(calls);
   const activeCalls = calls.filter((c) => ['pending', 'accepted', 'hold', 'missed'].includes(c.status));
   res.json({ calls: sortCallsByPriority(activeCalls) });
