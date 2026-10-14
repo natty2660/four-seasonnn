@@ -236,22 +236,21 @@ apiRouter.get('/restaurants', (_req: Request, res: Response) => {
 });
 
 // 6. Update Restaurant Profile (Auth)
-apiRouter.put('/restaurants', requireAdmin, (req: Request, res: Response) => {
-  const db = getDatabase();
-  const updated = {
-    ...db.restaurant,
-    ...req.body,
-    slug: db.restaurant.slug, // Slug is immutable to preserve QR codes!
-    updated_at: new Date().toISOString(),
-  };
-
-  db.restaurant = updated;
-  saveDatabase(db);
-  res.json(db.restaurant);
+apiRouter.put('/restaurants', requireAdmin, async (req: Request, res: Response) => {
+  const updatedDb = await mutateDatabaseAsync((db) => {
+    db.restaurant = {
+      ...db.restaurant,
+      ...req.body,
+      slug: db.restaurant.slug, // Slug is immutable to preserve QR codes!
+      updated_at: new Date().toISOString(),
+    };
+    return db;
+  });
+  res.json(updatedDb.restaurant);
 });
 
 // 7. Update Item Price (Auth & Birr Validation)
-apiRouter.put('/items/:id/price', requireAdmin, (req: Request, res: Response) => {
+apiRouter.put('/items/:id/price', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { price } = req.body;
 
@@ -261,30 +260,27 @@ apiRouter.put('/items/:id/price', requireAdmin, (req: Request, res: Response) =>
     return;
   }
 
-  const db = getDatabase();
-  const itemIndex = db.items.findIndex((i) => i.id === id);
-  if (itemIndex === -1) {
+  let updatedItem: MenuItem | null = null;
+  await mutateDatabaseAsync((db) => {
+    const itemIndex = db.items.findIndex((i) => i.id === id);
+    if (itemIndex !== -1) {
+      db.items[itemIndex].price = validation.value;
+      db.items[itemIndex].updated_at = new Date().toISOString();
+      updatedItem = db.items[itemIndex];
+    }
+    return db;
+  });
+
+  if (!updatedItem) {
     res.status(404).json({ error: 'Item not found.' });
     return;
   }
-
-  db.items[itemIndex].price = validation.value;
-  db.items[itemIndex].updated_at = new Date().toISOString();
-  saveDatabase(db);
-
-  res.json(db.items[itemIndex]);
+  res.json(updatedItem);
 });
 
 // 8. Update Item (Auth)
-apiRouter.put('/items/:id', requireAdmin, (req: Request, res: Response) => {
+apiRouter.put('/items/:id', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDatabase();
-  const itemIndex = db.items.findIndex((i) => i.id === id);
-
-  if (itemIndex === -1) {
-    res.status(404).json({ error: 'Item not found.' });
-    return;
-  }
 
   if (req.body.price !== undefined) {
     const validation = validateBirrPrice(req.body.price);
@@ -295,19 +291,30 @@ apiRouter.put('/items/:id', requireAdmin, (req: Request, res: Response) => {
     req.body.price = validation.value;
   }
 
-  db.items[itemIndex] = {
-    ...db.items[itemIndex],
-    ...req.body,
-    id,
-    updated_at: new Date().toISOString(),
-  };
+  let updatedItem: MenuItem | null = null;
+  await mutateDatabaseAsync((db) => {
+    const itemIndex = db.items.findIndex((i) => i.id === id);
+    if (itemIndex !== -1) {
+      db.items[itemIndex] = {
+        ...db.items[itemIndex],
+        ...req.body,
+        id,
+        updated_at: new Date().toISOString(),
+      };
+      updatedItem = db.items[itemIndex];
+    }
+    return db;
+  });
 
-  saveDatabase(db);
-  res.json(db.items[itemIndex]);
+  if (!updatedItem) {
+    res.status(404).json({ error: 'Item not found.' });
+    return;
+  }
+  res.json(updatedItem);
 });
 
 // 9. Add or Upsert Item (Auth)
-apiRouter.post('/items', requireAdmin, (req: Request, res: Response) => {
+apiRouter.post('/items', requireAdmin, async (req: Request, res: Response) => {
   const itemData: MenuItem = req.body;
 
   if (!itemData.name || itemData.name.trim() === '') {
@@ -315,106 +322,115 @@ apiRouter.post('/items', requireAdmin, (req: Request, res: Response) => {
     return;
   }
 
-  const db = getDatabase();
-  const existingIdx = db.items.findIndex((i) => i.id === itemData.id);
+  const updatedDb = await mutateDatabaseAsync((db) => {
+    const existingIdx = db.items.findIndex((i) => i.id === itemData.id);
+    if (existingIdx !== -1) {
+      const { price: _p, ...cleanData } = itemData;
+      db.items[existingIdx] = {
+        ...db.items[existingIdx],
+        ...cleanData,
+        updated_at: new Date().toISOString(),
+      };
+    } else {
+      const { price: _p, ...cleanData } = itemData;
+      const newItem: MenuItem = {
+        ...cleanData,
+        id: itemData.id || `item_${Date.now()}`,
+        restaurant_id: db.restaurant.id,
+        display_order: itemData.display_order || db.items.length + 1,
+        is_available: itemData.is_available !== false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      db.items.push(newItem);
+    }
+    return db;
+  });
 
-  if (existingIdx !== -1) {
-    const { price: _p, ...cleanData } = itemData;
-    db.items[existingIdx] = {
-      ...cleanData,
-      updated_at: new Date().toISOString(),
-    };
-  } else {
-    const { price: _p, ...cleanData } = itemData;
-    const newItem: MenuItem = {
-      ...cleanData,
-      id: itemData.id || `item_${Date.now()}`,
-      restaurant_id: db.restaurant.id,
-      display_order: itemData.display_order || db.items.length + 1,
-      is_available: itemData.is_available !== false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    db.items.push(newItem);
-  }
-
-  saveDatabase(db);
-  res.status(201).json({ success: true, items: db.items });
+  res.status(201).json({ success: true, items: updatedDb.items });
 });
 
 // 10. Delete Item (Auth)
-apiRouter.delete('/items/:id', requireAdmin, (req: Request, res: Response) => {
+apiRouter.delete('/items/:id', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDatabase();
-  db.items = db.items.filter((i) => i.id !== id);
-  saveDatabase(db);
-  res.json({ success: true, remaining: db.items.length });
+  const updatedDb = await mutateDatabaseAsync((db) => {
+    db.items = db.items.filter((i) => i.id !== id);
+    return db;
+  });
+  res.json({ success: true, remaining: updatedDb.items.length });
 });
 
 // 11. Sync Entire Item List (Auth)
-apiRouter.post('/items/sync', requireAdmin, (req: Request, res: Response) => {
+apiRouter.post('/items/sync', requireAdmin, async (req: Request, res: Response) => {
   const { items } = req.body;
   if (!Array.isArray(items)) {
     res.status(400).json({ error: 'Items must be an array.' });
     return;
   }
 
-  const db = getDatabase();
-  db.items = items;
-  saveDatabase(db);
-  res.json({ success: true, count: db.items.length });
+  const updatedDb = await mutateDatabaseAsync((db) => {
+    db.items = items;
+    return db;
+  });
+  res.json({ success: true, count: updatedDb.items.length });
 });
 
 // 12. Add Category (Auth)
-apiRouter.post('/categories', requireAdmin, (req: Request, res: Response) => {
+apiRouter.post('/categories', requireAdmin, async (req: Request, res: Response) => {
   const catData: Category = req.body;
   if (!catData.name) {
     res.status(400).json({ error: 'Category name is required.' });
     return;
   }
 
-  const db = getDatabase();
-  const newCat: Category = {
-    ...catData,
-    id: catData.id || `cat_${Date.now()}`,
-    restaurant_id: db.restaurant.id,
-    display_order: catData.display_order || db.categories.length + 1,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+  let createdCat: Category | null = null;
+  await mutateDatabaseAsync((db) => {
+    const newCat: Category = {
+      ...catData,
+      id: catData.id || `cat_${Date.now()}`,
+      restaurant_id: db.restaurant.id,
+      display_order: catData.display_order || db.categories.length + 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    db.categories.push(newCat);
+    createdCat = newCat;
+    return db;
+  });
 
-  db.categories.push(newCat);
-  saveDatabase(db);
-  res.status(201).json(newCat);
+  res.status(201).json(createdCat);
 });
 
 // 13. Sync Categories (Auth)
-apiRouter.post('/categories/sync', requireAdmin, (req: Request, res: Response) => {
+apiRouter.post('/categories/sync', requireAdmin, async (req: Request, res: Response) => {
   const { categories } = req.body;
   if (!Array.isArray(categories)) {
     res.status(400).json({ error: 'Categories must be an array.' });
     return;
   }
 
-  const db = getDatabase();
-  db.categories = categories;
-  saveDatabase(db);
-  res.json({ success: true, count: db.categories.length });
+  const updatedDb = await mutateDatabaseAsync((db) => {
+    db.categories = categories;
+    return db;
+  });
+  res.json({ success: true, count: updatedDb.categories.length });
 });
 
 // 14. Delete Category (Auth)
-apiRouter.delete('/categories/:id', requireAdmin, (req: Request, res: Response) => {
+apiRouter.delete('/categories/:id', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDatabase();
-  const hasItems = db.items.some((i) => i.category_id === id);
+  const currentDb = await getDatabaseAsync();
+  const hasItems = currentDb.items.some((i) => i.category_id === id);
 
   if (hasItems) {
     res.status(400).json({ error: 'Cannot delete category that still contains dishes.' });
     return;
   }
 
-  db.categories = db.categories.filter((c) => c.id !== id);
-  saveDatabase(db);
+  await mutateDatabaseAsync((db) => {
+    db.categories = db.categories.filter((c) => c.id !== id);
+    return db;
+  });
   res.json({ success: true });
 });
 
@@ -1308,17 +1324,17 @@ apiRouter.post(['/waiter-calls/:id/cancel', '/waiter/calls/:id/cancel'], async (
 // 20.6 Clear History (Admin)
 apiRouter.delete('/waiter-calls/history', requireAdmin, async (_req: Request, res: Response) => {
   let remainingCount = 0;
-  await mutateDatabaseAsync((db) => {
+  const updatedDb = await mutateDatabaseAsync((db) => {
     if (Array.isArray(db.waiter_calls)) {
       db.waiter_calls = db.waiter_calls.filter(
-        (c) => c.status === 'pending' || c.status === 'accepted'
+        (c) => c.status === 'pending' || c.status === 'accepted' || c.status === 'hold'
       );
       remainingCount = db.waiter_calls.length;
     }
     return db;
   });
 
-  broadcastWaiterUpdate();
+  broadcastWaiterUpdate(updatedDb);
   res.json({ success: true, remaining: remainingCount });
 });
 

@@ -102,75 +102,48 @@ export async function initPostgresDatabase(): Promise<boolean> {
       if (res.rows.length > 0 && res.rows[0].state) {
         const stored = res.rows[0].state as DatabaseState;
         const fresh = getInitialState();
-        const storedMap = new Map(
-          Array.isArray(stored.items) ? stored.items.map((it) => [it.id, it]) : []
-        );
-        // Strictly use the items in the new menu, replacing old default images with the updated item images
-        const syncedItems = fresh.items.map((freshItem) => {
-          const prev = storedMap.get(freshItem.id);
-          const { price: _p, sizes: _s, ...cleanFresh } = freshItem;
-          const keepCustomUpload =
-            prev && prev.image_url && prev.image_url.includes('/original_');
-          return {
-            ...cleanFresh,
-            image_url: keepCustomUpload
-              ? prev.image_url
-              : freshItem.image_url || (prev && prev.image_url ? prev.image_url : ''),
-          };
-        });
 
-        const syncedWaiters = Array.isArray(stored.waiters) ? stored.waiters : fresh.waiters;
-        const validWaiterIds = new Set(syncedWaiters.map((w: any) => w.id));
-        const rawTables = Array.isArray(stored.vip_tables) ? stored.vip_tables : fresh.vip_tables;
-        const syncedTables = rawTables.map((t: any) => {
-          if (t.assigned_waiter_id && !validWaiterIds.has(t.assigned_waiter_id)) {
-            return { ...t, assigned_waiter_id: null };
-          }
-          return t;
-        });
+        // 1. Strictly preserve stored categories if present and valid
+        const resolvedCategories =
+          Array.isArray(stored.categories) && stored.categories.length > 0
+            ? stored.categories
+            : fresh.categories;
 
-        const merged: DatabaseState = {
-          restaurant: {
-            ...fresh.restaurant,
-            ...stored.restaurant,
-            name:
-              !stored.restaurant?.name || stored.restaurant.name === 'Prime Cafe'
-                ? fresh.restaurant.name
-                : stored.restaurant.name,
-            logo_url:
-              !stored.restaurant?.logo_url ||
-              stored.restaurant.logo_url.includes('prime_cafe') ||
-              stored.restaurant.logo_url.includes('1790854372202')
-                ? fresh.restaurant.logo_url
-                : stored.restaurant.logo_url,
-            cover_url:
-              !stored.restaurant?.cover_url ||
-              stored.restaurant.cover_url.includes('prime_cafe') ||
-              stored.restaurant.cover_url.includes('four_season_hero_banner') ||
-              stored.restaurant.cover_url.includes('1790854372202')
-                ? fresh.restaurant.cover_url
-                : stored.restaurant.cover_url,
-            address: 'Jijiga, Ethiopia',
-            opening_hours: '8:30 AM – 10:00 PM Daily',
-            phone: undefined,
-            wifi_available: false,
-          },
-          categories: fresh.categories,
-          items: syncedItems,
-          // CRITICAL: Respect stored arrays even when empty! Never re-inject deleted waiters or tables!
-          vip_tables: syncedTables,
-          waiters: syncedWaiters,
-          waiter_calls: Array.isArray(stored.waiter_calls) ? stored.waiter_calls : (fresh.waiter_calls || []),
-          last_updated: new Date().toISOString(),
-          admin_password: stored.admin_password,
+        // 2. Strictly preserve stored items (custom items, custom prices, custom uploads)
+        const resolvedItems =
+          Array.isArray(stored.items) && stored.items.length > 0
+            ? stored.items
+            : fresh.items;
+
+        // 3. Preserve waiters and VIP tables
+        const resolvedWaiters = Array.isArray(stored.waiters) ? stored.waiters : fresh.waiters;
+        const resolvedTables = Array.isArray(stored.vip_tables) ? stored.vip_tables : fresh.vip_tables;
+
+        // 4. Preserve full call history permanently (up to 200 calls)
+        const resolvedCalls = Array.isArray(stored.waiter_calls) ? stored.waiter_calls : [];
+
+        // 5. Preserve restaurant customizations
+        const resolvedRestaurant = {
+          ...fresh.restaurant,
+          ...(stored.restaurant || {}),
         };
-        inMemoryState = merged;
-        await client.query(
-          'INSERT INTO prime_cafe_menu (id, state, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET state = $2, updated_at = NOW()',
-          ['prime-cafe', JSON.stringify(inMemoryState)]
-        );
+
+        const resolvedState: DatabaseState = {
+          restaurant: resolvedRestaurant,
+          categories: resolvedCategories,
+          items: resolvedItems,
+          vip_tables: resolvedTables,
+          waiters: resolvedWaiters,
+          waiter_calls: resolvedCalls,
+          last_updated: stored.last_updated || new Date().toISOString(),
+          admin_password: stored.admin_password || fresh.admin_password,
+        };
+
+        inMemoryState = resolvedState;
+        saveDatabaseToDisk(resolvedState);
       } else {
         inMemoryState = getInitialState();
+        saveDatabaseToDisk(inMemoryState);
         await client.query(
           'INSERT INTO prime_cafe_menu (id, state, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO UPDATE SET state = $2, updated_at = NOW()',
           ['prime-cafe', JSON.stringify(inMemoryState)]

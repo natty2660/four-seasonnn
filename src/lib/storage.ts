@@ -117,11 +117,12 @@ export function loadClientState(): DatabaseState {
       saveClientState(initial);
       return initial;
     }
-    const validIds = new Set(SEED_MENU_ITEMS.map((i) => i.id));
-    parsed.categories = [...SEED_CATEGORIES];
-    parsed.items = parsed.items
-      .filter((i) => validIds.has(i.id) || i.id.startsWith('item_'))
-      .map(({ price: _p, sizes: _s, ...rest }) => ({ ...rest }));
+    if (!Array.isArray(parsed.categories) || parsed.categories.length === 0) {
+      parsed.categories = [...SEED_CATEGORIES];
+    }
+    if (!Array.isArray(parsed.items) || parsed.items.length === 0) {
+      parsed.items = SEED_MENU_ITEMS.map(({ price: _p, sizes: _s, ...rest }) => ({ ...rest }));
+    }
 
     // Ensure VIP tables, waiters, and calls exist
     if (!Array.isArray(parsed.vip_tables)) {

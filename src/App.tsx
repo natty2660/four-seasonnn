@@ -202,15 +202,19 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     mergedMap.set(inc.id, inc);
   }
 
-  // 2. Flicker prevention ONLY for brand-new local pending/hold calls created in the last 15 seconds
-  // missing from incoming backend snapshot due to network latency
+  // 2. Flicker prevention & history preservation:
+  // - Brand-new local pending/hold calls created in the last 60 seconds missing from backend snapshot
+  // - Completed and cancelled call history so historical logs never abruptly vanish
   for (const prev of prevCalls || []) {
     if (!mergedMap.has(prev.id)) {
       if (prev.status === 'pending' || prev.status === 'hold') {
         const timeRef = new Date(prev.created_at).getTime();
-        if (now - timeRef < 15000) {
+        if (now - timeRef < 60000) {
           mergedMap.set(prev.id, prev);
         }
+      } else if (prev.status === 'completed' || prev.status === 'cancelled' || prev.status === 'missed') {
+        // Permanently preserve completed/cancelled history in dashboard records
+        mergedMap.set(prev.id, prev);
       }
     }
   }
