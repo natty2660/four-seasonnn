@@ -144,6 +144,16 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
         new Date(a.completed_at || a.created_at).getTime()
     );
 
+  // Smooth visual exit: auto-dismiss completed service card after 6 seconds
+  useEffect(() => {
+    if (recentCompletedCall) {
+      const timer = setTimeout(() => {
+        setDismissedCompletedCallId(recentCompletedCall.id);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [recentCompletedCall?.id]);
+
   // Sound chime notification when waiter accepts the call
   const prevCallStatusRef = useRef<string | null>(null);
   useEffect(() => {

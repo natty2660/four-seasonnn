@@ -15,6 +15,7 @@ import {
   saveClientState,
   DatabaseState,
 } from './lib/storage.ts';
+import { reconcileWaiterCalls } from './utils/reconcileCalls.ts';
 import {
   startVipSession,
   getVipSession,
@@ -95,154 +96,7 @@ export default function App() {
     }
   };
 
-/**
- * Authoritative reconciliation for live waiter calls.
- * Ensures newer confirmed statuses (e.g. accepted, completed) are never reversed by older polling responses.
- * Completely eliminates flickering, disappearing calls, duplicate rings, and keeps accepted status locked.
- */
-function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall[]): WaiterCall[] {
-  const prevMap = new Map((prevCalls || []).map((c) => [c.id, c]));
-  const mergedMap = new Map<string, WaiterCall>();
 
-  // Lock duration for locally accepted calls: 120 seconds (generously absorbs polling delays, mobile network lag, or server queue delay)
-  const ACCEPT_LOCK_WINDOW_MS = 120000;
-  // Terminal status lock duration (completed/cancelled shouldn't resurrect to pending or accepted within this window)
-  const TERMINAL_LOCK_WINDOW_MS = 45000;
-  // Preservation window for newly created/pending calls missing from incoming payload
-  const NEW_CALL_PERSIST_WINDOW_MS = 60000;
-
-  const now = Date.now();
-
-  // 1. Process all incoming authoritative calls from backend
-  for (const inc of incomingCalls || []) {
-    const prev = prevMap.get(inc.id);
-    if (!prev) {
-      mergedMap.set(inc.id, inc);
-      continue;
-    }
-
-    // SCENARIO 1: Call was completed or cancelled locally, but server poll returned pending, hold, or missed
-    const wasCompletedLocally = prev.status === 'completed' || prev.status === 'cancelled';
-    const isStaleIncomingActive = inc.status === 'pending' || inc.status === 'hold';
-    const completedAtTime = prev.completed_at ? new Date(prev.completed_at).getTime() : now;
-    const isWithinTerminalLock = now - completedAtTime < TERMINAL_LOCK_WINDOW_MS;
-
-    if (wasCompletedLocally && isStaleIncomingActive && isWithinTerminalLock) {
-      mergedMap.set(inc.id, prev);
-      continue;
-    }
-
-    // SCENARIO 2: Call was placed on HOLD locally, but server returned pending
-    const wasHoldLocally = prev.status === 'hold';
-    const heldAtTime = prev.held_at ? new Date(prev.held_at).getTime() : now;
-    const isWithinHoldLock = now - heldAtTime < ACCEPT_LOCK_WINDOW_MS;
-
-    if (wasHoldLocally && inc.status === 'pending' && isWithinHoldLock) {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'hold',
-        held_at: prev.held_at || new Date().toISOString(),
-        hold_reason: prev.hold_reason || 'Waiter currently attending another customer',
-        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
-        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
-      });
-      continue;
-    }
-
-    // SCENARIO 3: Call was marked MISSED (timed out). Stale pending must NEVER resurrect it to ring again!
-    const wasMissed = prev.status === 'missed';
-    if (wasMissed && inc.status === 'pending') {
-      mergedMap.set(inc.id, prev);
-      continue;
-    }
-
-    // SCENARIO 4: Server returned 'pending' but call was already accepted locally
-    // Strongly lock to 'accepted' while within accept window (only if server returned pending)
-    const wasAcceptedLocally = prev.status === 'accepted';
-    const acceptedAtTime = prev.accepted_at ? new Date(prev.accepted_at).getTime() : now;
-    const isWithinAcceptLock = now - acceptedAtTime < ACCEPT_LOCK_WINDOW_MS;
-
-    if (wasAcceptedLocally && inc.status === 'pending' && isWithinAcceptLock) {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'accepted',
-        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
-        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
-        accepted_at: prev.accepted_at || new Date().toISOString(),
-      });
-      continue;
-    }
-
-    // SCENARIO 5: Server returned 'accepted' - waiter accepted the call! Lock it in firmly!
-    if (inc.status === 'accepted') {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'accepted',
-        accepted_by_waiter_id: inc.accepted_by_waiter_id || prev.accepted_by_waiter_id || null,
-        accepted_by_name: inc.accepted_by_name || prev.accepted_by_name || 'Staff Member',
-        accepted_at: inc.accepted_at || prev.accepted_at || new Date().toISOString(),
-      });
-      continue;
-    }
-
-    // SCENARIO 6: Server returned 'hold' - retain hold state and metadata across all devices
-    if (inc.status === 'hold') {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'hold',
-        held_at: inc.held_at || prev.held_at || new Date().toISOString(),
-        hold_reason: inc.hold_reason || prev.hold_reason || 'Waiter currently attending another customer',
-        accepted_by_waiter_id: inc.accepted_by_waiter_id || prev.accepted_by_waiter_id || null,
-        accepted_by_name: inc.accepted_by_name || prev.accepted_by_name || 'Staff Member',
-      });
-      continue;
-    }
-
-    // Otherwise, accept authoritative server state (including 'missed', 'completed', etc.)
-    mergedMap.set(inc.id, inc);
-  }
-
-  // 2. Flicker prevention & history preservation:
-  // - Brand-new local pending/hold calls created in the last 60 seconds missing from backend snapshot
-  // - Completed and cancelled call history so historical logs never abruptly vanish
-  for (const prev of prevCalls || []) {
-    if (!mergedMap.has(prev.id)) {
-      if (prev.status === 'pending' || prev.status === 'hold') {
-        const timeRef = new Date(prev.created_at).getTime();
-        if (now - timeRef < 60000) {
-          mergedMap.set(prev.id, prev);
-        }
-      } else if (prev.status === 'completed' || prev.status === 'cancelled' || prev.status === 'missed') {
-        // Permanently preserve completed/cancelled history in dashboard records
-        mergedMap.set(prev.id, prev);
-      }
-    }
-  }
-
-  // 3. Stably sort by lifecycle status: accepted (4000) > pending (3000) > hold (2500) > missed (1500) > resolved (1000)
-  const getStatusOrder = (status: string): number => {
-    if (status === 'accepted') return 4000;
-    if (status === 'pending') return 3000;
-    if (status === 'hold') return 2500;
-    if (status === 'missed') return 1500;
-    return 1000;
-  };
-
-  const result = Array.from(mergedMap.values());
-  result.sort((a, b) => {
-    // 1. Prioritize active pending calls first, followed by in-progress accepted, then resolved
-    const statusDiff = getStatusOrder(b.status) - getStatusOrder(a.status);
-    if (statusDiff !== 0) return statusDiff;
-
-    // 2. Prioritize by call type priority ranking: Urgent (500) > Bill (400) > Order (300) > Water (200) > General (100)
-    const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
-    if (priorityDiff !== 0) return priorityDiff;
-
-    // 3. Tie-breaker: newest calls first
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
-  return result;
-}
 
   // Fetch / revalidate menu, live waiters, VIP tables, and active calls from authoritative backend
   const refreshFromAPI = useCallback(async () => {
@@ -314,8 +168,14 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
   useEffect(() => {
     let eventSource: EventSource | null = null;
     let pollInterval: any = null;
+    let isSseActive = false;
 
     const pollCalls = async () => {
+      // Stream-First: If SSE is active and healthy, skip duplicate HTTP polling to avoid collisions
+      if (isSseActive && eventSource && eventSource.readyState === EventSource.OPEN) {
+        return;
+      }
+
       try {
         const [callsRes, waitersRes] = await Promise.allSettled([
           apiFetch('/api/waiter-calls'),
@@ -369,7 +229,12 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       const streamUrl = getApiUrl('/api/waiter-calls/stream');
       eventSource = new EventSource(streamUrl);
 
+      eventSource.onopen = () => {
+        isSseActive = true;
+      };
+
       eventSource.onmessage = (event) => {
+        isSseActive = true;
         try {
           const data = JSON.parse(event.data);
           if (data && (data.calls || data.waiters)) {
@@ -398,14 +263,17 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
       };
 
       eventSource.onerror = () => {
-        // If SSE stream is interrupted, controlled polling maintains real-time sync
+        isSseActive = false;
+        // When SSE stream disconnects, poll immediately to ensure zero missed calls
+        pollCalls();
       };
     } catch (e) {
+      isSseActive = false;
       console.warn('SSE stream setup note:', e);
     }
 
-    // 3. Controlled polling interval (resilient diagnostic & fallback)
-    pollInterval = setInterval(pollCalls, 3000);
+    // 3. Resilient fallback polling interval (runs every 5s only if SSE is disconnected)
+    pollInterval = setInterval(pollCalls, 5000);
 
     return () => {
       if (eventSource) {
@@ -602,6 +470,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
                 accepted_at: isPlacingOnHold ? c.accepted_at || null : acceptedAt,
                 held_at: isPlacingOnHold ? heldAt : null,
                 hold_reason: isPlacingOnHold ? holdReason : null,
+                revision: (c.revision || 1) + 1,
               }
             : c
         ),
@@ -665,6 +534,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
               hold_reason: reason,
               accepted_by_waiter_id: waiterId,
               accepted_by_name: waiterName,
+              revision: (c.revision || 1) + 1,
             }
           : c
       );
@@ -702,6 +572,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
             ...c,
             status: 'completed' as const,
             completed_at: completedAt,
+            revision: (c.revision || 1) + 1,
           };
         }
         if (
@@ -715,6 +586,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
             status: 'pending' as const,
             held_at: null,
             hold_reason: null,
+            revision: (c.revision || 1) + 1,
           };
         }
         return c;
@@ -747,6 +619,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
                 ...c,
                 status: 'cancelled' as const,
                 completed_at: completedAt,
+                revision: (c.revision || 1) + 1,
               }
             : c
         ),

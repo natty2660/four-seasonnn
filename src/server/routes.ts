@@ -759,6 +759,7 @@ apiRouter.post('/waiters/sync', async (req: Request, res: Response) => {
         if (c.assigned_waiter_id && !validWaiterIds.has(c.assigned_waiter_id)) {
           c.assigned_waiter_id = null;
           c.is_escalated = true;
+          c.revision = (c.revision || 1) + 1;
         }
       });
     }
@@ -826,6 +827,7 @@ apiRouter.delete('/waiters/:id', async (req: Request, res: Response) => {
         if (c.assigned_waiter_id === id) {
           c.assigned_waiter_id = null;
           c.is_escalated = true;
+          c.revision = (c.revision || 1) + 1;
         }
       });
     }
@@ -855,22 +857,29 @@ apiRouter.post('/vip-tables/sync', async (req: Request, res: Response) => {
 });
 
 // 20. Live Waiter Calls
-// Auto-detect and sync call timeouts (unanswered pending calls >= 60s become 'missed')
+// Auto-detect and sync call timeouts and revisions for in-memory representations
 export function syncCallTimeouts(calls: WaiterCall[]): void {
   const now = Date.now();
   for (const c of calls) {
+    if (!c.revision) c.revision = 1;
     if (c.status === 'pending') {
       const elapsed = now - new Date(c.created_at).getTime();
       if (elapsed >= 60000) {
         c.status = 'missed';
         if (!c.missed_at) c.missed_at = new Date().toISOString();
+        c.revision = (c.revision || 1) + 1;
+      } else if (elapsed >= 45000 && !c.is_escalated) {
+        c.is_escalated = true;
+        if (!c.escalated_at) c.escalated_at = new Date().toISOString();
+        c.revision = (c.revision || 1) + 1;
       }
     }
   }
 }
 
 /**
- * Periodically and transactionally checks for calls that have timed out (> 60s unanswered).
+ * Periodically and transactionally checks for calls that have timed out (> 60s unanswered)
+ * or reached 45s escalation.
  * Commits changes to PostgreSQL / Database and broadcasts update via SSE.
  * Permanently prevents calls from appearing, disappearing, or re-ringing after timeout.
  */
@@ -879,36 +888,45 @@ export async function syncAndPersistTimeouts(): Promise<void> {
   const db = getDatabase();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
   
-  // Fast check: Only mutate the database if there is actually a pending call >= 60 seconds old
-  const hasTimedOutCall = calls.some(
-    (c) => c.status === 'pending' && now - new Date(c.created_at).getTime() >= 60000
-  );
-  if (!hasTimedOutCall) {
-    return; // Completely skip database transaction when no calls need timeout!
+  // Fast check: Only mutate the database if there is actually a pending call >= 45s or >= 60s needing state change
+  const needsSync = calls.some((c) => {
+    if (c.status !== 'pending') return false;
+    const elapsed = now - new Date(c.created_at).getTime();
+    return elapsed >= 60000 || (elapsed >= 45000 && !c.is_escalated);
+  });
+  if (!needsSync) {
+    return; // Completely skip database transaction when no calls need timeout or escalation!
   }
 
-  let timedOutCount = 0;
+  let mutatedCount = 0;
   const updatedDb = await mutateDatabaseAsync((state) => {
     if (!Array.isArray(state.waiter_calls)) return state;
     for (const c of state.waiter_calls) {
+      if (!c.revision) c.revision = 1;
       if (c.status === 'pending') {
         const elapsed = now - new Date(c.created_at).getTime();
         if (elapsed >= 60000) {
           c.status = 'missed';
           if (!c.missed_at) c.missed_at = new Date().toISOString();
-          timedOutCount++;
+          c.revision = (c.revision || 1) + 1;
+          mutatedCount++;
+        } else if (elapsed >= 45000 && !c.is_escalated) {
+          c.is_escalated = true;
+          if (!c.escalated_at) c.escalated_at = new Date().toISOString();
+          c.revision = (c.revision || 1) + 1;
+          mutatedCount++;
         }
       }
     }
     return state;
   });
 
-  if (timedOutCount > 0) {
+  if (mutatedCount > 0) {
     broadcastWaiterUpdate(updatedDb);
   }
 }
 
-// Background sweep every 3 seconds to guarantee instant and persistent timeouts
+// Background sweep every 3 seconds to guarantee instant and persistent timeouts & escalations
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {
     syncAndPersistTimeouts().catch(() => {});
@@ -942,10 +960,12 @@ apiRouter.get('/waiter-calls', async (_req: Request, res: Response) => {
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
   const now = Date.now();
-  const hasTimedOutCall = calls.some(
-    (c) => c.status === 'pending' && now - new Date(c.created_at).getTime() >= 60000
-  );
-  if (hasTimedOutCall) {
+  const needsSync = calls.some((c) => {
+    if (c.status !== 'pending') return false;
+    const elapsed = now - new Date(c.created_at).getTime();
+    return elapsed >= 60000 || (elapsed >= 45000 && !c.is_escalated);
+  });
+  if (needsSync) {
     await syncAndPersistTimeouts();
     const freshDb = await getDatabaseAsync();
     res.json(sortCallsByPriority(freshDb.waiter_calls || []));
@@ -966,6 +986,7 @@ export function broadcastWaiterUpdate(state?: DatabaseState) {
     waiters: db.waiters || [],
     tables: db.vip_tables || [],
     timestamp: new Date().toISOString(),
+    server_epoch: Date.now(),
   });
   const message = `data: ${payload}\n\n`;
   for (const client of sseClients) {
@@ -1000,6 +1021,7 @@ apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], async (_req: Request, 
     waiters: db.waiters || [],
     tables: db.vip_tables || [],
     timestamp: new Date().toISOString(),
+    server_epoch: Date.now(),
   });
   res.write(`data: ${initial}\n\n`);
 
@@ -1031,10 +1053,12 @@ apiRouter.get(['/waiter/calls/active', '/waiter-calls/active'], async (_req: Req
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
   const now = Date.now();
-  const hasTimedOutCall = calls.some(
-    (c) => c.status === 'pending' && now - new Date(c.created_at).getTime() >= 60000
-  );
-  if (hasTimedOutCall) {
+  const needsSync = calls.some((c) => {
+    if (c.status !== 'pending') return false;
+    const elapsed = now - new Date(c.created_at).getTime();
+    return elapsed >= 60000 || (elapsed >= 45000 && !c.is_escalated);
+  });
+  if (needsSync) {
     await syncAndPersistTimeouts();
     const freshDb = await getDatabaseAsync();
     const freshCalls = Array.isArray(freshDb.waiter_calls) ? freshDb.waiter_calls : [];
@@ -1060,6 +1084,7 @@ apiRouter.post(
       if (call) {
         call.status = 'cancelled';
         call.completed_at = new Date().toISOString();
+        call.revision = (call.revision || 1) + 1;
         targetCall = call;
       }
       return db;
@@ -1142,6 +1167,7 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
       ) {
         c.status = 'completed';
         c.completed_at = new Date().toISOString();
+        c.revision = (c.revision || 1) + 1;
       }
     });
 
@@ -1156,6 +1182,7 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
       assigned_waiter_id: validAssignedWaiterId,
       is_escalated: isUrgent || !validAssignedWaiterId || !assignedStaff?.is_on_duty,
       original_waiter_id: validAssignedWaiterId,
+      revision: 1,
       created_at: new Date().toISOString(),
       held_at: initialStatus === 'hold' ? new Date().toISOString() : null,
       hold_reason: initialStatus === 'hold' ? 'Waiter currently attending another customer' : null,
@@ -1219,6 +1246,7 @@ apiRouter.post(
               `Waiter ${waiter_name || 'Staff'} is attending Table ${alreadyAttendingCall?.table_number || ''}`;
             call.accepted_by_waiter_id = waiter_id || call.accepted_by_waiter_id;
             call.accepted_by_name = waiter_name || call.accepted_by_name || 'Staff Member';
+            call.revision = (call.revision || 1) + 1;
           } else {
             call.status = 'accepted';
             call.accepted_by_waiter_id = waiter_id || null;
@@ -1226,6 +1254,7 @@ apiRouter.post(
             call.accepted_at = new Date().toISOString();
             call.held_at = null;
             call.hold_reason = null;
+            call.revision = (call.revision || 1) + 1;
           }
         }
         resultingCall = call;
@@ -1261,6 +1290,7 @@ apiRouter.post(
           call.hold_reason = hold_reason || 'Waiter currently attending another customer';
           if (waiter_id) call.accepted_by_waiter_id = waiter_id;
           if (waiter_name) call.accepted_by_name = waiter_name;
+          call.revision = (call.revision || 1) + 1;
         }
         heldCall = call;
       }
@@ -1288,6 +1318,7 @@ apiRouter.post(['/waiter-calls/:id/complete', '/waiter/calls/:id/complete'], asy
     if (call) {
       call.status = 'completed';
       call.completed_at = new Date().toISOString();
+      call.revision = (call.revision || 1) + 1;
       completedCall = call;
 
       // Automatically promote next queued held call to active ringing ('pending')
@@ -1303,6 +1334,7 @@ apiRouter.post(['/waiter-calls/:id/complete', '/waiter/calls/:id/complete'], asy
         nextHeldCall.status = 'pending';
         nextHeldCall.held_at = null;
         nextHeldCall.hold_reason = null;
+        nextHeldCall.revision = (nextHeldCall.revision || 1) + 1;
       }
     }
     return db;
@@ -1328,6 +1360,7 @@ apiRouter.post(['/waiter-calls/:id/cancel', '/waiter/calls/:id/cancel'], async (
     if (call) {
       call.status = 'cancelled';
       call.completed_at = new Date().toISOString();
+      call.revision = (call.revision || 1) + 1;
       cancelledCall = call;
     }
     return db;

@@ -179,6 +179,7 @@ export interface WaiterCall {
   is_escalated?: boolean; // True if unanswered for 45s and escalated to all waiters
   escalated_at?: string | null;
   original_waiter_id?: string | null;
+  revision?: number; // Monotonically increasing revision counter to eliminate race conditions
   created_at: string;
   accepted_at?: string | null;
   completed_at?: string | null;

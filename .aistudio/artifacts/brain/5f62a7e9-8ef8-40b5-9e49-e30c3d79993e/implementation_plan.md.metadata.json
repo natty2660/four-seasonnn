@@ -1,0 +1,6 @@
+{
+  "summary": "Comprehensive architectural plan to eliminate call flickering, sudden appearance/disappearance, and state reversion across VIP customer views, waiter terminals, and server synchronization. Covers root cause analysis, deterministic state transition rules, revision tracking, SSE priority over polling, and smooth UI transitions.",
+  "updatedAt": "2026-10-15T11:35:25.131746061Z",
+  "requestFeedback": true,
+  "userFacing": true
+}
