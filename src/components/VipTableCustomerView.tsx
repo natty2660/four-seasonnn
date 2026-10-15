@@ -410,7 +410,7 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
                   {table.name} · VIP Room
                 </span>
                 <span className="text-[10px] text-white/60">
-                  {assignedWaiter ? `Dedicated Waiter: ${assignedWaiter.name}` : 'Floor Staff on Duty'}
+                  {assignedWaiter ? `Service: ${assignedWaiter.name}` : 'Floor Staff on Duty'}
                 </span>
               </div>
             </div>
@@ -892,7 +892,7 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
           <span className="text-xs font-bold text-[#FCF6BA] font-mono">{table.table_number}</span>
           <span className="text-[10px] text-[#D4AF37]/80 truncate">
-            {assignedWaiter ? `Waiter: ${assignedWaiter.name}` : 'Staff Available'}
+            {assignedWaiter ? `Service: ${assignedWaiter.name}` : 'Staff Available'}
           </span>
         </div>
 

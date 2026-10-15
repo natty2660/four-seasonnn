@@ -1351,31 +1351,13 @@
   ],
   "waiters": [
     {
-      "id": "waiter_1",
-      "pin": "1111",
-      "name": "Abebe Tsegaye",
-      "phone": "+251 91 123 4567",
+      "id": "waiter_reservation",
+      "pin": "1234",
+      "name": "VIP Reservation Desk",
+      "phone": "+251 91 100 0000",
       "is_active": true,
-      "created_at": "2026-10-14T01:57:04.399Z",
+      "created_at": "2026-10-15T07:33:24.306Z",
       "is_on_duty": true
-    },
-    {
-      "id": "waiter_2",
-      "pin": "2222",
-      "name": "Sara Mohammed",
-      "phone": "+251 92 234 5678",
-      "is_active": true,
-      "created_at": "2026-10-14T01:57:04.399Z",
-      "is_on_duty": true
-    },
-    {
-      "id": "waiter_3",
-      "pin": "3333",
-      "name": "Dawit Kebede",
-      "phone": "+251 93 345 6789",
-      "is_active": true,
-      "created_at": "2026-10-14T01:57:04.399Z",
-      "is_on_duty": false
     }
   ],
   "categories": [
@@ -1471,46 +1453,235 @@
     {
       "id": "vip_1",
       "name": "Royal Gold Suite",
-      "notes": "Primary luxury banquet table near private fountain",
+      "notes": "Primary luxury banquet suite near private water fountain",
       "is_active": true,
-      "created_at": "2026-10-14T01:57:04.399Z",
+      "created_at": "2026-10-15T07:33:24.306Z",
       "secret_code": "7771",
       "table_number": "VIP-1",
-      "assigned_waiter_id": "waiter_1"
+      "assigned_waiter_id": "waiter_reservation"
     },
     {
       "id": "vip_2",
       "name": "Executive Lounge",
-      "notes": "Leather booths with privacy partition",
+      "notes": "Handcrafted leather booths with privacy partition",
       "is_active": true,
-      "created_at": "2026-10-14T01:57:04.399Z",
+      "created_at": "2026-10-15T07:33:24.306Z",
       "secret_code": "7772",
       "table_number": "VIP-2",
-      "assigned_waiter_id": "waiter_2"
+      "assigned_waiter_id": "waiter_reservation"
     },
     {
       "id": "vip_3",
-      "name": "Garden Terrace",
-      "notes": "Open outdoor VIP gazebo, unassigned shared pool",
+      "name": "Diplomatic Terrace",
+      "notes": "Open outdoor VIP gazebo with garden panorama",
       "is_active": true,
-      "created_at": "2026-10-14T01:57:04.399Z",
+      "created_at": "2026-10-15T07:33:24.306Z",
       "secret_code": "7773",
       "table_number": "VIP-3",
-      "assigned_waiter_id": null
+      "assigned_waiter_id": "waiter_reservation"
     },
     {
       "id": "vip_4",
       "name": "Penthouse Salon",
-      "notes": "Panoramic top-floor view table",
+      "notes": "Panoramic top-floor view dining salon",
       "is_active": true,
-      "created_at": "2026-10-14T01:57:04.399Z",
+      "created_at": "2026-10-15T07:33:24.306Z",
       "secret_code": "7774",
       "table_number": "VIP-4",
-      "assigned_waiter_id": "waiter_1"
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_5",
+      "name": "Imperial Chamber",
+      "notes": "Private state room with royal velvet upholstery",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7775",
+      "table_number": "VIP-5",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_6",
+      "name": "Sapphire Room",
+      "notes": "Intimate sapphire-accented booth with soft illumination",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7776",
+      "table_number": "VIP-6",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_7",
+      "name": "Emerald Pavilion",
+      "notes": "Lush indoor flora setting with ambient water feature",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7777",
+      "table_number": "VIP-7",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_8",
+      "name": "Diamond Alcove",
+      "notes": "Secluded corner alcove for private business conversations",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7778",
+      "table_number": "VIP-8",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_9",
+      "name": "Amber Sanctuary",
+      "notes": "Warm amber lighting with bespoke mahogany furnishings",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7779",
+      "table_number": "VIP-9",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_10",
+      "name": "Ruby Gallery",
+      "notes": "Artisan fine-art wall gallery view table",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7780",
+      "table_number": "VIP-10",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_11",
+      "name": "Crown Enclave",
+      "notes": "Elevated central enclave with dedicated service access",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7781",
+      "table_number": "VIP-11",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_12",
+      "name": "Sultan Majlis",
+      "notes": "Traditional high-comfort luxury Majlis lounge",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7782",
+      "table_number": "VIP-12",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_13",
+      "name": "Sovereign Haven",
+      "notes": "Private lounge booth with acoustic sound shielding",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7783",
+      "table_number": "VIP-13",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_14",
+      "name": "Grand Terrace",
+      "notes": "Spacious open-air veranda table for distinguished parties",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7784",
+      "table_number": "VIP-14",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_15",
+      "name": "Golden Vista",
+      "notes": "Sunset-facing glass facade with golden horizon views",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7785",
+      "table_number": "VIP-15",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_16",
+      "name": "Oasis Lounge",
+      "notes": "Calm water-garden surrounding with shaded canopy",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7786",
+      "table_number": "VIP-16",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_17",
+      "name": "Presidential Parlor",
+      "notes": "Full-service presidential conference and dining salon",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7787",
+      "table_number": "VIP-17",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_18",
+      "name": "Prestige Corner",
+      "notes": "Cozy VIP corner with private beverage service",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7788",
+      "table_number": "VIP-18",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_19",
+      "name": "Palace Veranda",
+      "notes": "Majestic exterior veranda overlooking Four Season gardens",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7789",
+      "table_number": "VIP-19",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_20",
+      "name": "Celestial Balcony",
+      "notes": "Upper deck starlight balcony with heated patio amenities",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7790",
+      "table_number": "VIP-20",
+      "assigned_waiter_id": "waiter_reservation"
+    },
+    {
+      "id": "vip_21",
+      "name": "Prime Sky Suite",
+      "notes": "Top-tier pinnacle penthouse suite with dedicated hospitality",
+      "is_active": true,
+      "created_at": "2026-10-15T07:33:24.306Z",
+      "secret_code": "7791",
+      "table_number": "VIP-21",
+      "assigned_waiter_id": "waiter_reservation"
     }
   ],
-  "last_updated": "2026-10-15T06:55:16.032Z",
+  "last_updated": "2026-10-15T07:37:24.955Z",
   "waiter_calls": [
+    {
+      "id": "call_1792049844785_ynlz",
+      "status": "completed",
+      "held_at": null,
+      "message": "Sky Suite ordering champagne & tenderloin",
+      "table_id": "vip_21",
+      "call_type": "order",
+      "created_at": "2026-10-15T07:37:24.785Z",
+      "table_name": "Prime Sky Suite",
+      "accepted_at": "2026-10-15T07:37:24.879Z",
+      "hold_reason": null,
+      "is_escalated": false,
+      "table_number": "VIP-21",
+      "accepted_by_name": "VIP Reservation Desk",
+      "assigned_waiter_id": "waiter_reservation",
+      "original_waiter_id": "waiter_reservation",
+      "accepted_by_waiter_id": "waiter_reservation",
+      "completed_at": "2026-10-15T07:37:24.955Z"
+    },
     {
       "id": "call_1792047315477_dvuo",
       "status": "completed",
@@ -1525,8 +1696,8 @@
       "completed_at": "2026-10-15T06:55:15.627Z",
       "is_escalated": false,
       "table_number": "VIP-1",
-      "accepted_by_name": "Abebe Bikila",
-      "assigned_waiter_id": "waiter_1",
+      "accepted_by_name": "VIP Reservation Desk",
+      "assigned_waiter_id": "waiter_reservation",
       "original_waiter_id": "waiter_1",
       "accepted_by_waiter_id": "waiter_1"
     },
@@ -1544,8 +1715,8 @@
       "completed_at": "2026-10-15T06:46:42.147Z",
       "is_escalated": true,
       "table_number": "VIP-1",
-      "accepted_by_name": "Abebe Bikila",
-      "assigned_waiter_id": "waiter_1",
+      "accepted_by_name": "VIP Reservation Desk",
+      "assigned_waiter_id": "waiter_reservation",
       "original_waiter_id": "waiter_1",
       "accepted_by_waiter_id": "waiter_1"
     }

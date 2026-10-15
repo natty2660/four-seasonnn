@@ -59,18 +59,21 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('four_season_active_waiter_id') || '';
       const unlocked = sessionStorage.getItem('four_season_waiter_session_unlocked');
-      if (saved && unlocked === saved) {
+      if (saved && unlocked === saved && waiters.some((w) => w.id === saved)) {
         return saved;
       }
     }
-    return '';
+    return waiters[0]?.id || '';
   });
 
   const [pendingWaiterId, setPendingWaiterId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('four_season_active_waiter_id') || '';
+      const saved = localStorage.getItem('four_season_active_waiter_id') || '';
+      if (saved && waiters.some((w) => w.id === saved)) {
+        return saved;
+      }
     }
-    return '';
+    return waiters[0]?.id || '';
   });
 
   // Locked by default! Requires staff PIN to unlock access to the waiter app
@@ -78,7 +81,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('four_season_active_waiter_id') || '';
       const unlocked = sessionStorage.getItem('four_season_waiter_session_unlocked');
-      if (saved && unlocked === saved) {
+      if (saved && unlocked === saved && waiters.some((w) => w.id === saved)) {
         return false;
       }
     }
@@ -531,10 +534,10 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
               <span>Restricted Access · Terminal Locked</span>
             </div>
             <h1 className="text-2xl font-black text-[#FCF6BA] font-display">
-              Four Season Waiter App
+              VIP Reservation Desk
             </h1>
             <p className="text-xs text-[#D4AF37]/80 mt-1 max-w-xs mx-auto">
-              Authorized staff only. Enter your security PIN to unlock table calls and service controls.
+              Central VIP call reception & floor dispatch. Enter PIN (1234) to unlock live table alerts.
             </p>
           </div>
 
@@ -686,7 +689,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                 }`}
               >
                 <Unlock className="w-4 h-4 stroke-[2.5]" />
-                <span>Unlock Waiter App</span>
+                <span>Unlock Reservation Desk</span>
               </button>
 
               <div className="text-[10px] text-white/40 text-center">
@@ -874,7 +877,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                   {currentWaiter.name}
                 </h1>
                 <span className="text-[10px] bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40 px-2 py-0.5 rounded-full font-bold">
-                  Staff Waiter
+                  {waiters.length === 1 ? 'Central Dispatch' : 'Staff Waiter'}
                 </span>
               </div>
               <div className="text-[11px] text-white/60 flex items-center gap-1.5 mt-0.5">

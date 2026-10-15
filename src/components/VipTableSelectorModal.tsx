@@ -18,10 +18,17 @@ export const VipTableSelectorModal: React.FC<VipTableSelectorModalProps> = ({
 }) => {
   const [selectedTableId, setSelectedTableId] = useState<string>(vipTables[0]?.id || '');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   if (!isOpen) return null;
 
-  const currentSelected = vipTables.find((t) => t.id === selectedTableId) || vipTables[0];
+  const filteredTables = vipTables.filter((t) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return t.table_number.toLowerCase().includes(q) || t.name.toLowerCase().includes(q);
+  });
+
+  const currentSelected = vipTables.find((t) => t.id === selectedTableId) || filteredTables[0] || vipTables[0];
 
   const handleConfirm = () => {
     setErrorMsg(null);
@@ -62,12 +69,35 @@ export const VipTableSelectorModal: React.FC<VipTableSelectorModalProps> = ({
         </div>
 
         {/* Table Selector */}
-        <div className="space-y-4 mb-6">
-          <label className="block text-xs font-bold uppercase tracking-wider text-[#D4AF37]">
-            Select Your VIP Table / Lounge:
-          </label>
+        <div className="space-y-3 mb-6">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#D4AF37]">
+              Select Your VIP Table / Lounge ({vipTables.length} Total):
+            </label>
+          </div>
+
+          {/* Quick search input */}
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search table # or name (e.g. VIP-15, Penthouse, Suite)..."
+              className="w-full px-3 py-2 bg-[#181818] border border-white/15 focus:border-[#D4AF37] rounded-xl text-xs text-[#FCF6BA] placeholder:text-white/40 outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
-            {vipTables.map((t) => {
+            {filteredTables.map((t) => {
               const isSelected = t.id === selectedTableId;
               return (
                 <button

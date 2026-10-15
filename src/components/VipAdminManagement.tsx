@@ -433,7 +433,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
             }`}
           >
             <UserCheck className="w-4 h-4" />
-            <span>Staff Waiters ({waiters.length})</span>
+            <span>{waiters.length === 1 ? 'Reservation Desk' : `Staff Waiters (${waiters.length})`}</span>
           </button>
 
           <button
@@ -895,10 +895,12 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
               </div>
               <div>
                 <h4 className="text-xs font-black text-[#FCF6BA] uppercase tracking-wider">
-                  Waiter App Access Security Lock Active
+                  {waiters.length === 1 ? 'Central VIP Reservation & Floor Dispatch Terminal' : 'Waiter App Access Security Lock Active'}
                 </h4>
                 <p className="text-[11px] text-white/70 mt-0.5 leading-relaxed">
-                  The Waiter App is securely locked against unauthorized public access. Staff must enter their 4-digit PIN to unlock their workspace. Master Manager Passcode: <span className="font-mono text-[#FCF6BA] font-bold">2026</span>.
+                  {waiters.length === 1
+                    ? 'All 21 VIP tables dispatch service calls directly to this unified Reservation Desk terminal. Default Staff PIN: 1234.'
+                    : 'The Waiter App is securely locked against unauthorized public access. Staff must enter their 4-digit PIN to unlock their workspace.'}
                 </p>
               </div>
             </div>
@@ -906,7 +908,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
               onClick={() => setIsAddWaiterOpen(true)}
               className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs shadow hover:brightness-110 transition-all cursor-pointer shrink-0 self-start sm:self-center"
             >
-              + Add New Waiter
+              + Add Staff Member
             </button>
           </div>
 
@@ -1029,7 +1031,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
             <label className="block text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider mb-2.5">
               Select VIP Table to Configure &amp; Generate:
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 max-h-56 overflow-y-auto pr-1">
               {vipTables.map((t) => {
                 const isSelected = t.id === selectedStudioTableId;
                 const assignedWaiter = waiters.find((w) => w.id === t.assigned_waiter_id);
