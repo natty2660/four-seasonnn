@@ -1661,8 +1661,28 @@
       "assigned_waiter_id": "waiter_reservation"
     }
   ],
-  "last_updated": "2026-10-15T12:46:45.636Z",
+  "last_updated": "2026-10-15T13:11:24.078Z",
   "waiter_calls": [
+    {
+      "id": "call_1792069883819_2p63",
+      "status": "completed",
+      "held_at": "2026-10-15T13:11:24.003Z",
+      "message": "Ready to order premium steak",
+      "revision": 4,
+      "table_id": "vip_1",
+      "call_type": "order",
+      "created_at": "2026-10-15T13:11:23.820Z",
+      "table_name": "Royal Gold Suite",
+      "accepted_at": "2026-10-15T13:11:23.916Z",
+      "hold_reason": "Waiter currently attending another customer",
+      "is_escalated": false,
+      "table_number": "VIP-1",
+      "accepted_by_name": "Alex Vance",
+      "assigned_waiter_id": "waiter_reservation",
+      "original_waiter_id": "waiter_reservation",
+      "accepted_by_waiter_id": "waiter-alex",
+      "completed_at": "2026-10-15T13:11:24.078Z"
+    },
     {
       "id": "call_1792068405364_efnp",
       "status": "completed",
@@ -1675,13 +1695,13 @@
       "table_name": "Royal Gold Suite",
       "accepted_at": "2026-10-15T12:46:45.476Z",
       "hold_reason": "Waiter currently attending another customer",
+      "completed_at": "2026-10-15T12:46:45.635Z",
       "is_escalated": false,
       "table_number": "VIP-1",
       "accepted_by_name": "Alex Vance",
       "assigned_waiter_id": "waiter_reservation",
       "original_waiter_id": "waiter_reservation",
-      "accepted_by_waiter_id": "waiter-alex",
-      "completed_at": "2026-10-15T12:46:45.635Z"
+      "accepted_by_waiter_id": "waiter-alex"
     },
     {
       "id": "call_1792065147971_ggfx",

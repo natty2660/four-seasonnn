@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Restaurant,
   Category,
@@ -36,6 +36,7 @@ import { WaiterMobileApp } from './components/WaiterMobileApp.tsx';
 
 export default function App() {
   const [dbState, setDbState] = useState<DatabaseState>(() => loadClientState());
+  const refreshCycleCount = useRef<number>(0);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isLogoCropperOpen, setIsLogoCropperOpen] = useState(false);
@@ -164,94 +165,134 @@ export default function App() {
     refreshFromAPI();
   }, [refreshFromAPI]);
 
-  // Real-time synchronization: Server-Sent Events (SSE) stream + controlled polling fallback
+  // =========================================================================
+  // Dedicated 5-Second Real-Time Status Refresh Engine
+  // =========================================================================
+  // Dedicated 5-Second Real-Time Status Refresh Engine (Runs Silently Inside)
+  // Reconciles waiter calls, tables, and waiters authoritatively every 5000ms
+  // so all statuses appear accurately without any visible UI clutter or flickers.
+  // =========================================================================
+  const executeDedicatedRefresh = useCallback(async () => {
+    refreshCycleCount.current += 1;
+    // Every 6 cycles (~30s), also revalidate menu items & restaurant settings
+    const shouldRevalidateMenu = refreshCycleCount.current % 6 === 0;
+
+    try {
+      const fetchList: Promise<any>[] = [
+        apiFetch('/api/waiter-calls'),
+        apiFetch('/api/waiters'),
+        apiFetch('/api/vip-tables'),
+      ];
+      if (shouldRevalidateMenu) {
+        fetchList.push(apiFetch('/api/menu/prime-cafe'));
+      }
+
+      const results = await Promise.allSettled(fetchList);
+      const [callsRes, waitersRes, tablesRes, menuRes] = results;
+
+      let calls: WaiterCall[] | null = null;
+      if (callsRes?.status === 'fulfilled' && callsRes.value.ok) {
+        const c = await callsRes.value.json().catch(() => null);
+        if (Array.isArray(c)) calls = c;
+      }
+
+      let waiters: Waiter[] | null = null;
+      if (waitersRes?.status === 'fulfilled' && waitersRes.value.ok) {
+        const w = await waitersRes.value.json().catch(() => null);
+        if (Array.isArray(w)) waiters = w;
+      }
+
+      let tables: VipTable[] | null = null;
+      if (tablesRes?.status === 'fulfilled' && tablesRes.value.ok) {
+        const t = await tablesRes.value.json().catch(() => null);
+        if (Array.isArray(t)) tables = t;
+      }
+
+      let freshMenu: any = null;
+      if (menuRes?.status === 'fulfilled' && menuRes.value.ok) {
+        freshMenu = await menuRes.value.json().catch(() => null);
+      }
+
+      if (calls || waiters || tables || freshMenu) {
+        setDbState((prev) => {
+          const mergedCalls = calls
+            ? reconcileWaiterCalls(prev.waiter_calls || [], calls)
+            : prev.waiter_calls;
+          const mergedWaiters = waiters !== null ? waiters : prev.waiters;
+          const mergedTables = tables !== null ? tables : prev.vip_tables;
+
+          const hasCallDiff = JSON.stringify(prev.waiter_calls) !== JSON.stringify(mergedCalls);
+          const hasWaiterDiff = JSON.stringify(prev.waiters) !== JSON.stringify(mergedWaiters);
+          const hasTableDiff = JSON.stringify(prev.vip_tables) !== JSON.stringify(mergedTables);
+          const hasMenuDiff = Boolean(
+            freshMenu?.restaurant &&
+            JSON.stringify(prev.items) !== JSON.stringify(freshMenu.items)
+          );
+
+          if (hasCallDiff || hasWaiterDiff || hasTableDiff || hasMenuDiff) {
+            const next: DatabaseState = {
+              ...prev,
+              ...(hasMenuDiff && freshMenu?.restaurant
+                ? {
+                    restaurant: freshMenu.restaurant,
+                    categories: freshMenu.categories,
+                    items: freshMenu.items,
+                  }
+                : {}),
+              waiter_calls: mergedCalls,
+              waiters: mergedWaiters,
+              vip_tables: mergedTables,
+              last_updated: new Date().toISOString(),
+            };
+            saveClientState(next);
+            return next;
+          }
+          return prev;
+        });
+      }
+    } catch {
+      // Silent internal catch: existing client state preserved
+    }
+  }, []);
+
+  // 1. Dedicated 5-Second Interval - runs silently inside the site every 5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      executeDedicatedRefresh();
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [executeDedicatedRefresh]);
+
+  // 2. Real-time Server-Sent Events (SSE) stream for sub-second push alerts
   useEffect(() => {
     let eventSource: EventSource | null = null;
-    let pollInterval: any = null;
-    let isSseActive = false;
 
-    const pollCalls = async () => {
-      // Stream-First: If SSE is active and healthy, skip duplicate HTTP polling to avoid collisions
-      if (isSseActive && eventSource && eventSource.readyState === EventSource.OPEN) {
-        return;
-      }
-
-      try {
-        const [callsRes, waitersRes] = await Promise.allSettled([
-          apiFetch('/api/waiter-calls'),
-          apiFetch('/api/waiters'),
-        ]);
-
-        let calls: WaiterCall[] | null = null;
-        if (callsRes.status === 'fulfilled' && callsRes.value.ok) {
-          const c = await callsRes.value.json().catch(() => null);
-          if (Array.isArray(c)) calls = c;
-        }
-
-        let waiters: Waiter[] | null = null;
-        if (waitersRes.status === 'fulfilled' && waitersRes.value.ok) {
-          const w = await waitersRes.value.json().catch(() => null);
-          if (Array.isArray(w)) waiters = w;
-        }
-
-        if (calls || waiters) {
-          setDbState((prev) => {
-            const mergedCalls = calls
-              ? reconcileWaiterCalls(prev.waiter_calls || [], calls)
-              : prev.waiter_calls;
-            const mergedWaiters = waiters !== null ? waiters : prev.waiters;
-
-            const hasCallDiff = JSON.stringify(prev.waiter_calls) !== JSON.stringify(mergedCalls);
-            const hasWaiterDiff = JSON.stringify(prev.waiters) !== JSON.stringify(mergedWaiters);
-
-            if (hasCallDiff || hasWaiterDiff) {
-              const next: DatabaseState = {
-                ...prev,
-                waiter_calls: mergedCalls,
-                waiters: mergedWaiters,
-              };
-              saveClientState(next);
-              return next;
-            }
-            return prev;
-          });
-        }
-      } catch {
-        // Silent catch for offline or initial boot
-      }
-    };
-
-    // 1. Initial revalidation
-    pollCalls();
-
-    // 2. Connect to Server-Sent Events (SSE) stream for instant real-time pushes
     try {
       const streamUrl = getApiUrl('/api/waiter-calls/stream');
       eventSource = new EventSource(streamUrl);
 
-      eventSource.onopen = () => {
-        isSseActive = true;
-      };
-
       eventSource.onmessage = (event) => {
-        isSseActive = true;
         try {
           const data = JSON.parse(event.data);
-          if (data && (data.calls || data.waiters)) {
+          if (data && (data.calls || data.waiters || data.tables)) {
             setDbState((prev) => {
               const mergedCalls = Array.isArray(data.calls)
                 ? reconcileWaiterCalls(prev.waiter_calls || [], data.calls)
                 : prev.waiter_calls;
               const mergedWaiters = Array.isArray(data.waiters) ? data.waiters : prev.waiters;
+              const mergedTables = Array.isArray(data.tables) ? data.tables : prev.vip_tables;
 
               const hasCallDiff = JSON.stringify(prev.waiter_calls) !== JSON.stringify(mergedCalls);
               const hasWaiterDiff = JSON.stringify(prev.waiters) !== JSON.stringify(mergedWaiters);
+              const hasTableDiff = JSON.stringify(prev.vip_tables) !== JSON.stringify(mergedTables);
 
-              if (hasCallDiff || hasWaiterDiff) {
+              if (hasCallDiff || hasWaiterDiff || hasTableDiff) {
                 const next: DatabaseState = {
                   ...prev,
                   waiter_calls: mergedCalls,
                   waiters: mergedWaiters,
+                  vip_tables: mergedTables,
                 };
                 saveClientState(next);
                 return next;
@@ -263,27 +304,19 @@ export default function App() {
       };
 
       eventSource.onerror = () => {
-        isSseActive = false;
-        // When SSE stream disconnects, poll immediately to ensure zero missed calls
-        pollCalls();
+        // When SSE stream reconnects or errors, run dedicated refresh immediately
+        executeDedicatedRefresh();
       };
     } catch (e) {
-      isSseActive = false;
       console.warn('SSE stream setup note:', e);
     }
-
-    // 3. Resilient fallback polling interval (runs every 5s only if SSE is disconnected)
-    pollInterval = setInterval(pollCalls, 5000);
 
     return () => {
       if (eventSource) {
         eventSource.close();
       }
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
     };
-  }, []);
+  }, [executeDedicatedRefresh]);
 
   // State update handlers that persist immediately to localStorage & server
   const handleUpdateRestaurant = (updated: Restaurant) => {
