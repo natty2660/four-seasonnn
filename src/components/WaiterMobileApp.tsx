@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Waiter, VipTable, WaiterCall, CallType, CALL_PRIORITY_MAP, getCallPriorityWeight } from '../types/index.ts';
 import { callSound } from '../lib/callSound.ts';
 import { nativeCallBridge } from '../lib/nativeCallBridge.ts';
-import { getServerBaseUrl, setServerBaseUrl, PRODUCTION_BACKEND_URL } from '../lib/apiConfig.ts';
+import { getServerBaseUrl, setServerBaseUrl, PRODUCTION_BACKEND_URL, apiFetch } from '../lib/apiConfig.ts';
 import { NativeIncomingCallScreen } from './NativeIncomingCallScreen.tsx';
 import { NativeAppInstallModal } from './NativeAppInstallModal.tsx';
 import {
@@ -41,6 +41,7 @@ interface WaiterMobileAppProps {
   vipTables: VipTable[];
   activeCalls: WaiterCall[];
   onAcceptCall: (callId: string, waiterId: string, waiterName: string) => Promise<void>;
+  onHoldCall?: (callId: string, waiterId: string, waiterName: string, reason?: string) => Promise<void>;
   onCompleteCall: (callId: string) => Promise<void>;
   onToggleDuty: (waiterId: string, onDuty: boolean) => Promise<void>;
   onBackToMenu: () => void;
@@ -51,6 +52,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   vipTables,
   activeCalls,
   onAcceptCall,
+  onHoldCall,
   onCompleteCall,
   onToggleDuty,
   onBackToMenu,
@@ -97,6 +99,8 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
   const [serverUrlInput, setServerUrlInput] = useState(() => getServerBaseUrl());
   const [serverSavedSuccess, setServerSavedSuccess] = useState(false);
+  const [selectedIncomingCallId, setSelectedIncomingCallId] = useState<string | null>(null);
+  const [isIncomingScreenMinimized, setIsIncomingScreenMinimized] = useState<boolean>(false);
   const lastRungCallId = useRef<string | null>(null);
 
   // 1-second heartbeat to re-evaluate 45s escalation without needing page reload
@@ -383,6 +387,22 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     await nativeCallBridge.stopNativeCallAlert();
     setSilencedCallIds((prev) => new Set(prev).add(callId));
     await onAcceptCall(callId, waiterId, waiterName);
+  };
+
+  // Hold call action
+  const handleHold = async (callId: string, waiterId: string, waiterName: string) => {
+    callSound.stopWaiterRingtone();
+    await nativeCallBridge.stopNativeCallAlert();
+    setSilencedCallIds((prev) => new Set(prev).add(callId));
+    if (onHoldCall) {
+      await onHoldCall(callId, waiterId, waiterName);
+    } else {
+      await apiFetch(`/api/waiter-calls/${callId}/hold`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
+      });
+    }
   };
 
   // Test ring function
@@ -945,21 +965,53 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
         </div>
       </header>
 
-      {/* FULL-SCREEN REAL NATIVE INCOMING CALL OVERLAY (WhatsApp / Telegram Call Style) */}
-      {pendingCallsForMe.length > 0 && (
-        <NativeIncomingCallScreen
-          call={pendingCallsForMe[0]}
-          waiterName={currentWaiter.name}
-          waiterId={currentWaiter.id}
-          isAssignedToMe={pendingCallsForMe[0].assigned_waiter_id === currentWaiter.id}
-          onAccept={handleAccept}
-          onMute={() => {
-            setIsMuted(true);
-            callSound.stopWaiterRingtone();
-          }}
-          isMuted={isMuted}
-        />
+      {/* Minimized Ringing Queue Banner */}
+      {isIncomingScreenMinimized && pendingCallsForMe.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-600 via-[#D4AF37] to-amber-700 text-black px-4 py-2.5 flex items-center justify-between shadow-xl border-b border-black/20 sticky top-[61px] z-30 animate-pulse">
+          <div className="flex items-center gap-2 min-w-0">
+            <BellRing className="w-4 h-4 animate-bounce text-black shrink-0" />
+            <span className="font-black text-xs uppercase tracking-wide truncate">
+              {pendingCallsForMe.length} VIP {pendingCallsForMe.length === 1 ? 'Table' : 'Tables'} Calling!
+            </span>
+            <span className="text-[10px] font-bold bg-black/20 px-2 py-0.5 rounded-full shrink-0 hidden sm:inline">
+              Top: {pendingCallsForMe[0].table_number} ({pendingCallsForMe[0].call_type})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsIncomingScreenMinimized(false)}
+            className="px-3 py-1 rounded-xl bg-black text-[#FCF6BA] font-extrabold text-xs shadow hover:bg-neutral-900 transition-all cursor-pointer shrink-0"
+          >
+            Open Call Screen
+          </button>
+        </div>
       )}
+
+      {/* FULL-SCREEN REAL NATIVE INCOMING CALL OVERLAY (WhatsApp / Telegram Call Style) */}
+      {!isIncomingScreenMinimized && pendingCallsForMe.length > 0 && (() => {
+        const activeCall =
+          pendingCallsForMe.find((c) => c.id === selectedIncomingCallId) ||
+          pendingCallsForMe[0];
+        return (
+          <NativeIncomingCallScreen
+            call={activeCall}
+            queuedCalls={pendingCallsForMe}
+            activeCallId={activeCall.id}
+            onSelectCall={(id) => setSelectedIncomingCallId(id)}
+            onHold={handleHold}
+            onMinimize={() => setIsIncomingScreenMinimized(true)}
+            waiterName={currentWaiter.name}
+            waiterId={currentWaiter.id}
+            isAssignedToMe={activeCall.assigned_waiter_id === currentWaiter.id}
+            onAccept={handleAccept}
+            onMute={() => {
+              setIsMuted(true);
+              callSound.stopWaiterRingtone();
+            }}
+            isMuted={isMuted}
+          />
+        );
+      })()}
 
       {/* NATIVE APP APK & INSTALLATION GUIDE MODAL */}
       <NativeAppInstallModal

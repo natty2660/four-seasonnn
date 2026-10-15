@@ -1132,7 +1132,7 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
       return false; // If unassigned, floor staff on duty can accept it
     });
 
-    const initialStatus: CallStatus = isWaiterBusyWithAnotherCustomer ? 'hold' : 'pending';
+    const initialStatus: CallStatus = (isWaiterBusyWithAnotherCustomer && !isUrgent) ? 'hold' : 'pending';
 
     // Archive / complete any previous pending, hold, or missed call for this table
     db.waiter_calls.forEach((c) => {
@@ -1162,6 +1162,18 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
     };
 
     db.waiter_calls.unshift(newCall);
+
+    // Keep history clean and bounded (maximum 200 entries, always preserving active calls)
+    if (db.waiter_calls.length > 200) {
+      const active = db.waiter_calls.filter((c) =>
+        ['pending', 'accepted', 'hold', 'missed'].includes(c.status)
+      );
+      const history = db.waiter_calls
+        .filter((c) => c.status === 'completed' || c.status === 'cancelled')
+        .slice(0, 150);
+      db.waiter_calls = [...active, ...history];
+    }
+
     finalCall = newCall;
     isNew = true;
     return db;

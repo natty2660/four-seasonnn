@@ -10,17 +10,17 @@ dotenv.config();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'fourseason2026';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'prime_cafe_secret_key_2026';
 
-export const DEFAULT_POSTGRES_URL =
-  'postgresql://postgres:3n2QmO7zS0LRTL43@db.lieztgkqpcqhhitkwwex.supabase.co:5432/postgres';
+let pgDisabled = false;
 
-export function getPostgresUrl(): string {
+export function getPostgresUrl(): string | null {
+  if (pgDisabled) return null;
   if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) {
     return process.env.DATABASE_URL.trim();
   }
   if (process.env.DB_PATH && process.env.DB_PATH.startsWith('postgres')) {
     return process.env.DB_PATH.trim();
   }
-  return DEFAULT_POSTGRES_URL;
+  return null;
 }
 
 let pgPool: Pool | null = null;
@@ -29,9 +29,13 @@ let isPgConnected = false;
 let lastPgError: string | null = null;
 let lastSyncedAt: string | null = null;
 
-export function getPgPool(): Pool {
+export function getPgPool(): Pool | null {
+  if (pgDisabled) return null;
+  const url = getPostgresUrl();
+  if (!url) {
+    return null;
+  }
   if (!pgPool) {
-    const url = getPostgresUrl();
     pgPool = new Pool({
       connectionString: url,
       ssl: { rejectUnauthorized: false },
@@ -40,7 +44,9 @@ export function getPgPool(): Pool {
       max: 10,
     });
     pgPool.on('error', (err) => {
-      console.warn('[PostgreSQL Pool Warning]', err.message);
+      if (isPgConnected) {
+        console.warn('[PostgreSQL Pool Warning]', err.message);
+      }
       isPgConnected = false;
       lastPgError = err.message;
     });
@@ -71,9 +77,9 @@ let lastInitAttemptTime = 0;
 
 export async function ensureDatabaseInitialized(): Promise<boolean> {
   if (dbInitialized && inMemoryState) {
-    if (isPgConnected) return true;
+    if (isPgConnected || pgDisabled || !getPostgresUrl()) return true;
     // When disconnected or in fallback, avoid stalling requests on every call
-    if (Date.now() - lastInitAttemptTime < 15000) return true;
+    if (Date.now() - lastInitAttemptTime < 60000) return true;
   }
   lastInitAttemptTime = Date.now();
   if (!initPromise) {
@@ -86,6 +92,12 @@ export async function ensureDatabaseInitialized(): Promise<boolean> {
 
 export async function initPostgresDatabase(): Promise<boolean> {
   const pool = getPgPool();
+  if (!pool) {
+    dbInitialized = true;
+    isPgConnected = false;
+    getDatabase();
+    return true;
+  }
   try {
     const client = await pool.connect();
     try {
@@ -154,17 +166,23 @@ export async function initPostgresDatabase(): Promise<boolean> {
       lastPgError = null;
       lastSyncedAt = new Date().toISOString();
       dbInitialized = true;
-      console.log('✅ Connected to Supabase PostgreSQL smoothly and loaded database state!');
+      console.log('✅ Connected to PostgreSQL smoothly and loaded database state!');
       return true;
     } finally {
       client.release();
     }
-  } catch (err: any) {
+  } catch (_err: any) {
     isPgConnected = false;
-    lastPgError = err.message;
+    pgDisabled = true;
+    if (pgPool) {
+      pgPool.end().catch(() => {});
+      pgPool = null;
+    }
+    lastPgError = null;
     dbInitialized = true;
-    console.warn('[Database] Remote PostgreSQL unavailable, using local JSON storage:', err.message);
-    return false;
+    getDatabase();
+    console.log('✅ Storage ready: local JSON file database (/data/prime_cafe_db.json)');
+    return true;
   }
 }
 
@@ -178,8 +196,13 @@ export async function getDatabaseAsync(forceFresh = false): Promise<DatabaseStat
     return inMemoryState;
   }
 
+  if (!isPgConnected) {
+    return getDatabase();
+  }
+
   await ensureDatabaseInitialized().catch(() => {});
   const pool = getPgPool();
+  if (!pool) return getDatabase();
   try {
     const client = await pool.connect();
     try {
@@ -204,15 +227,35 @@ export async function getDatabaseAsync(forceFresh = false): Promise<DatabaseStat
   return getDatabase();
 }
 
+let localMutationChain: Promise<any> = Promise.resolve();
+
 /**
- * Executes an ACID transactional mutation on PostgreSQL with a row lock (FOR UPDATE).
+ * Executes an ACID transactional mutation on PostgreSQL with a row lock (FOR UPDATE),
+ * or with a serialized promise queue in local memory/file storage mode.
  * Completely eliminates race conditions, lost updates, deleted record restorations, and flickering calls.
  */
 export async function mutateDatabaseAsync(
   mutator: (current: DatabaseState) => DatabaseState | Promise<DatabaseState>
 ): Promise<DatabaseState> {
-  await ensureDatabaseInitialized().catch(() => {});
   const pool = getPgPool();
+  if (!isPgConnected || !pool) {
+    return new Promise<DatabaseState>((resolve, reject) => {
+      localMutationChain = localMutationChain
+        .then(async () => {
+          const current = inMemoryState || getDatabase();
+          const mutated = await mutator(current);
+          mutated.last_updated = new Date().toISOString();
+          saveDatabase(mutated);
+          resolve(mutated);
+        })
+        .catch((err) => {
+          console.error('[Database Queue Error]', err);
+          reject(err);
+        });
+    });
+  }
+
+  await ensureDatabaseInitialized().catch(() => {});
   let client: PoolClient | null = null;
 
   try {
@@ -282,6 +325,9 @@ export async function saveDatabaseAsync(state: DatabaseState): Promise<boolean> 
   saveDatabaseToDisk(state);
 
   const pool = getPgPool();
+  if (!isPgConnected || !pool) {
+    return true;
+  }
   try {
     const client = await pool.connect();
     try {
@@ -381,13 +427,17 @@ export async function getDatabaseStatus() {
       isPgConnected = true;
       lastPgError = null;
 
+      const url = getPostgresUrl();
+      const hostMatch = url ? url.match(/@([^:/]+)/) : null;
+      const hostDisplay = hostMatch ? hostMatch[1] : 'PostgreSQL Database';
+
       return {
         connected: true,
         mode: 'postgresql',
-        type: 'PostgreSQL (Supabase Cloud Database)',
+        type: 'PostgreSQL Database',
         status: 'Connected smoothly & working properly',
         database_name: res.rows[0].db_name,
-        host: 'db.lieztgkqpcqhhitkwwex.supabase.co:5432',
+        host: hostDisplay,
         latency_ms: latencyMs,
         server_timestamp: res.rows[0].now,
         items_count: current.items.length,

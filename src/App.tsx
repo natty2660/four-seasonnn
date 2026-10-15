@@ -645,6 +645,49 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     }
   };
 
+  // Waiter & Admin: Explicitly Place Call on Hold
+  const handleHoldCall = async (
+    callId: string,
+    waiterId: string,
+    waiterName: string,
+    holdReason?: string
+  ): Promise<void> => {
+    const heldAt = new Date().toISOString();
+    const reason = holdReason || `Staff ${waiterName || 'Member'} will attend shortly`;
+
+    setDbState((prev) => {
+      const nextCalls = (prev.waiter_calls || []).map((c) =>
+        c.id === callId
+          ? {
+              ...c,
+              status: 'hold' as const,
+              held_at: heldAt,
+              hold_reason: reason,
+              accepted_by_waiter_id: waiterId,
+              accepted_by_name: waiterName,
+            }
+          : c
+      );
+      const next = { ...prev, waiter_calls: nextCalls };
+      saveClientState(next);
+      return next;
+    });
+
+    try {
+      await apiFetch(`/api/waiter-calls/${callId}/hold`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          waiter_id: waiterId,
+          waiter_name: waiterName,
+          hold_reason: reason,
+        }),
+      });
+    } catch (e) {
+      console.warn('Hold call network error:', e);
+    }
+  };
+
   // Waiter & Admin: Complete Call (Releases and promotes next queued held call)
   const handleCompleteCall = async (callId: string): Promise<void> => {
     const completedAt = new Date().toISOString();
@@ -921,6 +964,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
           vipTables={dbState.vip_tables}
           activeCalls={dbState.waiter_calls || []}
           onAcceptCall={handleAcceptCall}
+          onHoldCall={handleHoldCall}
           onCompleteCall={handleCompleteCall}
           onToggleDuty={handleToggleDuty}
           onBackToMenu={() => {
