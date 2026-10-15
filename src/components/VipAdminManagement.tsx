@@ -37,6 +37,7 @@ interface VipAdminManagementProps {
   onAcceptCall: (callId: string, waiterId: string, waiterName: string) => Promise<void>;
   onCompleteCall: (callId: string) => Promise<void>;
   onCancelCall: (callId: string) => Promise<void>;
+  onClearHistory?: () => void;
 }
 
 export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
@@ -50,6 +51,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
   onAcceptCall,
   onCompleteCall,
   onCancelCall,
+  onClearHistory,
 }) => {
   const [activeTab, setActiveTab] = useState<'calls' | 'tables' | 'waiters' | 'qr_system'>(
     initialTab || 'calls'
@@ -365,6 +367,9 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (onClearHistory) {
+        onClearHistory();
+      }
     } catch (err) {
       console.error('Failed to clear history:', err);
     }
@@ -374,7 +379,13 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
   const acceptedCalls = calls.filter((c) => c.status === 'accepted');
   const heldCalls = calls.filter((c) => c.status === 'hold');
   const missedCalls = calls.filter((c) => c.status === 'missed');
-  const pastCalls = calls.filter((c) => c.status === 'completed' || c.status === 'cancelled');
+  const pastCalls = calls
+    .filter((c) => c.status === 'completed' || c.status === 'cancelled')
+    .sort(
+      (a, b) =>
+        new Date(b.completed_at || b.created_at).getTime() -
+        new Date(a.completed_at || a.created_at).getTime()
+    );
 
   return (
     <div className="space-y-6">
@@ -757,7 +768,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                 Recent Call History ({pastCalls.length}):
               </h3>
               <div className="space-y-2">
-                {pastCalls.slice(0, 8).map((call) => (
+                {pastCalls.slice(0, 30).map((call) => (
                   <div
                     key={call.id}
                     className="p-3 bg-[#111] border border-white/5 rounded-xl flex items-center justify-between text-xs"

@@ -719,6 +719,20 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
     }
   };
 
+  // Admin: Clear completed call logs
+  const handleClearCallHistory = () => {
+    setDbState((prev) => {
+      const next = {
+        ...prev,
+        waiter_calls: (prev.waiter_calls || []).filter(
+          (c) => c.status === 'pending' || c.status === 'accepted' || c.status === 'hold'
+        ),
+      };
+      saveClientState(next);
+      return next;
+    });
+  };
+
   // Waiter: Toggle duty status
   const handleToggleDuty = async (waiterId: string, onDuty: boolean): Promise<void> => {
     try {
@@ -955,6 +969,7 @@ function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall
           onAcceptCall={handleAcceptCall}
           onCompleteCall={handleCompleteCall}
           onCancelCall={handleCancelCall}
+          onClearHistory={handleClearCallHistory}
           onOpenQR={() => setIsQRModalOpen(true)}
           onOpenLogoCropper={() => setIsLogoCropperOpen(true)}
           onOpenPhotoEnhancer={() => setIsPhotoEnhancerOpen(true)}

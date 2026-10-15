@@ -60,6 +60,7 @@ interface AdminDashboardProps {
   onAcceptCall?: (callId: string, waiterId: string, waiterName: string) => Promise<void>;
   onCompleteCall?: (callId: string) => Promise<void>;
   onCancelCall?: (callId: string) => Promise<void>;
+  onClearHistory?: () => void;
   onOpenQR: () => void;
   onOpenLogoCropper?: () => void;
   onOpenPhotoEnhancer?: () => void;
@@ -83,6 +84,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onAcceptCall = async () => {},
   onCompleteCall = async () => {},
   onCancelCall = async () => {},
+  onClearHistory = () => {},
   onOpenQR,
   onOpenLogoCropper,
   onOpenPhotoEnhancer,
@@ -1726,6 +1728,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             onAcceptCall={onAcceptCall}
             onCompleteCall={onCompleteCall}
             onCancelCall={onCancelCall}
+            onClearHistory={onClearHistory}
           />
         )}
 

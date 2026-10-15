@@ -120,6 +120,30 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     })[0] || null;
 
+  // Track dismissed completed call and find most recent completed call to prevent abrupt disappearing
+  const [dismissedCompletedCallId, setDismissedCompletedCallId] = useState<string | null>(null);
+  const [showTableHistory, setShowTableHistory] = useState<boolean>(false);
+  const recentCompletedCall = tableCalls
+    .filter(
+      (c) =>
+        c.status === 'completed' &&
+        c.id !== dismissedCompletedCallId &&
+        Date.now() - new Date(c.completed_at || c.created_at).getTime() < 120000
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.completed_at || b.created_at).getTime() -
+        new Date(a.completed_at || a.created_at).getTime()
+    )[0] || null;
+
+  const pastTableCalls = tableCalls
+    .filter((c) => c.status === 'completed' || c.status === 'cancelled')
+    .sort(
+      (a, b) =>
+        new Date(b.completed_at || b.created_at).getTime() -
+        new Date(a.completed_at || a.created_at).getTime()
+    );
+
   // Sound chime notification when waiter accepts the call
   const prevCallStatusRef = useRef<string | null>(null);
   useEffect(() => {
@@ -501,6 +525,32 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
             </div>
           )}
 
+          {/* RECENT COMPLETED SERVICE ACKNOWLEDGMENT (Prevents abrupt disappearing feedback) */}
+          {recentCompletedCall && !currentCall && (
+            <div className="mt-2.5 p-3 rounded-xl border bg-emerald-950/60 border-emerald-500/70 shadow-lg shadow-emerald-950/40 flex items-center justify-between gap-3 animate-fadeIn">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-emerald-400 text-black font-black flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-extrabold text-emerald-300 truncate">
+                    ✅ Service Completed by {recentCompletedCall.accepted_by_name || 'Staff'}
+                  </p>
+                  <p className="text-[10px] sm:text-[11px] text-emerald-100/80 truncate">
+                    {recentCompletedCall.call_type.toUpperCase()} request attended to. Thank you!
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDismissedCompletedCallId(recentCompletedCall.id)}
+                className="px-2 py-1 rounded-md bg-black/60 hover:bg-black/90 text-white/80 hover:text-white text-[10px] border border-white/20 transition-all shrink-0 cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {/* STREAMLINED COMPACT CALL BUTTONS BAR (Significantly decreased footprint) */}
           <div className="mt-3">
             {/* Single Compact Quick-Action Strip */}
@@ -595,6 +645,38 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
                 <CheckCircle2 className="w-3 h-3" />
                 <span>{callSuccessFeedback}</span>
               </p>
+            )}
+
+            {pastTableCalls.length > 0 && (
+              <div className="mt-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => setShowTableHistory(!showTableHistory)}
+                  className="text-[10px] text-white/50 hover:text-[#FCF6BA] underline cursor-pointer"
+                >
+                  {showTableHistory ? 'Hide Call History' : `View Table History (${pastTableCalls.length})`}
+                </button>
+              </div>
+            )}
+
+            {showTableHistory && pastTableCalls.length > 0 && (
+              <div className="mt-2 p-2.5 bg-[#121212] border border-white/10 rounded-xl space-y-1.5 max-h-40 overflow-y-auto">
+                <p className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-wider mb-1">
+                  Recent Service Logs for {table.table_number}:
+                </p>
+                {pastTableCalls.slice(0, 6).map((pc) => (
+                  <div key={pc.id} className="flex items-center justify-between text-[11px] py-1 border-b border-white/5">
+                    <span className="text-white/80 font-medium truncate mr-2">
+                      {pc.call_type.toUpperCase()}: {pc.message || 'Staff request'}
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-semibold shrink-0">
+                      {pc.status === 'completed'
+                        ? `Done by ${pc.accepted_by_name || 'Staff'}`
+                        : 'Cancelled'}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

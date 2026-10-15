@@ -328,10 +328,15 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
       return new Date(b.missed_at || b.created_at).getTime() - new Date(a.missed_at || a.created_at).getTime();
     });
 
-  // Recent completed calls
+  // Recent completed calls sorted chronologically by completion time descending (newest on top)
   const completedCalls = activeCalls
     .filter((c) => c.status === 'completed' || c.status === 'cancelled')
-    .slice(0, 10);
+    .sort(
+      (a, b) =>
+        new Date(b.completed_at || b.created_at).getTime() -
+        new Date(a.completed_at || a.created_at).getTime()
+    )
+    .slice(0, 25);
 
   // Track silenced/acknowledged calls to eliminate repeated re-ringing on simple re-renders
   const [silencedCallIds, setSilencedCallIds] = useState<Set<string>>(new Set());

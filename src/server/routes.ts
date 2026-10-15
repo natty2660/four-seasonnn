@@ -158,9 +158,9 @@ apiRouter.post('/db/resync', requireAdmin, async (_req: Request, res: Response) 
 });
 
 // 2. Public Menu Fetch by Slug (Single-query fast fetch with resilient slug fallback)
-apiRouter.get(['/menu/:slug', '/menu'], (req: Request, res: Response) => {
+apiRouter.get(['/menu/:slug', '/menu'], async (req: Request, res: Response) => {
   const slug = req.params.slug || 'prime-cafe';
-  const db = getDatabase();
+  const db = await getDatabaseAsync();
   let menu = buildMenuResponse(db, slug);
 
   // If slug requested isn't found, smoothly fallback to the active restaurant's menu
@@ -230,8 +230,8 @@ apiRouter.post('/admin/change-password', requireAdmin, (req: Request, res: Respo
 });
 
 // 5. Get Restaurant Profile
-apiRouter.get('/restaurants', (_req: Request, res: Response) => {
-  const db = getDatabase();
+apiRouter.get('/restaurants', async (_req: Request, res: Response) => {
+  const db = await getDatabaseAsync();
   res.json(db.restaurant);
 });
 
@@ -462,7 +462,7 @@ apiRouter.get('/qr/:slug', async (req: Request, res: Response) => {
 });
 
 // 16. Upload Dish Photo - Saves file directly to public/assets/images, src/assets/images, PostgreSQL, and seedData.ts
-apiRouter.post('/upload-dish-photo', (req: Request, res: Response) => {
+apiRouter.post('/upload-dish-photo', async (req: Request, res: Response) => {
   const { itemId, fileName, dataBase64 } = req.body;
   if (!itemId || !dataBase64) {
     res.status(400).json({ error: 'itemId and dataBase64 are required.' });
@@ -509,12 +509,14 @@ apiRouter.post('/upload-dish-photo', (req: Request, res: Response) => {
     saveImageBlob(outFileName, `image/${ext === 'png' ? 'png' : 'jpeg'}`, optimizedBuffer).catch(() => {});
 
     const publicUrl = `/assets/images/${outFileName}`;
-    const db = getDatabase();
-    const item = db.items.find((i) => i.id === itemId);
-    if (item) {
-      item.image_url = publicUrl;
-      saveDatabase(db);
-    }
+    await mutateDatabaseAsync((db) => {
+      const item = db.items.find((i) => i.id === itemId);
+      if (item) {
+        item.image_url = publicUrl;
+        item.updated_at = new Date().toISOString();
+      }
+      return db;
+    });
 
     // Also persist directly into src/data/seedData.ts so future restarts or seeds keep the exact original photo
     try {
@@ -538,7 +540,7 @@ apiRouter.post('/upload-dish-photo', (req: Request, res: Response) => {
 });
 
 // 17. Upload Unedited Confidential Brand Logo & Cropped Wall Photo
-apiRouter.post('/upload-brand-asset', (req: Request, res: Response) => {
+apiRouter.post('/upload-brand-asset', async (req: Request, res: Response) => {
   const { wallBase64, logoBase64 } = req.body || {};
   if (!wallBase64 && !logoBase64) {
     res.status(400).json({ error: 'wallBase64 or logoBase64 is required.' });
@@ -546,15 +548,16 @@ apiRouter.post('/upload-brand-asset', (req: Request, res: Response) => {
   }
 
   try {
-    const db = getDatabase();
     const timestamp = Date.now();
+    let wallFileName: string | null = null;
+    let logoFileName: string | null = null;
 
     if (wallBase64) {
       const matches = wallBase64.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
       const ext = matches ? matches[1].replace('jpeg', 'jpg') : 'jpg';
       const rawData = matches ? matches[2] : wallBase64;
       const buffer = Buffer.from(rawData, 'base64');
-      const wallFileName = `four_season_confidential_wall_${timestamp}.${ext}`;
+      wallFileName = `four_season_confidential_wall_${timestamp}.${ext}`;
 
       const publicDir = path.join(process.cwd(), 'public', 'assets', 'images');
       if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
@@ -566,7 +569,6 @@ apiRouter.post('/upload-brand-asset', (req: Request, res: Response) => {
       }
 
       saveImageBlob(wallFileName, `image/${ext === 'png' ? 'png' : 'jpeg'}`, buffer).catch(() => {});
-      db.restaurant.cover_url = `/assets/images/${wallFileName}`;
     }
 
     if (logoBase64) {
@@ -574,7 +576,7 @@ apiRouter.post('/upload-brand-asset', (req: Request, res: Response) => {
       const ext = matches ? matches[1].replace('jpeg', 'jpg') : 'jpg';
       const rawData = matches ? matches[2] : logoBase64;
       const buffer = Buffer.from(rawData, 'base64');
-      const logoFileName = `four_season_confidential_logo_${timestamp}.${ext}`;
+      logoFileName = `four_season_confidential_logo_${timestamp}.${ext}`;
 
       const publicDir = path.join(process.cwd(), 'public', 'assets', 'images');
       if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
@@ -586,15 +588,22 @@ apiRouter.post('/upload-brand-asset', (req: Request, res: Response) => {
       }
 
       saveImageBlob(logoFileName, `image/${ext === 'png' ? 'png' : 'jpeg'}`, buffer).catch(() => {});
-      db.restaurant.logo_url = `/assets/images/${logoFileName}`;
     }
 
-    db.restaurant.updated_at = new Date().toISOString();
-    saveDatabase(db);
+    const updatedDb = await mutateDatabaseAsync((db) => {
+      if (wallFileName) {
+        db.restaurant.cover_url = `/assets/images/${wallFileName}`;
+      }
+      if (logoFileName) {
+        db.restaurant.logo_url = `/assets/images/${logoFileName}`;
+      }
+      db.restaurant.updated_at = new Date().toISOString();
+      return db;
+    });
 
     res.json({
       success: true,
-      restaurant: db.restaurant,
+      restaurant: updatedDb.restaurant,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
