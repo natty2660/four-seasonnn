@@ -178,13 +178,14 @@ export default function App() {
     const shouldRevalidateMenu = refreshCycleCount.current % 6 === 0;
 
     try {
+      const t = Date.now();
       const fetchList: Promise<any>[] = [
-        apiFetch('/api/waiter-calls'),
-        apiFetch('/api/waiters'),
-        apiFetch('/api/vip-tables'),
+        apiFetch(`/api/waiter-calls?_t=${t}`, { cache: 'no-store' }),
+        apiFetch(`/api/waiters?_t=${t}`, { cache: 'no-store' }),
+        apiFetch(`/api/vip-tables?_t=${t}`, { cache: 'no-store' }),
       ];
       if (shouldRevalidateMenu) {
-        fetchList.push(apiFetch('/api/menu/prime-cafe'));
+        fetchList.push(apiFetch(`/api/menu/prime-cafe?_t=${t}`, { cache: 'no-store' }));
       }
 
       const results = await Promise.allSettled(fetchList);
@@ -257,11 +258,31 @@ export default function App() {
 
   // 1. Dedicated 5-Second Interval - runs silently inside the site every 5 seconds
   useEffect(() => {
+    // Immediate refresh on mount
+    executeDedicatedRefresh();
+
     const timer = setInterval(() => {
       executeDedicatedRefresh();
     }, 5000);
 
-    return () => clearInterval(timer);
+    // Instant revalidation when tab becomes visible or receives focus
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        executeDedicatedRefresh();
+      }
+    };
+    const handleFocus = () => {
+      executeDedicatedRefresh();
+    };
+
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [executeDedicatedRefresh]);
 
   // 2. Real-time Server-Sent Events (SSE) stream for sub-second push alerts
@@ -826,7 +847,14 @@ export default function App() {
     }
   }, [currentPath, isVipRoute, vipTableFromUrl, dbState.vip_tables]);
 
-  const activeVipTable = selectedVipTable || vipTableFromUrl || dbState.vip_tables[0];
+  const currentTableId = selectedVipTable?.id || vipTableFromUrl?.id;
+  const currentTableNumber = selectedVipTable?.table_number || vipTableFromUrl?.table_number;
+  const activeVipTable =
+    (dbState.vip_tables || []).find(
+      (t) =>
+        (currentTableId && t.id === currentTableId) ||
+        (currentTableNumber && t.table_number.toLowerCase() === currentTableNumber.toLowerCase())
+    ) || selectedVipTable || vipTableFromUrl || dbState.vip_tables[0];
   const pendingCallsCount = (dbState.waiter_calls || []).filter(
     (c) => c.status === 'pending'
   ).length;

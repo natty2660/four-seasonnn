@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Restaurant, Category, MenuItem, VipTable, Waiter, WaiterCall, CallType } from '../types/index.ts';
 import { ItemCard } from './ItemCard.tsx';
 import { callSound } from '../lib/callSound.ts';
+import { apiFetch } from '../lib/apiConfig.ts';
+import { reconcileWaiterCalls } from '../utils/reconcileCalls.ts';
 import {
   isVipSessionValid,
   getRemainingVipTime,
@@ -89,11 +91,62 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
     return () => clearInterval(timer);
   }, [table.id]);
 
+  // Dedicated Strong 5-Second Refreshment Engine for VIP Table Customer View
+  const [syncedCalls, setSyncedCalls] = useState<WaiterCall[]>(activeCalls);
+
+  useEffect(() => {
+    setSyncedCalls((prev) => reconcileWaiterCalls(prev, activeCalls));
+  }, [activeCalls]);
+
+  const refreshVipCallsAuthoritative = useCallback(async () => {
+    try {
+      const res = await apiFetch(`/api/waiter-calls?_t=${Date.now()}`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (Array.isArray(data)) {
+          setSyncedCalls((prev) => reconcileWaiterCalls(prev, data));
+        }
+      }
+    } catch {
+      // Silent catch
+    }
+  }, []);
+
+  useEffect(() => {
+    // 1. Initial immediate refresh
+    refreshVipCallsAuthoritative();
+
+    // 2. Strong 5-second interval
+    const interval = setInterval(refreshVipCallsAuthoritative, 5000);
+
+    // 3. Instant revalidation on tab visibility / phone wake
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        refreshVipCallsAuthoritative();
+      }
+    };
+    const handleFocus = () => {
+      refreshVipCallsAuthoritative();
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshVipCallsAuthoritative]);
+
   // Find assigned responsible waiter
   const assignedWaiter = waiters.find((w) => w.id === table.assigned_waiter_id);
 
   // Match calls by table_id or table_number (supporting both formats seamlessly)
-  const tableCalls = activeCalls.filter(
+  const effectiveCalls = syncedCalls.length > 0 ? syncedCalls : activeCalls;
+  const tableCalls = effectiveCalls.filter(
     (c) =>
       c.table_id === table.id ||
       c.table_id === table.table_number ||

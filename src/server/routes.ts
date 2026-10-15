@@ -616,6 +616,12 @@ apiRouter.post('/upload-brand-asset', async (req: Request, res: Response) => {
 
 // 18.1 Get All VIP Tables
 apiRouter.get('/vip-tables', async (_req: Request, res: Response) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store',
+  });
   const db = await getDatabaseAsync();
   res.json(db.vip_tables || []);
 });
@@ -692,6 +698,12 @@ apiRouter.delete('/vip-tables/:id', requireAdmin, async (req: Request, res: Resp
 // 19. Waiters Management
 // 19.1 Get All Waiters
 apiRouter.get('/waiters', async (_req: Request, res: Response) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store',
+  });
   const db = await getDatabaseAsync();
   res.json(db.waiters || []);
 });
@@ -957,6 +969,12 @@ export function sortCallsByPriority(calls: WaiterCall[]): WaiterCall[] {
 
 // 20.1 List Active & Recent Calls (Pure read: No destructive un-locked mutations on GET)
 apiRouter.get('/waiter-calls', async (_req: Request, res: Response) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store',
+  });
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
   const now = Date.now();
@@ -1050,6 +1068,12 @@ apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], async (_req: Request, 
 
 // 20.1b Waiter Calls Active Endpoint (used by mobile and background polling)
 apiRouter.get(['/waiter/calls/active', '/waiter-calls/active'], async (_req: Request, res: Response) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store',
+  });
   const db = await getDatabaseAsync();
   const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
   const now = Date.now();

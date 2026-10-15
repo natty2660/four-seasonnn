@@ -30,57 +30,9 @@ export function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: Wai
     const prevRev = prev.revision ?? 1;
     const incRev = inc.revision ?? 1;
 
-    // RULE 1: If incoming revision is strictly older than what we already have confirmed locally, DISCARD incoming stale state!
-    if (incRev < prevRev) {
-      mergedMap.set(inc.id, prev);
-      continue;
-    }
-
-    // RULE 2: Terminal State Lock: Once a call reaches completed/cancelled, older or equal revisions cannot revert it to pending or hold
-    const wasCompletedLocally = prev.status === 'completed' || prev.status === 'cancelled';
-    const isStaleActiveIncoming = inc.status === 'pending' || inc.status === 'hold';
-    const completedAtTime = prev.completed_at ? new Date(prev.completed_at).getTime() : now;
-    if (wasCompletedLocally && isStaleActiveIncoming && (now - completedAtTime < TERMINAL_LOCK_WINDOW_MS)) {
-      mergedMap.set(inc.id, prev);
-      continue;
-    }
-
-    // RULE 3: Missed State Lock: A missed call (timed out) must never resurrect to pending to ring again
-    if (prev.status === 'missed' && inc.status === 'pending') {
-      mergedMap.set(inc.id, prev);
-      continue;
-    }
-
-    // RULE 4: Local Accept Lock: If accepted locally, don't let pending overwrite if revisions are equal or within accept lock
-    const wasAcceptedLocally = prev.status === 'accepted';
-    const acceptedAtTime = prev.accepted_at ? new Date(prev.accepted_at).getTime() : now;
-    if (wasAcceptedLocally && inc.status === 'pending' && (incRev <= prevRev || now - acceptedAtTime < ACCEPT_LOCK_WINDOW_MS)) {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'accepted',
-        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
-        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
-        accepted_at: prev.accepted_at || new Date().toISOString(),
-        revision: Math.max(prevRev, incRev),
-      });
-      continue;
-    }
-
-    // RULE 5: Hold Lock: If placed on hold locally, preserve hold state against stale pending
-    if (prev.status === 'hold' && inc.status === 'pending' && incRev <= prevRev) {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'hold',
-        held_at: prev.held_at || new Date().toISOString(),
-        hold_reason: prev.hold_reason || 'Waiter currently attending another customer',
-        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
-        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
-        revision: Math.max(prevRev, incRev),
-      });
-      continue;
-    }
-
-    // RULE 6: Waiter accepted on server - firmly lock in
+    // RULE 1: Server Authoritative Progression:
+    // If the server has moved the call forward (accepted, hold, completed, cancelled, missed),
+    // that authoritative server action MUST take effect immediately!
     if (inc.status === 'accepted') {
       mergedMap.set(inc.id, {
         ...inc,
@@ -93,24 +45,98 @@ export function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: Wai
       continue;
     }
 
-    // Otherwise, accept newer authoritative server state
+    if (inc.status === 'hold') {
+      mergedMap.set(inc.id, {
+        ...inc,
+        status: 'hold',
+        held_at: inc.held_at || prev.held_at || new Date().toISOString(),
+        hold_reason: inc.hold_reason || prev.hold_reason || 'Waiter currently attending another customer',
+        accepted_by_waiter_id: inc.accepted_by_waiter_id || prev.accepted_by_waiter_id || null,
+        accepted_by_name: inc.accepted_by_name || prev.accepted_by_name || 'Staff Member',
+        revision: Math.max(prevRev, incRev),
+      });
+      continue;
+    }
+
+    if (inc.status === 'completed' || inc.status === 'cancelled') {
+      mergedMap.set(inc.id, {
+        ...inc,
+        status: inc.status,
+        completed_at: inc.completed_at || prev.completed_at || new Date().toISOString(),
+        revision: Math.max(prevRev, incRev),
+      });
+      continue;
+    }
+
+    if (inc.status === 'missed') {
+      mergedMap.set(inc.id, {
+        ...inc,
+        status: 'missed',
+        missed_at: inc.missed_at || prev.missed_at || new Date().toISOString(),
+        revision: Math.max(prevRev, incRev),
+      });
+      continue;
+    }
+
+    // RULE 2: Terminal State Lock: Once a call reaches completed/cancelled locally,
+    // a stale incoming 'pending' cannot revert it back.
+    const wasCompletedLocally = prev.status === 'completed' || prev.status === 'cancelled';
+    if (wasCompletedLocally && inc.status === 'pending') {
+      mergedMap.set(inc.id, prev);
+      continue;
+    }
+
+    // RULE 3: Missed State Lock: A missed call must never resurrect to pending
+    if (prev.status === 'missed' && inc.status === 'pending') {
+      mergedMap.set(inc.id, prev);
+      continue;
+    }
+
+    // RULE 4: Local Accept Lock: If accepted locally, don't let pending overwrite within lock window
+    const wasAcceptedLocally = prev.status === 'accepted';
+    const acceptedAtTime = prev.accepted_at ? new Date(prev.accepted_at).getTime() : now;
+    if (wasAcceptedLocally && inc.status === 'pending' && (now - acceptedAtTime < ACCEPT_LOCK_WINDOW_MS)) {
+      mergedMap.set(inc.id, {
+        ...inc,
+        status: 'accepted',
+        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
+        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
+        accepted_at: prev.accepted_at || new Date().toISOString(),
+        revision: Math.max(prevRev, incRev),
+      });
+      continue;
+    }
+
+    // RULE 5: Local Hold Lock: If placed on hold locally, preserve hold state against stale pending
+    if (prev.status === 'hold' && inc.status === 'pending') {
+      mergedMap.set(inc.id, {
+        ...inc,
+        status: 'hold',
+        held_at: prev.held_at || new Date().toISOString(),
+        hold_reason: prev.hold_reason || 'Waiter currently attending another customer',
+        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
+        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
+        revision: Math.max(prevRev, incRev),
+      });
+      continue;
+    }
+
+    // Otherwise, adopt authoritative server state with latest flags (including escalation)
     mergedMap.set(inc.id, {
       ...inc,
+      is_escalated: inc.is_escalated || prev.is_escalated,
       revision: Math.max(prevRev, incRev),
     });
   }
 
-  // 2. Flicker prevention & history preservation:
+  // 2. Network drop jitter prevention (only keep pending calls created < 15s ago if temporarily omitted in fetch)
   for (const prev of prevCalls || []) {
     if (!mergedMap.has(prev.id)) {
-      if (prev.status === 'pending' || prev.status === 'hold') {
+      if (prev.status === 'pending') {
         const timeRef = new Date(prev.created_at).getTime();
-        if (now - timeRef < 60000) {
+        if (now - timeRef < 15000) {
           mergedMap.set(prev.id, prev);
         }
-      } else if (prev.status === 'completed' || prev.status === 'cancelled' || prev.status === 'missed') {
-        // Permanently preserve completed/cancelled history in dashboard records
-        mergedMap.set(prev.id, prev);
       }
     }
   }

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { VipTable, Waiter, WaiterCall } from '../types/index.ts';
 import { generateQRCodeDataUrl, getVipTableUrl, downloadVipQRPNG } from '../lib/qr.ts';
 import { apiFetch } from '../lib/apiConfig.ts';
+import { reconcileWaiterCalls } from '../utils/reconcileCalls.ts';
 import { BrandLogo } from './BrandLogo.tsx';
 import {
   Crown,
@@ -62,6 +63,74 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
       setActiveTab(initialTab);
     }
   }, [initialTab]);
+
+  // Dedicated Strong 5-Second Refreshment Engine for VIP Admin Management Tab
+  const [syncedCalls, setSyncedCalls] = useState<WaiterCall[]>(calls);
+
+  useEffect(() => {
+    setSyncedCalls((prev) => reconcileWaiterCalls(prev, calls));
+  }, [calls]);
+
+  const refreshVipAdminData = useCallback(async () => {
+    try {
+      const t = Date.now();
+      const [callsRes, tablesRes, waitersRes] = await Promise.allSettled([
+        apiFetch(`/api/waiter-calls?_t=${t}`, { cache: 'no-store' }),
+        apiFetch(`/api/vip-tables?_t=${t}`, { cache: 'no-store' }),
+        apiFetch(`/api/waiters?_t=${t}`, { cache: 'no-store' }),
+      ]);
+
+      if (callsRes.status === 'fulfilled' && callsRes.value.ok) {
+        const freshCalls = await callsRes.value.json().catch(() => null);
+        if (Array.isArray(freshCalls)) {
+          setSyncedCalls((prev) => reconcileWaiterCalls(prev, freshCalls));
+        }
+      }
+
+      if (tablesRes.status === 'fulfilled' && tablesRes.value.ok) {
+        const freshTables = await tablesRes.value.json().catch(() => null);
+        if (Array.isArray(freshTables)) {
+          onUpdateTables(freshTables);
+        }
+      }
+
+      if (waitersRes.status === 'fulfilled' && waitersRes.value.ok) {
+        const freshWaiters = await waitersRes.value.json().catch(() => null);
+        if (Array.isArray(freshWaiters)) {
+          onUpdateWaiters(freshWaiters);
+        }
+      }
+    } catch {
+      // Silent catch
+    }
+  }, [onUpdateTables, onUpdateWaiters]);
+
+  useEffect(() => {
+    // 1. Refresh immediately when VIP tab mounts or sub-tab changes
+    refreshVipAdminData();
+
+    // 2. Strong 5-second interval
+    const interval = setInterval(refreshVipAdminData, 5000);
+
+    // 3. Instant revalidation on tab visibility or window focus
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        refreshVipAdminData();
+      }
+    };
+    const handleFocus = () => {
+      refreshVipAdminData();
+    };
+
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshVipAdminData]);
 
   // Modal states
   const [isAddTableOpen, setIsAddTableOpen] = useState(false);
@@ -375,11 +444,12 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     }
   };
 
-  const pendingCalls = calls.filter((c) => c.status === 'pending');
-  const acceptedCalls = calls.filter((c) => c.status === 'accepted');
-  const heldCalls = calls.filter((c) => c.status === 'hold');
-  const missedCalls = calls.filter((c) => c.status === 'missed');
-  const pastCalls = calls
+  const effectiveCalls = syncedCalls.length > 0 ? syncedCalls : calls;
+  const pendingCalls = effectiveCalls.filter((c) => c.status === 'pending');
+  const acceptedCalls = effectiveCalls.filter((c) => c.status === 'accepted');
+  const heldCalls = effectiveCalls.filter((c) => c.status === 'hold');
+  const missedCalls = effectiveCalls.filter((c) => c.status === 'missed');
+  const pastCalls = effectiveCalls
     .filter((c) => c.status === 'completed' || c.status === 'cancelled')
     .sort(
       (a, b) =>
