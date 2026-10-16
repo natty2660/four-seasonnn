@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { VipTable, Waiter, WaiterCall } from '../types/index.ts';
 import { generateQRCodeDataUrl, getVipTableUrl, downloadVipQRPNG } from '../lib/qr.ts';
 import { apiFetch } from '../lib/apiConfig.ts';
@@ -66,12 +66,16 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
 
   // Dedicated Strong 5-Second Refreshment Engine for VIP Admin Management Tab
   const [syncedCalls, setSyncedCalls] = useState<WaiterCall[]>(calls);
+  const lastActionTimestamp = useRef<number>(0);
 
   useEffect(() => {
     setSyncedCalls((prev) => reconcileWaiterCalls(prev, calls));
   }, [calls]);
 
   const refreshVipAdminData = useCallback(async () => {
+    if (Date.now() - lastActionTimestamp.current < 3500) {
+      return;
+    }
     try {
       const t = Date.now();
       const [callsRes, tablesRes, waitersRes] = await Promise.allSettled([
@@ -429,12 +433,31 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     }
   };
 
+  const handleAcceptCallAction = async (callId: string, waiterId: string, waiterName: string) => {
+    lastActionTimestamp.current = Date.now();
+    await onAcceptCall(callId, waiterId, waiterName);
+  };
+
+  const handleCompleteCallAction = async (callId: string) => {
+    lastActionTimestamp.current = Date.now();
+    await onCompleteCall(callId);
+  };
+
+  const handleCancelCallAction = async (callId: string) => {
+    lastActionTimestamp.current = Date.now();
+    await onCancelCall(callId);
+  };
+
   const handleClearHistory = async () => {
     if (!confirm('Clear all completed call logs?')) return;
+    lastActionTimestamp.current = Date.now();
+    setSyncedCalls((prev) =>
+      prev.filter((c) => c.status === 'pending' || c.status === 'accepted' || c.status === 'hold')
+    );
     try {
       await apiFetch('/api/waiter-calls/history', {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (onClearHistory) {
         onClearHistory();
@@ -444,7 +467,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     }
   };
 
-  const effectiveCalls = syncedCalls.length > 0 ? syncedCalls : calls;
+  const effectiveCalls = syncedCalls;
   const pendingCalls = effectiveCalls.filter((c) => c.status === 'pending');
   const acceptedCalls = effectiveCalls.filter((c) => c.status === 'accepted');
   const heldCalls = effectiveCalls.filter((c) => c.status === 'hold');
@@ -630,7 +653,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() =>
-                              onAcceptCall(
+                              handleAcceptCallAction(
                                 call.id,
                                 assignedWaiter?.id || 'admin',
                                 assignedWaiter?.name || 'Admin Host'
@@ -642,7 +665,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                             <span>Accept</span>
                           </button>
                           <button
-                            onClick={() => onCancelCall(call.id)}
+                            onClick={() => handleCancelCallAction(call.id)}
                             className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-xs transition-colors cursor-pointer"
                           >
                             Dismiss
@@ -705,7 +728,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                         </span>
                         <button
                           onClick={() =>
-                            onAcceptCall(
+                            handleAcceptCallAction(
                               call.id,
                               call.accepted_by_waiter_id || assignedWaiter?.id || 'admin',
                               call.accepted_by_name || assignedWaiter?.name || 'Admin Host'
@@ -768,7 +791,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() =>
-                              onAcceptCall(
+                              handleAcceptCallAction(
                                 call.id,
                                 assignedWaiter?.id || 'admin',
                                 assignedWaiter?.name || 'Admin Host'
@@ -779,7 +802,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                             Attend Missed
                           </button>
                           <button
-                            onClick={() => onCancelCall(call.id)}
+                            onClick={() => handleCancelCallAction(call.id)}
                             className="px-2.5 py-1.5 rounded-lg bg-white/10 text-white/70 hover:text-white text-xs transition-colors cursor-pointer"
                           >
                             Clear
@@ -820,7 +843,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                     </div>
 
                     <button
-                      onClick={() => onCompleteCall(call.id)}
+                      onClick={() => handleCompleteCallAction(call.id)}
                       className="px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold hover:bg-emerald-900 cursor-pointer"
                     >
                       Complete

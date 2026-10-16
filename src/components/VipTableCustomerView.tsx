@@ -93,12 +93,16 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
 
   // Dedicated Strong 5-Second Refreshment Engine for VIP Table Customer View
   const [syncedCalls, setSyncedCalls] = useState<WaiterCall[]>(activeCalls);
+  const lastActionTimestamp = useRef<number>(0);
 
   useEffect(() => {
     setSyncedCalls((prev) => reconcileWaiterCalls(prev, activeCalls));
   }, [activeCalls]);
 
   const refreshVipCallsAuthoritative = useCallback(async () => {
+    if (Date.now() - lastActionTimestamp.current < 3500) {
+      return;
+    }
     try {
       const res = await apiFetch(`/api/waiter-calls?_t=${Date.now()}`, {
         cache: 'no-store',
@@ -145,7 +149,7 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
   const assignedWaiter = waiters.find((w) => w.id === table.assigned_waiter_id);
 
   // Match calls by table_id or table_number (supporting both formats seamlessly)
-  const effectiveCalls = syncedCalls.length > 0 ? syncedCalls : activeCalls;
+  const effectiveCalls = syncedCalls;
   const tableCalls = effectiveCalls.filter(
     (c) =>
       c.table_id === table.id ||
@@ -283,6 +287,7 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
 
     setIsCalling(true);
     setCallSuccessFeedback(null);
+    lastActionTimestamp.current = Date.now();
     try {
       const msgToSend = customMsg || customNote.trim() || undefined;
       const ok = await onPlaceCall(table.id, type, msgToSend);
@@ -577,7 +582,10 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
                 </div>
 
                 <button
-                  onClick={() => onCancelCall(currentCall.id)}
+                  onClick={() => {
+                    lastActionTimestamp.current = Date.now();
+                    onCancelCall(currentCall.id);
+                  }}
                   className="px-2.5 py-1 rounded-md bg-black/60 hover:bg-black/90 text-white/80 hover:text-white text-[10px] border border-white/20 transition-all shrink-0 cursor-pointer"
                 >
                   {currentCall.status === 'accepted' || currentCall.status === 'missed'

@@ -39,20 +39,20 @@ export function getPgPool(): Pool | null {
     pgPool = new Pool({
       connectionString: url,
       ssl: { rejectUnauthorized: false },
-      connectionTimeoutMillis: 3000,
-      idleTimeoutMillis: 20000,
       max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
     });
     pgPool.on('error', (err) => {
-      if (isPgConnected) {
-        console.warn('[PostgreSQL Pool Warning]', err.message);
-      }
+      console.error('[DB Error] Unexpected idle client error:', err.message);
       isPgConnected = false;
       lastPgError = err.message;
     });
   }
   return pgPool;
 }
+
+export const pool = getPgPool();
 
 function getDatabaseFilePath(): string {
   if (
@@ -171,18 +171,13 @@ export async function initPostgresDatabase(): Promise<boolean> {
     } finally {
       client.release();
     }
-  } catch (_err: any) {
+  } catch (err: any) {
     isPgConnected = false;
-    pgDisabled = true;
-    if (pgPool) {
-      pgPool.end().catch(() => {});
-      pgPool = null;
-    }
-    lastPgError = null;
+    lastPgError = err.message;
+    console.warn('[PostgreSQL Connection Notice] Will retry on subsequent queries:', err.message);
     dbInitialized = true;
     getDatabase();
-    console.log('✅ Storage ready: local JSON file database (/data/prime_cafe_db.json)');
-    return true;
+    return false;
   }
 }
 
@@ -235,10 +230,14 @@ let localMutationChain: Promise<any> = Promise.resolve();
  * Completely eliminates race conditions, lost updates, deleted record restorations, and flickering calls.
  */
 export async function mutateDatabaseAsync(
-  mutator: (current: DatabaseState) => DatabaseState | Promise<DatabaseState>
+  mutator: (current: DatabaseState) => DatabaseState | Promise<DatabaseState>,
+  options?: { strictPg?: boolean }
 ): Promise<DatabaseState> {
   const pool = getPgPool();
   if (!isPgConnected || !pool) {
+    if (options?.strictPg && getPostgresUrl()) {
+      throw new Error(`PostgreSQL database unavailable: ${lastPgError || 'Connection not established'}`);
+    }
     return new Promise<DatabaseState>((resolve, reject) => {
       localMutationChain = localMutationChain
         .then(async () => {
@@ -299,7 +298,11 @@ export async function mutateDatabaseAsync(
     }
     isPgConnected = false;
     lastPgError = err.message;
-    console.error('[Database] mutateDatabaseAsync transaction failed, falling back to local save:', err.message);
+    console.error('[Database] mutateDatabaseAsync transaction failed:', err.message);
+
+    if (options?.strictPg && getPostgresUrl()) {
+      throw err;
+    }
 
     const current = inMemoryState || getDatabase();
     const mutated = await mutator(current);

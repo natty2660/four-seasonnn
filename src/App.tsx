@@ -37,6 +37,7 @@ import { WaiterMobileApp } from './components/WaiterMobileApp.tsx';
 export default function App() {
   const [dbState, setDbState] = useState<DatabaseState>(() => loadClientState());
   const refreshCycleCount = useRef<number>(0);
+  const lastUserActionTimestamp = useRef<number>(0);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isLogoCropperOpen, setIsLogoCropperOpen] = useState(false);
@@ -173,6 +174,10 @@ export default function App() {
   // so all statuses appear accurately without any visible UI clutter or flickers.
   // =========================================================================
   const executeDedicatedRefresh = useCallback(async () => {
+    // Prevent polling from clobbering optimistic UI state while mutations are in-flight
+    if (Date.now() - lastUserActionTimestamp.current < 3500) {
+      return;
+    }
     refreshCycleCount.current += 1;
     // Every 6 cycles (~30s), also revalidate menu items & restaurant settings
     const shouldRevalidateMenu = refreshCycleCount.current % 6 === 0;
@@ -404,6 +409,7 @@ export default function App() {
   };
 
   const handleUpdateTables = (tables: VipTable[]) => {
+    lastUserActionTimestamp.current = Date.now();
     const next: DatabaseState = {
       ...dbState,
       vip_tables: tables,
@@ -421,6 +427,7 @@ export default function App() {
   };
 
   const handleUpdateWaiters = (waiters: Waiter[]) => {
+    lastUserActionTimestamp.current = Date.now();
     const next: DatabaseState = {
       ...dbState,
       waiters,
@@ -448,6 +455,8 @@ export default function App() {
       console.warn('VIP session for table', tableId, 'has expired after 4 hours. Call blocked.');
       return false;
     }
+
+    lastUserActionTimestamp.current = Date.now();
 
     try {
       const res = await apiFetch('/api/waiter-calls', {
@@ -493,6 +502,7 @@ export default function App() {
     waiterId: string,
     waiterName: string
   ): Promise<void> => {
+    lastUserActionTimestamp.current = Date.now();
     const acceptedAt = new Date().toISOString();
 
     // Check if this waiter already has another active accepted call in progress
@@ -575,6 +585,7 @@ export default function App() {
     waiterName: string,
     holdReason?: string
   ): Promise<void> => {
+    lastUserActionTimestamp.current = Date.now();
     const heldAt = new Date().toISOString();
     const reason = holdReason || `Staff ${waiterName || 'Member'} will attend shortly`;
 
@@ -614,6 +625,7 @@ export default function App() {
 
   // Waiter & Admin: Complete Call (Releases and promotes next queued held call)
   const handleCompleteCall = async (callId: string): Promise<void> => {
+    lastUserActionTimestamp.current = Date.now();
     const completedAt = new Date().toISOString();
     setDbState((prev) => {
       const currentCall = (prev.waiter_calls || []).find((c) => c.id === callId);
@@ -663,6 +675,7 @@ export default function App() {
 
   // Customer & Admin: Cancel Call
   const handleCancelCall = async (callId: string): Promise<void> => {
+    lastUserActionTimestamp.current = Date.now();
     const completedAt = new Date().toISOString();
     setDbState((prev) => {
       const next = {
@@ -691,6 +704,7 @@ export default function App() {
 
   // Admin: Clear completed call logs
   const handleClearCallHistory = () => {
+    lastUserActionTimestamp.current = Date.now();
     setDbState((prev) => {
       const next = {
         ...prev,

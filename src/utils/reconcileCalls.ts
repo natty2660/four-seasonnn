@@ -2,166 +2,95 @@ import type { WaiterCall } from '../types/index.js';
 import { getCallPriorityWeight } from '../types/index.js';
 
 /**
- * Authoritative reconciliation for live waiter calls.
- * Compares monotonic sequence revisions (revision: number) to eliminate out-of-order polling collisions.
- * Completely eliminates flickering, disappearing calls, duplicate rings, and keeps accepted status locked.
+ * Robust reconciliation for live waiter calls.
+ * Strictly preserves uncommitted optimistic local revisions to eliminate call flickering,
+ * protects recently completed/cancelled history logs, and stably orders active and past calls.
  */
-export function reconcileWaiterCalls(prevCalls: WaiterCall[], incomingCalls: WaiterCall[]): WaiterCall[] {
-  const prevMap = new Map((prevCalls || []).map((c) => [c.id, c]));
+export function reconcileWaiterCalls(
+  localCalls: WaiterCall[],
+  incomingCalls: WaiterCall[]
+): WaiterCall[] {
+  const incomingList = Array.isArray(incomingCalls) ? incomingCalls : [];
+  const localList = Array.isArray(localCalls) ? localCalls : [];
   const mergedMap = new Map<string, WaiterCall>();
 
-  // Lock duration for locally accepted calls: 120 seconds
-  const ACCEPT_LOCK_WINDOW_MS = 120000;
-  // Terminal status lock duration (completed/cancelled shouldn't resurrect to pending or accepted)
-  const TERMINAL_LOCK_WINDOW_MS = 60000;
-  const now = Date.now();
-
-  // 1. Process all incoming authoritative calls from backend
-  for (const inc of incomingCalls || []) {
-    const prev = prevMap.get(inc.id);
-    if (!prev) {
-      mergedMap.set(inc.id, {
-        ...inc,
-        revision: inc.revision ?? 1,
-      });
-      continue;
-    }
-
-    const prevRev = prev.revision ?? 1;
-    const incRev = inc.revision ?? 1;
-
-    // RULE 1: Server Authoritative Progression:
-    // If the server has moved the call forward (accepted, hold, completed, cancelled, missed),
-    // that authoritative server action MUST take effect immediately!
-    if (inc.status === 'accepted') {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'accepted',
-        accepted_by_waiter_id: inc.accepted_by_waiter_id || prev.accepted_by_waiter_id || null,
-        accepted_by_name: inc.accepted_by_name || prev.accepted_by_name || 'Staff Member',
-        accepted_at: inc.accepted_at || prev.accepted_at || new Date().toISOString(),
-        revision: Math.max(prevRev, incRev),
-      });
-      continue;
-    }
-
-    if (inc.status === 'hold') {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'hold',
-        held_at: inc.held_at || prev.held_at || new Date().toISOString(),
-        hold_reason: inc.hold_reason || prev.hold_reason || 'Waiter currently attending another customer',
-        accepted_by_waiter_id: inc.accepted_by_waiter_id || prev.accepted_by_waiter_id || null,
-        accepted_by_name: inc.accepted_by_name || prev.accepted_by_name || 'Staff Member',
-        revision: Math.max(prevRev, incRev),
-      });
-      continue;
-    }
-
-    if (inc.status === 'completed' || inc.status === 'cancelled') {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: inc.status,
-        completed_at: inc.completed_at || prev.completed_at || new Date().toISOString(),
-        revision: Math.max(prevRev, incRev),
-      });
-      continue;
-    }
-
-    if (inc.status === 'missed') {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'missed',
-        missed_at: inc.missed_at || prev.missed_at || new Date().toISOString(),
-        revision: Math.max(prevRev, incRev),
-      });
-      continue;
-    }
-
-    // RULE 2: Terminal State Lock: Once a call reaches completed/cancelled locally,
-    // a stale incoming 'pending' cannot revert it back.
-    const wasCompletedLocally = prev.status === 'completed' || prev.status === 'cancelled';
-    if (wasCompletedLocally && inc.status === 'pending') {
-      mergedMap.set(inc.id, prev);
-      continue;
-    }
-
-    // RULE 3: Missed State Lock: A missed call must never resurrect to pending
-    if (prev.status === 'missed' && inc.status === 'pending') {
-      mergedMap.set(inc.id, prev);
-      continue;
-    }
-
-    // RULE 4: Local Accept Lock: If accepted locally, don't let pending overwrite within lock window
-    const wasAcceptedLocally = prev.status === 'accepted';
-    const acceptedAtTime = prev.accepted_at ? new Date(prev.accepted_at).getTime() : now;
-    if (wasAcceptedLocally && inc.status === 'pending' && (now - acceptedAtTime < ACCEPT_LOCK_WINDOW_MS)) {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'accepted',
-        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
-        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
-        accepted_at: prev.accepted_at || new Date().toISOString(),
-        revision: Math.max(prevRev, incRev),
-      });
-      continue;
-    }
-
-    // RULE 5: Local Hold Lock: If placed on hold locally, preserve hold state against stale pending
-    if (prev.status === 'hold' && inc.status === 'pending') {
-      mergedMap.set(inc.id, {
-        ...inc,
-        status: 'hold',
-        held_at: prev.held_at || new Date().toISOString(),
-        hold_reason: prev.hold_reason || 'Waiter currently attending another customer',
-        accepted_by_waiter_id: prev.accepted_by_waiter_id || inc.accepted_by_waiter_id || null,
-        accepted_by_name: prev.accepted_by_name || inc.accepted_by_name || 'Staff Member',
-        revision: Math.max(prevRev, incRev),
-      });
-      continue;
-    }
-
-    // Otherwise, adopt authoritative server state with latest flags (including escalation)
+  // 1. Process all incoming calls
+  for (const inc of incomingList) {
     mergedMap.set(inc.id, {
       ...inc,
-      is_escalated: inc.is_escalated || prev.is_escalated,
-      revision: Math.max(prevRev, incRev),
+      revision: inc.revision ?? 1,
     });
   }
 
-  // 2. Network drop jitter prevention (only keep pending calls created < 15s ago if temporarily omitted in fetch)
-  for (const prev of prevCalls || []) {
-    if (!mergedMap.has(prev.id)) {
-      if (prev.status === 'pending') {
-        const timeRef = new Date(prev.created_at).getTime();
-        if (now - timeRef < 15000) {
-          mergedMap.set(prev.id, prev);
+  // 2. Preserve optimistic local states if newer
+  const now = Date.now();
+  for (const loc of localList) {
+    const inc = mergedMap.get(loc.id);
+    if (!inc) {
+      // If local call is still active and recently created, don't drop it immediately
+      if (loc.status === 'pending' || loc.status === 'accepted' || loc.status === 'hold') {
+        const timeRef = new Date(loc.created_at).getTime();
+        if (now - timeRef < 30000) {
+          mergedMap.set(loc.id, loc);
         }
+      } else if (loc.status === 'completed' || loc.status === 'cancelled') {
+        // Also preserve recently completed/cancelled calls in history for at least 60s
+        const timeRef = new Date(loc.completed_at || loc.created_at).getTime();
+        if (now - timeRef < 60000) {
+          mergedMap.set(loc.id, loc);
+        }
+      }
+    } else {
+      const locRev = loc.revision || 1;
+      const incRev = inc.revision || 1;
+
+      // Retain local state if the local revision is strictly newer
+      if (locRev > incRev) {
+        mergedMap.set(loc.id, loc);
+        continue;
+      }
+
+      // Retain local state if local was modified more recently within a 10-second window
+      const locTime = new Date(loc.completed_at || loc.accepted_at || loc.held_at || loc.created_at).getTime();
+      const incTime = new Date(inc.completed_at || inc.accepted_at || inc.held_at || inc.created_at).getTime();
+      if (locRev === incRev && locTime > incTime && now - locTime < 10000) {
+        mergedMap.set(loc.id, loc);
+        continue;
+      }
+
+      // Retain local terminal state if completed/cancelled locally within last 20 seconds
+      const locIsTerminal = loc.status === 'completed' || loc.status === 'cancelled';
+      const incIsActive = inc.status === 'pending' || inc.status === 'accepted' || inc.status === 'hold';
+      if (locIsTerminal && incIsActive && now - locTime < 20000) {
+        mergedMap.set(loc.id, loc);
+        continue;
       }
     }
   }
 
-  // 3. Stably sort by lifecycle status: accepted (4000) > pending (3000) > hold (2500) > missed (1500) > resolved (1000)
+  // 3. Stably sort active calls by priority & history by completion time descending
   const getStatusOrder = (status: string): number => {
     if (status === 'accepted') return 4000;
     if (status === 'pending') return 3000;
     if (status === 'hold') return 2500;
     if (status === 'missed') return 1500;
-    return 1000;
+    return 1000; // completed / cancelled
   };
 
-  const result = Array.from(mergedMap.values());
-  result.sort((a, b) => {
-    // 1. Prioritize active pending calls first, followed by in-progress accepted, then resolved
+  return Array.from(mergedMap.values()).sort((a, b) => {
     const statusDiff = getStatusOrder(b.status) - getStatusOrder(a.status);
     if (statusDiff !== 0) return statusDiff;
 
-    // 2. Prioritize by call type priority ranking: Urgent (500) > Bill (400) > Order (300) > Water (200) > General (100)
-    const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
-    if (priorityDiff !== 0) return priorityDiff;
+    // For active calls of the same status, sort by call priority weight first
+    if (a.status !== 'completed' && a.status !== 'cancelled' && b.status !== 'completed' && b.status !== 'cancelled') {
+      const priorityDiff = getCallPriorityWeight(b.call_type) - getCallPriorityWeight(a.call_type);
+      if (priorityDiff !== 0) return priorityDiff;
+    }
 
-    // 3. Tie-breaker: newest calls first
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    // For history or equal-priority active calls, newest event time first
+    const timeA = new Date(a.completed_at || a.created_at).getTime();
+    const timeB = new Date(b.completed_at || b.created_at).getTime();
+    return timeB - timeA;
   });
-  return result;
 }
+

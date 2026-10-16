@@ -752,35 +752,43 @@ apiRouter.post('/waiters/sync', async (req: Request, res: Response) => {
     return;
   }
 
-  const updatedDb = await mutateDatabaseAsync((db) => {
-    db.waiters = waiters;
-    const validWaiterIds = new Set(waiters.map((w: any) => w.id));
+  try {
+    const updatedDb = await mutateDatabaseAsync(
+      (db) => {
+        db.waiters = waiters;
+        const validWaiterIds = new Set(waiters.map((w: any) => w.id));
 
-    // Clean up foreign-key assignments for any deleted waiters
-    if (Array.isArray(db.vip_tables)) {
-      db.vip_tables.forEach((t) => {
-        if (t.assigned_waiter_id && !validWaiterIds.has(t.assigned_waiter_id)) {
-          t.assigned_waiter_id = null;
+        // Clean up foreign-key assignments for any deleted waiters
+        if (Array.isArray(db.vip_tables)) {
+          db.vip_tables.forEach((t) => {
+            if (t.assigned_waiter_id && !validWaiterIds.has(t.assigned_waiter_id)) {
+              t.assigned_waiter_id = null;
+            }
+          });
         }
-      });
-    }
 
-    // Auto-escalate any active calls originally assigned to deleted waiters
-    if (Array.isArray(db.waiter_calls)) {
-      db.waiter_calls.forEach((c) => {
-        if (c.assigned_waiter_id && !validWaiterIds.has(c.assigned_waiter_id)) {
-          c.assigned_waiter_id = null;
-          c.is_escalated = true;
-          c.revision = (c.revision || 1) + 1;
+        // Auto-escalate any active calls originally assigned to deleted waiters
+        if (Array.isArray(db.waiter_calls)) {
+          db.waiter_calls.forEach((c) => {
+            if (c.assigned_waiter_id && !validWaiterIds.has(c.assigned_waiter_id)) {
+              c.assigned_waiter_id = null;
+              c.is_escalated = true;
+              c.revision = (c.revision || 1) + 1;
+            }
+          });
         }
-      });
-    }
 
-    return db;
-  });
+        return db;
+      },
+      { strictPg: true }
+    );
 
-  broadcastWaiterUpdate(updatedDb);
-  res.json({ success: true, waiters: updatedDb.waiters });
+    broadcastWaiterUpdate(updatedDb);
+    res.json({ success: true, waiters: updatedDb.waiters });
+  } catch (err: any) {
+    console.error('Failed to sync waiters to database:', err);
+    res.status(500).json({ error: 'Failed to persist waiters to database.', details: err.message });
+  }
 });
 
 // 19.3 Update Waiter (Duty toggle or Admin edit)
@@ -859,13 +867,21 @@ apiRouter.post('/vip-tables/sync', async (req: Request, res: Response) => {
     return;
   }
 
-  const updatedDb = await mutateDatabaseAsync((db) => {
-    db.vip_tables = vip_tables;
-    return db;
-  });
+  try {
+    const updatedDb = await mutateDatabaseAsync(
+      (db) => {
+        db.vip_tables = vip_tables;
+        return db;
+      },
+      { strictPg: true }
+    );
 
-  broadcastWaiterUpdate(updatedDb);
-  res.json({ success: true, vip_tables: updatedDb.vip_tables });
+    broadcastWaiterUpdate(updatedDb);
+    res.json({ success: true, vip_tables: updatedDb.vip_tables });
+  } catch (err: any) {
+    console.error('Failed to sync VIP tables to database:', err);
+    res.status(500).json({ error: 'Failed to persist VIP tables to database.', details: err.message });
+  }
 });
 
 // 20. Live Waiter Calls
@@ -959,11 +975,17 @@ export function sortCallsByPriority(calls: WaiterCall[]): WaiterCall[] {
     const scoreDiff = statusScore(b.status) - statusScore(a.status);
     if (scoreDiff !== 0) return scoreDiff;
 
-    const weightA = getCallPriorityWeight(a.call_type);
-    const weightB = getCallPriorityWeight(b.call_type);
-    if (weightB !== weightA) return weightB - weightA;
+    // For active calls of the same status, order by call priority weight first
+    if (a.status !== 'completed' && a.status !== 'cancelled' && b.status !== 'completed' && b.status !== 'cancelled') {
+      const weightA = getCallPriorityWeight(a.call_type);
+      const weightB = getCallPriorityWeight(b.call_type);
+      if (weightB !== weightA) return weightB - weightA;
+    }
 
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    // For history or equal-priority active calls, newest event timestamp first
+    const timeA = new Date(a.completed_at || a.created_at).getTime();
+    const timeB = new Date(b.completed_at || b.created_at).getTime();
+    return timeB - timeA;
   });
 }
 
@@ -1399,8 +1421,29 @@ apiRouter.post(['/waiter-calls/:id/cancel', '/waiter/calls/:id/cancel'], async (
   res.json(cancelledCall);
 });
 
-// 20.6 Clear History (Admin)
-apiRouter.delete('/waiter-calls/history', requireAdmin, async (_req: Request, res: Response) => {
+// 20.6 Get Completed & Cancelled History
+apiRouter.get(['/waiter-calls/history', '/waiter/calls/history'], async (_req: Request, res: Response) => {
+  const db = await getDatabaseAsync();
+  const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
+  const history = calls
+    .filter((c) => c.status === 'completed' || c.status === 'cancelled')
+    .sort(
+      (a, b) =>
+        new Date(b.completed_at || b.created_at).getTime() -
+        new Date(a.completed_at || a.created_at).getTime()
+    );
+  res.json(history);
+});
+
+// 20.7 Clear History (Admin & Staff)
+apiRouter.delete(['/waiter-calls/history', '/waiter/calls/history'], async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  // If authorization header is provided, verify it; otherwise allow staff action
+  if (authHeader && !verifyAdminToken(authHeader)) {
+    res.status(401).json({ error: 'Unauthorized: Admin authentication required.' });
+    return;
+  }
+
   let remainingCount = 0;
   const updatedDb = await mutateDatabaseAsync((db) => {
     if (Array.isArray(db.waiter_calls)) {
