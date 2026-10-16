@@ -211,21 +211,35 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
     }
   }, [recentCompletedCall?.id]);
 
-  // Sound chime notification when waiter accepts the call
-  const prevCallStatusRef = useRef<string | null>(null);
+  // Deduplicate Customer Alert / Vibration - alert ONCE per unique call ID and status
+  const alertedCallStatuses = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    if (currentCall) {
-      if (currentCall.status === 'accepted' && prevCallStatusRef.current !== 'accepted') {
-        callSound.playCustomerConfirmationChime();
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate([100, 50, 150]);
+    const currentActiveCall = effectiveCalls.find(
+      (c) =>
+        (c.table_id === table.id ||
+          c.table_id === table.table_number ||
+          c.table_number === table.table_number) &&
+        (c.status === 'accepted' || c.status === 'hold')
+    );
+
+    if (currentActiveCall) {
+      // Generate a unique token for this call and this specific status
+      const alertKey = `${currentActiveCall.id}-${currentActiveCall.status}`;
+
+      if (!alertedCallStatuses.current.has(alertKey)) {
+        alertedCallStatuses.current.add(alertKey);
+
+        // Trigger vibration / sound only ONCE per state transition
+        if (currentActiveCall.status === 'accepted') {
+          callSound.playCustomerConfirmationChime();
+        }
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          navigator.vibrate([200, 100, 200]);
         }
       }
-      prevCallStatusRef.current = currentCall.status;
-    } else {
-      prevCallStatusRef.current = null;
     }
-  }, [currentCall?.status, currentCall?.id]);
+  }, [effectiveCalls, table.id, table.table_number]);
 
   // Missed call cooldown calculation (2 minutes from when missed)
   const [cooldownRemainingSec, setCooldownRemainingSec] = useState<number>(0);

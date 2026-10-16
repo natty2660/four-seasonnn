@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { Pool, PoolClient } from 'pg';
 import { DatabaseState, getInitialState } from '../lib/storage.ts';
+import type { WaiterCall } from '../types/index.ts';
 
 dotenv.config();
 
@@ -38,13 +39,18 @@ export function getPgPool(): Pool | null {
   if (!pgPool) {
     pgPool = new Pool({
       connectionString: url,
-      ssl: { rejectUnauthorized: false },
-      max: 10,
-      idleTimeoutMillis: 30000,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      max: 5, // Keep small on serverless to avoid exhausting connection limits
+      idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 5000,
+      // CRITICAL: TCP Keep-alive prevents intermediate proxies from dropping the socket
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
     });
     pgPool.on('error', (err) => {
-      console.error('[DB Error] Unexpected idle client error:', err.message);
+      console.error('[DB Socket Notice] Idle client connection reset:', err.message);
       isPgConnected = false;
       lastPgError = err.message;
     });
@@ -184,6 +190,7 @@ export async function initPostgresDatabase(): Promise<boolean> {
 /**
  * Reads live authoritative state directly from PostgreSQL.
  * Guarantees every serverless instance and client sees the exact current data.
+ * When live DB is configured, avoids serving outdated disk JSON if reconnecting.
  */
 export async function getDatabaseAsync(forceFresh = false): Promise<DatabaseState> {
   // Ultra-fast sub-millisecond read path: return in-memory state if fresh within TTL
@@ -191,35 +198,83 @@ export async function getDatabaseAsync(forceFresh = false): Promise<DatabaseStat
     return inMemoryState;
   }
 
-  if (!isPgConnected) {
-    return getDatabase();
-  }
+  const url = getPostgresUrl();
+  const poolInstance = getPgPool();
 
-  await ensureDatabaseInitialized().catch(() => {});
-  const pool = getPgPool();
-  if (!pool) return getDatabase();
-  try {
-    const client = await pool.connect();
+  if (url && poolInstance) {
+    await ensureDatabaseInitialized().catch(() => {});
     try {
-      const res = await client.query('SELECT state FROM prime_cafe_menu WHERE id = $1;', ['prime-cafe']);
-      if (res.rows.length > 0 && res.rows[0].state) {
-        const stored = res.rows[0].state as DatabaseState;
-        inMemoryState = stored;
-        lastDbFetchTime = Date.now();
-        isPgConnected = true;
-        lastPgError = null;
-        lastSyncedAt = new Date().toISOString();
-        return stored;
+      const client = await poolInstance.connect();
+      try {
+        const res = await client.query('SELECT state FROM prime_cafe_menu WHERE id = $1;', ['prime-cafe']);
+        if (res.rows.length > 0 && res.rows[0].state) {
+          const stored = res.rows[0].state as DatabaseState;
+          inMemoryState = stored;
+          lastDbFetchTime = Date.now();
+          isPgConnected = true;
+          lastPgError = null;
+          lastSyncedAt = new Date().toISOString();
+          return stored;
+        }
+      } finally {
+        client.release();
       }
-    } finally {
-      client.release();
+    } catch (err: any) {
+      isPgConnected = false;
+      lastPgError = err.message;
+      console.error('[DB Socket Notice] Failed to read from PostgreSQL:', err.message);
+
+      // CRITICAL: DO NOT read static prime_cafe_db.json from disk if live DB is configured!
+      // Return existing inMemoryState if available, otherwise throw so endpoints return 503
+      if (inMemoryState) {
+        return inMemoryState;
+      }
+      throw new Error(`Database temporarily reconnecting: ${err.message}`);
     }
-  } catch (err: any) {
-    isPgConnected = false;
-    lastPgError = err.message;
   }
 
-  return getDatabase();
+  return inMemoryState || getDatabase();
+}
+
+/**
+ * Returns active live waiter calls directly from the live database or active in-memory state.
+ * Never serves stale or missing calls from static JSON files on disk.
+ */
+export async function getLiveWaiterCalls(): Promise<WaiterCall[]> {
+  const url = getPostgresUrl();
+  const poolInstance = getPgPool();
+
+  if (url && poolInstance) {
+    try {
+      const client = await poolInstance.connect();
+      try {
+        const res = await client.query('SELECT state FROM prime_cafe_menu WHERE id = $1;', ['prime-cafe']);
+        if (res.rows.length > 0 && res.rows[0].state) {
+          const stored = res.rows[0].state as DatabaseState;
+          inMemoryState = stored;
+          lastDbFetchTime = Date.now();
+          isPgConnected = true;
+          lastPgError = null;
+          return Array.isArray(stored.waiter_calls) ? stored.waiter_calls : [];
+        }
+      } finally {
+        client.release();
+      }
+    } catch (err: any) {
+      console.error('[DB Socket Notice] Failed to fetch live waiter calls:', err.message);
+      isPgConnected = false;
+      lastPgError = err.message;
+
+      // DO NOT return static JSON file contents when live DB fails!
+      if (inMemoryState && Array.isArray(inMemoryState.waiter_calls)) {
+        return inMemoryState.waiter_calls;
+      }
+      throw new Error(`Database temporarily reconnecting: ${err.message}`);
+    }
+  }
+
+  const db = inMemoryState || getDatabase();
+  return Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
 }
 
 let localMutationChain: Promise<any> = Promise.resolve();

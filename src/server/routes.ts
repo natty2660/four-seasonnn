@@ -5,6 +5,8 @@ import { execSync } from 'child_process';
 import {
   getDatabase,
   getDatabaseAsync,
+  getLiveWaiterCalls,
+  pool,
   saveDatabase,
   saveDatabaseAsync,
   mutateDatabaseAsync,
@@ -997,22 +999,29 @@ apiRouter.get('/waiter-calls', async (_req: Request, res: Response) => {
     'Expires': '0',
     'Surrogate-Control': 'no-store',
   });
-  const db = await getDatabaseAsync();
-  const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
-  const now = Date.now();
-  const needsSync = calls.some((c) => {
-    if (c.status !== 'pending') return false;
-    const elapsed = now - new Date(c.created_at).getTime();
-    return elapsed >= 60000 || (elapsed >= 45000 && !c.is_escalated);
-  });
-  if (needsSync) {
-    await syncAndPersistTimeouts();
-    const freshDb = await getDatabaseAsync();
-    res.json(sortCallsByPriority(freshDb.waiter_calls || []));
-    return;
+
+  try {
+    const calls = await getLiveWaiterCalls();
+    const now = Date.now();
+    const needsSync = calls.some((c) => {
+      if (c.status !== 'pending') return false;
+      const elapsed = now - new Date(c.created_at).getTime();
+      return elapsed >= 60000 || (elapsed >= 45000 && !c.is_escalated);
+    });
+    if (needsSync) {
+      await syncAndPersistTimeouts();
+      const freshCalls = await getLiveWaiterCalls();
+      res.json(sortCallsByPriority(freshCalls));
+      return;
+    }
+    syncCallTimeouts(calls);
+    res.json(sortCallsByPriority(calls));
+  } catch (err: any) {
+    console.error('[DB Error] Failed to fetch active waiter calls:', err.message);
+    // DO NOT return static JSON file contents when live DB fails!
+    // Return HTTP 503 so client retains its existing local state
+    res.status(503).json({ error: 'Database temporarily reconnecting' });
   }
-  syncCallTimeouts(calls);
-  res.json(sortCallsByPriority(calls));
 });
 
 // --- Real-Time Server-Sent Events (SSE) Stream for Waiter Dashboard ---
@@ -1423,16 +1432,29 @@ apiRouter.post(['/waiter-calls/:id/cancel', '/waiter/calls/:id/cancel'], async (
 
 // 20.6 Get Completed & Cancelled History
 apiRouter.get(['/waiter-calls/history', '/waiter/calls/history'], async (_req: Request, res: Response) => {
-  const db = await getDatabaseAsync();
-  const calls = Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
-  const history = calls
-    .filter((c) => c.status === 'completed' || c.status === 'cancelled')
-    .sort(
-      (a, b) =>
-        new Date(b.completed_at || b.created_at).getTime() -
-        new Date(a.completed_at || a.created_at).getTime()
-    );
-  res.json(history);
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store',
+  });
+
+  try {
+    const calls = await getLiveWaiterCalls();
+    const history = calls
+      .filter((c) => c.status === 'completed' || c.status === 'cancelled')
+      .sort(
+        (a, b) =>
+          new Date(b.completed_at || b.created_at).getTime() -
+          new Date(a.completed_at || a.created_at).getTime()
+      );
+    res.json(history);
+  } catch (err: any) {
+    console.error('[DB Error] Failed to fetch waiter call history:', err.message);
+    // DO NOT return static JSON file contents when live DB fails!
+    // Return HTTP 503 so client retains its existing local state
+    res.status(503).json({ error: 'Database temporarily reconnecting' });
+  }
 });
 
 // 20.7 Clear History (Admin & Staff)
