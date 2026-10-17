@@ -703,7 +703,7 @@ export default function App() {
   };
 
   // Admin: Clear completed call logs
-  const handleClearCallHistory = () => {
+  const handleClearCallHistory = async () => {
     lastUserActionTimestamp.current = Date.now();
     setDbState((prev) => {
       const next = {
@@ -715,6 +715,15 @@ export default function App() {
       saveClientState(next);
       return next;
     });
+
+    try {
+      await apiFetch('/api/waiter-calls/history', {
+        method: 'DELETE',
+        headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : {},
+      });
+    } catch (e) {
+      console.warn('Clear call history network error:', e);
+    }
   };
 
   // Waiter: Toggle duty status
