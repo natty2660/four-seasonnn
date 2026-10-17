@@ -299,6 +299,10 @@ export default function App() {
       eventSource = new EventSource(streamUrl);
 
       eventSource.onmessage = (event) => {
+        // Prevent incoming SSE broadcasts from clobbering optimistic UI state while a user mutation is in-flight
+        if (Date.now() - lastUserActionTimestamp.current < 3500) {
+          return;
+        }
         try {
           const data = JSON.parse(event.data);
           if (data && (data.calls || data.waiters || data.tables)) {
@@ -627,11 +631,29 @@ export default function App() {
   const handleCompleteCall = async (callId: string): Promise<void> => {
     lastUserActionTimestamp.current = Date.now();
     const completedAt = new Date().toISOString();
+
     setDbState((prev) => {
       const currentCall = (prev.waiter_calls || []).find((c) => c.id === callId);
-      const completingWaiterId = currentCall?.accepted_by_waiter_id;
+      const completingWaiterId = currentCall?.accepted_by_waiter_id || currentCall?.assigned_waiter_id;
 
-      let promotedHeld = false;
+      // Deterministically pick the oldest held call for this waiter so client and server match
+      const candidateHeldCalls = (prev.waiter_calls || [])
+        .filter(
+          (c) =>
+            c.id !== callId &&
+            c.status === 'hold' &&
+            (!c.accepted_by_waiter_id ||
+              c.accepted_by_waiter_id === completingWaiterId ||
+              c.assigned_waiter_id === completingWaiterId)
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.held_at || a.created_at).getTime() -
+            new Date(b.held_at || b.created_at).getTime()
+        );
+
+      const targetHeldId = candidateHeldCalls[0]?.id || null;
+
       const nextCalls = (prev.waiter_calls || []).map((c) => {
         if (c.id === callId) {
           return {
@@ -641,12 +663,7 @@ export default function App() {
             revision: (c.revision || 1) + 1,
           };
         }
-        if (
-          !promotedHeld &&
-          c.status === 'hold' &&
-          (!c.accepted_by_waiter_id || c.accepted_by_waiter_id === completingWaiterId)
-        ) {
-          promotedHeld = true;
+        if (targetHeldId && c.id === targetHeldId) {
           return {
             ...c,
             status: 'pending' as const,
@@ -667,7 +684,19 @@ export default function App() {
     });
 
     try {
-      await apiFetch(`/api/waiter-calls/${callId}/complete`, { method: 'POST' });
+      const res = await apiFetch(`/api/waiter-calls/${callId}/complete`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        // If backend returns updated calls array or promoted call, reconcile immediately
+        if (data && Array.isArray(data.calls)) {
+          setDbState((prev) => {
+            const merged = reconcileWaiterCalls(prev.waiter_calls || [], data.calls);
+            const next = { ...prev, waiter_calls: merged };
+            saveClientState(next);
+            return next;
+          });
+        }
+      }
     } catch (e) {
       console.warn('Complete call network error:', e);
     }
