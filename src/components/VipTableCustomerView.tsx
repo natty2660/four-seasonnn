@@ -149,13 +149,21 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
   const assignedWaiter = waiters.find((w) => w.id === table.assigned_waiter_id);
 
   // Match calls by table_id or table_number (supporting both formats seamlessly)
+  const normalizeTableRef = (s?: string) => (s ? s.toLowerCase().trim().replace(/[-_\s]/g, '') : '');
+  const targetTableId = normalizeTableRef(table.id);
+  const targetTableNum = normalizeTableRef(table.table_number);
+
+  const isCallForThisTable = (c: WaiterCall) => {
+    const cId = normalizeTableRef(c.table_id);
+    const cNum = normalizeTableRef(c.table_number);
+    return (
+      (cId && (cId === targetTableId || cId === targetTableNum)) ||
+      (cNum && (cNum === targetTableId || cNum === targetTableNum))
+    );
+  };
+
   const effectiveCalls = syncedCalls;
-  const tableCalls = effectiveCalls.filter(
-    (c) =>
-      c.table_id === table.id ||
-      c.table_id === table.table_number ||
-      c.table_number === table.table_number
-  );
+  const tableCalls = effectiveCalls.filter(isCallForThisTable);
 
   // Priority of status to display to the customer:
   // 1. accepted (4000): Waiter accepted and is on the way! (Most critical to confirm!)
@@ -216,11 +224,7 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
 
   useEffect(() => {
     const currentActiveCall = effectiveCalls.find(
-      (c) =>
-        (c.table_id === table.id ||
-          c.table_id === table.table_number ||
-          c.table_number === table.table_number) &&
-        (c.status === 'accepted' || c.status === 'hold')
+      (c) => isCallForThisTable(c) && (c.status === 'accepted' || c.status === 'hold')
     );
 
     if (currentActiveCall) {

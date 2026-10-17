@@ -1323,7 +1323,12 @@ apiRouter.post(
     }
 
     broadcastWaiterUpdate(updatedDb);
-    res.json(resultingCall);
+    const sortedAfterAccept = sortCallsByPriority(updatedDb.waiter_calls || []);
+    res.json({
+      ...(resultingCall as WaiterCall),
+      call: resultingCall,
+      calls: sortedAfterAccept,
+    });
   }
 );
 
@@ -1358,7 +1363,12 @@ apiRouter.post(
     }
 
     broadcastWaiterUpdate(updatedDb);
-    res.json(heldCall);
+    const sortedAfterHold = sortCallsByPriority(updatedDb.waiter_calls || []);
+    res.json({
+      ...(heldCall as WaiterCall),
+      call: heldCall,
+      calls: sortedAfterHold,
+    });
   }
 );
 
@@ -1401,7 +1411,12 @@ apiRouter.post(['/waiter-calls/:id/complete', '/waiter/calls/:id/complete'], asy
   }
 
   broadcastWaiterUpdate(updatedDb);
-  res.json(completedCall);
+  const sortedAfterComplete = sortCallsByPriority(updatedDb.waiter_calls || []);
+  res.json({
+    ...(completedCall as WaiterCall),
+    call: completedCall,
+    calls: sortedAfterComplete,
+  });
 });
 
 // 20.5 Cancel Call (Supports all endpoint aliases)
@@ -1427,7 +1442,12 @@ apiRouter.post(['/waiter-calls/:id/cancel', '/waiter/calls/:id/cancel'], async (
   }
 
   broadcastWaiterUpdate(updatedDb);
-  res.json(cancelledCall);
+  const sortedAfterCancel = sortCallsByPriority(updatedDb.waiter_calls || []);
+  res.json({
+    ...(cancelledCall as WaiterCall),
+    call: cancelledCall,
+    calls: sortedAfterCancel,
+  });
 });
 
 // 20.6 Get Completed & Cancelled History

@@ -122,7 +122,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
       return;
     }
 
-    const expectedPin = waiter.pin?.trim() || '1111';
+    const expectedPin = waiter.pin?.trim() || '1234';
 
     if (pinToTest === expectedPin) {
       setSelectedWaiterId(waiter.id);

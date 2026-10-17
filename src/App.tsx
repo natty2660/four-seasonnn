@@ -549,8 +549,9 @@ export default function App() {
 
     // 2. Authoritative backend synchronization
     try {
+      let res: Response;
       if (isPlacingOnHold) {
-        await apiFetch(`/api/waiter-calls/${callId}/hold`, {
+        res = await apiFetch(`/api/waiter-calls/${callId}/hold`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -559,7 +560,7 @@ export default function App() {
             hold_reason: holdReason,
           }),
         }).catch(async () => {
-          await apiFetch(`/api/waiter-calls/${callId}/accept`, {
+          return apiFetch(`/api/waiter-calls/${callId}/accept`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -571,11 +572,23 @@ export default function App() {
           });
         });
       } else {
-        await apiFetch(`/api/waiter-calls/${callId}/accept`, {
+        res = await apiFetch(`/api/waiter-calls/${callId}/accept`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
         });
+      }
+
+      if (res && res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && Array.isArray(data.calls)) {
+          setDbState((prev) => {
+            const merged = reconcileWaiterCalls(prev.waiter_calls || [], data.calls);
+            const next = { ...prev, waiter_calls: merged };
+            saveClientState(next);
+            return next;
+          });
+        }
       }
     } catch (e) {
       console.warn('Accept call network error:', e);
@@ -613,7 +626,7 @@ export default function App() {
     });
 
     try {
-      await apiFetch(`/api/waiter-calls/${callId}/hold`, {
+      const res = await apiFetch(`/api/waiter-calls/${callId}/hold`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -622,6 +635,17 @@ export default function App() {
           hold_reason: reason,
         }),
       });
+      if (res && res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && Array.isArray(data.calls)) {
+          setDbState((prev) => {
+            const merged = reconcileWaiterCalls(prev.waiter_calls || [], data.calls);
+            const next = { ...prev, waiter_calls: merged };
+            saveClientState(next);
+            return next;
+          });
+        }
+      }
     } catch (e) {
       console.warn('Hold call network error:', e);
     }
@@ -725,7 +749,18 @@ export default function App() {
     });
 
     try {
-      await apiFetch(`/api/waiter-calls/${callId}/cancel`, { method: 'POST' });
+      const res = await apiFetch(`/api/waiter-calls/${callId}/cancel`, { method: 'POST' });
+      if (res && res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && Array.isArray(data.calls)) {
+          setDbState((prev) => {
+            const merged = reconcileWaiterCalls(prev.waiter_calls || [], data.calls);
+            const next = { ...prev, waiter_calls: merged };
+            saveClientState(next);
+            return next;
+          });
+        }
+      }
     } catch (e) {
       console.warn('Cancel call network error:', e);
     }
