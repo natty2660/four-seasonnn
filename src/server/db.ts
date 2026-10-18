@@ -289,8 +289,9 @@ export async function mutateDatabaseAsync(
   options?: { strictPg?: boolean }
 ): Promise<DatabaseState> {
   const pool = getPgPool();
-  if (!isPgConnected || !pool) {
-    if (options?.strictPg && getPostgresUrl()) {
+  const pgUrl = getPostgresUrl();
+  if (!pgUrl || !pool) {
+    if (options?.strictPg && pgUrl) {
       throw new Error(`PostgreSQL database unavailable: ${lastPgError || 'Connection not established'}`);
     }
     return new Promise<DatabaseState>((resolve, reject) => {

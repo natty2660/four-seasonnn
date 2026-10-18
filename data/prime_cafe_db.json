@@ -1661,6 +1661,27 @@
       "assigned_waiter_id": "waiter_reservation"
     }
   ],
-  "last_updated": "2026-10-18T04:12:25.290Z",
-  "waiter_calls": []
+  "last_updated": "2026-10-18T04:46:11.300Z",
+  "waiter_calls": [
+    {
+      "id": "call_1792298155881_ti5y",
+      "status": "accepted",
+      "held_at": null,
+      "message": "VIP staff assistance requested",
+      "revision": 3,
+      "table_id": "vip_1",
+      "call_type": "general",
+      "created_at": "2026-10-18T04:35:55.881Z",
+      "table_name": "Royal Gold Suite",
+      "accepted_at": "2026-10-18T04:37:05.040Z",
+      "hold_reason": null,
+      "escalated_at": "2026-10-18T04:36:54.112Z",
+      "is_escalated": true,
+      "table_number": "VIP-1",
+      "accepted_by_name": "VIP Reservation Desk",
+      "assigned_waiter_id": "waiter_reservation",
+      "original_waiter_id": "waiter_reservation",
+      "accepted_by_waiter_id": "waiter_reservation"
+    }
+  ]
 }

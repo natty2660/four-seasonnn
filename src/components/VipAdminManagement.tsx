@@ -224,6 +224,14 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     reader.readAsDataURL(file);
   };
 
+  const handleDownloadQrOnly = async () => {
+    if (!currentStudioTable) return;
+    await downloadVipQRPNG(
+      currentStudioTable.table_number,
+      null
+    );
+  };
+
   const handleDownloadStudioPNG = async () => {
     if (!currentStudioTable) return;
     setIsGeneratingA6(true);
@@ -1341,30 +1349,41 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                   </div>
 
                   {/* Actions Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-                    <button
-                      onClick={handleDownloadStudioPNG}
-                      disabled={isGeneratingA6}
-                      className="py-3 px-3.5 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E5C158] to-[#AA771C] text-black font-extrabold text-xs shadow-lg flex items-center justify-center gap-2 hover:brightness-110 cursor-pointer disabled:opacity-60 transition-all"
-                    >
-                      {isGeneratingA6 ? (
-                        <Clock className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4" />
-                      )}
-                      <span>
-                        {isGeneratingA6
-                          ? 'Rendering 300 DPI...'
-                          : 'Download PNG (1748×1240 · 300 DPI)'}
-                      </span>
-                    </button>
+                  <div className="space-y-2 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        onClick={handleDownloadStudioPNG}
+                        disabled={isGeneratingA6}
+                        className="py-3 px-3.5 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E5C158] to-[#AA771C] text-black font-extrabold text-xs shadow-lg flex items-center justify-center gap-2 hover:brightness-110 cursor-pointer disabled:opacity-60 transition-all"
+                      >
+                        {isGeneratingA6 ? (
+                          <Clock className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
+                        <span>
+                          {isGeneratingA6
+                            ? 'Rendering 300 DPI...'
+                            : 'Download A6 Stand Card (300 DPI)'}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => window.print()}
+                        className="py-3 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-[#D4AF37]/40 flex items-center justify-center gap-2 cursor-pointer shadow transition-all"
+                      >
+                        <Printer className="w-4 h-4 text-[#D4AF37]" />
+                        <span>Print Stand Card (148×105mm)</span>
+                      </button>
+                    </div>
 
                     <button
-                      onClick={() => window.print()}
-                      className="py-3 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-[#D4AF37]/40 flex items-center justify-center gap-2 cursor-pointer shadow transition-all"
+                      type="button"
+                      onClick={handleDownloadQrOnly}
+                      className="w-full py-2.5 px-3 rounded-xl bg-[#181818] hover:bg-[#222] text-[#FCF6BA] border border-white/15 hover:border-[#D4AF37]/50 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow transition-all"
                     >
-                      <Printer className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Print Stand Card (148×105mm)</span>
+                      <Download className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span>Download QR Code Only (PNG)</span>
                     </button>
                   </div>
 
@@ -1611,21 +1630,12 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={async () => {
-                  const url = getVipTableUrl(selectedQRTable.table_number, null, true);
-                  await downloadA6StandCardPNG({
-                    tableNumber: selectedQRTable.table_number,
-                    tableName: selectedQRTable.name,
-                    theme: qrTheme,
-                    customBgDataUrl: customBgUrl,
-                    qrUrl: url,
-                    cafeName: 'Four Season Café & Restaurant',
-                    tagline: 'Good Food • Great Mood',
-                  });
+                  await downloadVipQRPNG(selectedQRTable.table_number, null);
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs shadow flex items-center justify-center gap-1.5 hover:brightness-110 cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs shadow flex items-center justify-center gap-1.5 hover:brightness-110 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-                <span>Download A6 Stand PNG</span>
+                <span>Download QR Code Only</span>
               </button>
               <button
                 onClick={() => {
