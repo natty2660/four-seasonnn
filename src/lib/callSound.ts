@@ -7,21 +7,28 @@ class CallSoundController {
   private isRinging: boolean = false;
   private vibrationInterval: number | null = null;
 
-  private getAudioContext(): AudioContext {
-    if (!this.audioCtx) {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      this.audioCtx = new AudioContextClass();
+  private getAudioContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      if (!this.audioCtx) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) return null;
+        this.audioCtx = new AudioContextClass();
+      }
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+      return this.audioCtx;
+    } catch {
+      return null;
     }
-    if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume().catch(() => {});
-    }
-    return this.audioCtx;
   }
 
   // Pre-unlock audio on user tap/interaction (required by iOS Safari and modern mobile browsers)
   public unlockAudio(): void {
     try {
       const ctx = this.getAudioContext();
+      if (!ctx) return;
       if (ctx.state === 'suspended') {
         ctx.resume();
       }
@@ -42,6 +49,7 @@ class CallSoundController {
   public playSingleChime(freq1 = 880, freq2 = 1320): void {
     try {
       const ctx = this.getAudioContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
 
       // Primary tone
@@ -83,6 +91,7 @@ class CallSoundController {
   public playCustomerConfirmationChime(): void {
     try {
       const ctx = this.getAudioContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
 
       const osc = ctx.createOscillator();

@@ -34,11 +34,11 @@ export const PrintableQRCard: React.FC<PrintableQRCardProps> = ({
           onClick={handlePrint}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#080808] text-[#FCF6BA] text-xs font-bold hover:bg-[#1A1A1A] shadow-md transition-all"
         >
-          <Printer className="w-4 h-4 text-[#D4AF37]" /> Print Table Stand (A6)
+          <Printer className="w-4 h-4 text-[#D4AF37]" /> Print Table QR Code
         </button>
       </div>
 
-      {/* Printable A6 / Table Stand Card */}
+      {/* Printable Table QR Card */}
       <div
         id="printable-card"
         className="relative w-full max-w-sm aspect-[1/1.414] bg-gold-surface border-4 border-[#080808] rounded-3xl p-6 sm:p-8 flex flex-col items-center justify-between text-center shadow-2xl text-[#080808] overflow-hidden"

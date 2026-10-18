@@ -110,6 +110,33 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Ensure valid pending & selected waiter profile when waiters load or update
+  useEffect(() => {
+    if (waiters.length > 0) {
+      setPendingWaiterId((prev) => {
+        if (!prev || !waiters.some((w) => w.id === prev)) {
+          const saved = typeof window !== 'undefined' ? localStorage.getItem('four_season_active_waiter_id') || '' : '';
+          if (saved && waiters.some((w) => w.id === saved)) return saved;
+          return waiters[0].id;
+        }
+        return prev;
+      });
+
+      setSelectedWaiterId((prev) => {
+        if (!prev || !waiters.some((w) => w.id === prev)) {
+          const saved = typeof window !== 'undefined' ? localStorage.getItem('four_season_active_waiter_id') || '' : '';
+          const unlocked = typeof window !== 'undefined' ? sessionStorage.getItem('four_season_waiter_session_unlocked') || '' : '';
+          if (saved && unlocked === saved && waiters.some((w) => w.id === saved)) {
+            setIsLocked(false);
+            return saved;
+          }
+          return waiters[0].id;
+        }
+        return prev;
+      });
+    }
+  }, [waiters]);
+
   // Currently logged-in waiter
   const currentWaiter = waiters.find((w) => w.id === selectedWaiterId);
 

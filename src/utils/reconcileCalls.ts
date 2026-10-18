@@ -33,9 +33,9 @@ export function reconcileWaiterCalls(
         if (now - timeRef < 30000) {
           mergedMap.set(loc.id, loc);
         }
-      } else if (loc.status === 'completed' || loc.status === 'cancelled') {
-        // Also preserve recently completed/cancelled calls in history for at least 60s
-        const timeRef = new Date(loc.completed_at || loc.created_at).getTime();
+      } else if (loc.status === 'completed' || loc.status === 'cancelled' || loc.status === 'missed') {
+        // Also preserve recently completed/cancelled/missed calls in history for at least 60s
+        const timeRef = new Date(loc.completed_at || loc.missed_at || loc.created_at).getTime();
         if (now - timeRef < 60000) {
           mergedMap.set(loc.id, loc);
         }
@@ -51,15 +51,15 @@ export function reconcileWaiterCalls(
       }
 
       // Retain local state if local was modified more recently within a 10-second window
-      const locTime = new Date(loc.completed_at || loc.accepted_at || loc.held_at || loc.created_at).getTime();
-      const incTime = new Date(inc.completed_at || inc.accepted_at || inc.held_at || inc.created_at).getTime();
+      const locTime = new Date(loc.completed_at || loc.accepted_at || loc.held_at || loc.missed_at || loc.created_at).getTime();
+      const incTime = new Date(inc.completed_at || inc.accepted_at || inc.held_at || inc.missed_at || inc.created_at).getTime();
       if (locRev === incRev && locTime > incTime && now - locTime < 10000) {
         mergedMap.set(loc.id, loc);
         continue;
       }
 
-      // Retain local terminal state if completed/cancelled locally within last 20 seconds
-      const locIsTerminal = loc.status === 'completed' || loc.status === 'cancelled';
+      // Retain local terminal state if completed/cancelled/missed locally within last 20 seconds
+      const locIsTerminal = loc.status === 'completed' || loc.status === 'cancelled' || loc.status === 'missed';
       const incIsActive = inc.status === 'pending' || inc.status === 'accepted' || inc.status === 'hold';
       if (locIsTerminal && incIsActive && now - locTime < 20000) {
         mergedMap.set(loc.id, loc);
