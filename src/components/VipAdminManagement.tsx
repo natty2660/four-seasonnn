@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { VipTable, Waiter, WaiterCall } from '../types/index.ts';
 import { generateQRCodeDataUrl, getVipTableUrl, downloadVipQRPNG } from '../lib/qr.ts';
+import { downloadA6StandCardPNG } from '../lib/a6StandGenerator.ts';
+import { A6StandCardPreview } from './A6StandCardPreview.tsx';
 import { apiFetch } from '../lib/apiConfig.ts';
 import { reconcileWaiterCalls } from '../utils/reconcileCalls.ts';
 import { BrandLogo } from './BrandLogo.tsx';
@@ -25,6 +27,8 @@ import {
   Eye,
   ArrowLeft,
   AlertTriangle,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface VipAdminManagementProps {
@@ -142,14 +146,17 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
   const [selectedQRTable, setSelectedQRTable] = useState<VipTable | null>(null);
   const [qrModalDataUrl, setQrModalDataUrl] = useState<string>('');
 
-  // VIP QR Studio states
+  // VIP QR Studio states (A6 Horizontal 148mm × 105mm / 1748×1240px @ 300 DPI)
   const [selectedStudioTableId, setSelectedStudioTableId] = useState<string>(
     vipTables[0]?.id || ''
   );
   const [directAccessMode, setDirectAccessMode] = useState<boolean>(true);
-  const [qrTheme, setQrTheme] = useState<'gold_luxury' | 'obsidian_dark' | 'minimal_white'>(
+  const [qrTheme, setQrTheme] = useState<'gold_luxury' | 'obsidian_dark'>(
     'gold_luxury'
   );
+  const [customBgUrl, setCustomBgUrl] = useState<string | null>(null);
+  const [isGeneratingA6, setIsGeneratingA6] = useState<boolean>(false);
+  const bgFileInputRef = useRef<HTMLInputElement | null>(null);
   const [studioQrDataUrl, setStudioQrDataUrl] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [batchPrintMode, setBatchPrintMode] = useState<boolean>(false);
@@ -168,7 +175,7 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     (w) => w.id === currentStudioTable?.assigned_waiter_id
   );
 
-  // Generate QR for Studio Preview
+  // Generate Scannable QR for Studio Preview (Solid dark box with metallic gold modules)
   useEffect(() => {
     if (!currentStudioTable) return;
     const url = getVipTableUrl(
@@ -177,15 +184,9 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
       directAccessMode
     );
 
-    let darkColor = '#0A0A0A';
-    let lightColor = '#FBF5B7';
-    if (qrTheme === 'obsidian_dark') {
-      darkColor = '#D4AF37';
-      lightColor = '#0A0A0A';
-    } else if (qrTheme === 'minimal_white') {
-      darkColor = '#000000';
-      lightColor = '#FFFFFF';
-    }
+    // Both luxury reference templates feature a dark QR module housing with crisp metallic gold modules
+    const darkColor = '#E5C158'; // Metallic Gold Modules
+    const lightColor = '#0A0A0A'; // Obsidian Black Housing
 
     generateQRCodeDataUrl({
       url,
@@ -211,12 +212,41 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
     } catch {}
   };
 
+  const handleCustomBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setCustomBgUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleDownloadStudioPNG = async () => {
     if (!currentStudioTable) return;
-    await downloadVipQRPNG(
-      currentStudioTable.table_number,
-      null
-    );
+    setIsGeneratingA6(true);
+    try {
+      const url = getVipTableUrl(
+        currentStudioTable.table_number,
+        null,
+        directAccessMode
+      );
+      await downloadA6StandCardPNG({
+        tableNumber: currentStudioTable.table_number,
+        tableName: currentStudioTable.name,
+        theme: qrTheme,
+        customBgDataUrl: customBgUrl,
+        qrUrl: url,
+        cafeName: 'Four Season Café & Restaurant',
+        tagline: 'Good Food • Great Mood',
+      });
+    } catch (err) {
+      console.error('Failed generating A6 Stand Card PNG:', err);
+    } finally {
+      setIsGeneratingA6(false);
+    }
   };
 
   const handlePrepareBatchPrint = async () => {
@@ -1200,53 +1230,94 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                     </div>
                   </div>
 
-                  {/* Visual Style Theme */}
-                  <div>
-                    <label className="block text-xs font-bold text-white mb-2">QR Visual Color Style</label>
-                    <div className="grid grid-cols-3 gap-2">
+                  {/* Visual Style Theme & Custom Template Upload */}
+                  <div className="space-y-3">
+                    <label className="block text-xs font-bold text-white">
+                      QR Stand Artwork Design (A6 Horizontal: 148mm × 105mm)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={() => setQrTheme('gold_luxury')}
-                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
+                        onClick={() => {
+                          setQrTheme('gold_luxury');
+                        }}
+                        className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
                           qrTheme === 'gold_luxury'
-                            ? 'bg-[#FBF5B7] text-[#0A0A0A] border-[#D4AF37] ring-2 ring-[#D4AF37]'
-                            : 'bg-[#181818] text-white/70 border-white/10'
+                            ? 'bg-gradient-to-br from-[#FFFDF5] to-[#FAF4E4] text-[#1C150E] border-[#D4AF37] ring-2 ring-[#D4AF37] shadow-lg'
+                            : 'bg-[#181818] text-white/70 border-white/10 hover:border-white/20'
                         }`}
                       >
-                        <div className="w-5 h-5 rounded bg-[#0A0A0A] border border-[#D4AF37]" />
-                        <span>Luxury Gold</span>
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#FFFDF5] via-[#F3E8CE] to-[#C99D2A] border-2 border-[#AA771C] shadow-inner" />
+                        <span className="font-extrabold text-xs">Template 1: Luxury Gold</span>
+                        <span className="text-[10px] opacity-80 font-normal">Cream &amp; Champagne Marble</span>
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => setQrTheme('obsidian_dark')}
-                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
+                        onClick={() => {
+                          setQrTheme('obsidian_dark');
+                        }}
+                        className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
                           qrTheme === 'obsidian_dark'
-                            ? 'bg-[#0A0A0A] text-[#D4AF37] border-[#D4AF37] ring-2 ring-[#D4AF37]'
-                            : 'bg-[#181818] text-white/70 border-white/10'
+                            ? 'bg-[#0A0A0A] text-[#FCF6BA] border-[#D4AF37] ring-2 ring-[#D4AF37] shadow-lg'
+                            : 'bg-[#181818] text-white/70 border-white/10 hover:border-white/20'
                         }`}
                       >
-                        <div className="w-5 h-5 rounded bg-[#D4AF37]" />
-                        <span>Obsidian Dark</span>
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#1E1A16] via-[#0A0A0A] to-[#D4AF37] border-2 border-[#D4AF37] shadow-inner" />
+                        <span className="font-extrabold text-xs">Template 2: Obsidian Dark</span>
+                        <span className="text-[10px] opacity-80 font-normal">Black &amp; Gold Marble Bokeh</span>
                       </button>
+                    </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setQrTheme('minimal_white')}
-                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
-                          qrTheme === 'minimal_white'
-                            ? 'bg-white text-black border-white ring-2 ring-white'
-                            : 'bg-[#181818] text-white/70 border-white/10'
-                        }`}
+                    {/* Custom Background Template Upload */}
+                    <div className="p-3 bg-[#0E0E0E] border border-white/10 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-[#D4AF37] flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          Custom Background Template (Optional)
+                        </span>
+                        {customBgUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomBgUrl(null);
+                              if (bgFileInputRef.current) bgFileInputRef.current.value = '';
+                            }}
+                            className="text-[10px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
+                          >
+                            Reset to Default Artwork
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        type="file"
+                        ref={bgFileInputRef}
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={handleCustomBgUpload}
+                        className="hidden"
+                        id="custom-bg-input"
+                      />
+
+                      <label
+                        htmlFor="custom-bg-input"
+                        className="w-full py-2 px-3 rounded-lg border border-dashed border-[#D4AF37]/50 hover:border-[#D4AF37] bg-white/5 hover:bg-white/10 text-white text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors"
                       >
-                        <div className="w-5 h-5 rounded bg-white border border-gray-400" />
-                        <span>Clean White</span>
-                      </button>
+                        <Upload className="w-3.5 h-3.5 text-[#D4AF37]" />
+                        <span>
+                          {customBgUrl
+                            ? '✓ Custom Template Loaded (Click to Replace)'
+                            : 'Upload Custom Background Template PNG/JPG (148×105mm)'}
+                        </span>
+                      </label>
+                      <p className="text-[10px] text-white/40 leading-relaxed">
+                        Tip: Upload any blank or reference 148mm×105mm template image. The system composites the live dynamic QR code and table badge directly onto the exact coordinates.
+                      </p>
                     </div>
                   </div>
 
                   {/* Direct VIP URL Display */}
-                  <div className="pt-2">
+                  <div className="pt-1">
                     <label className="block text-[11px] font-bold text-white/60 mb-1">
                       Direct VIP Access URL (Encoded in QR)
                     </label>
@@ -1273,18 +1344,27 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                     <button
                       onClick={handleDownloadStudioPNG}
-                      className="py-2.5 px-3 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs shadow flex items-center justify-center gap-1.5 hover:brightness-110 cursor-pointer"
+                      disabled={isGeneratingA6}
+                      className="py-3 px-3.5 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E5C158] to-[#AA771C] text-black font-extrabold text-xs shadow-lg flex items-center justify-center gap-2 hover:brightness-110 cursor-pointer disabled:opacity-60 transition-all"
                     >
-                      <Download className="w-4 h-4" />
-                      <span>Download PNG (1200px)</span>
+                      {isGeneratingA6 ? (
+                        <Clock className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      <span>
+                        {isGeneratingA6
+                          ? 'Rendering 300 DPI...'
+                          : 'Download PNG (1748×1240 · 300 DPI)'}
+                      </span>
                     </button>
 
                     <button
                       onClick={() => window.print()}
-                      className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="py-3 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-[#D4AF37]/40 flex items-center justify-center gap-2 cursor-pointer shadow transition-all"
                     >
-                      <Printer className="w-4 h-4" />
-                      <span>Print Stand Card</span>
+                      <Printer className="w-4 h-4 text-[#D4AF37]" />
+                      <span>Print Stand Card (148×105mm)</span>
                     </button>
                   </div>
 
@@ -1307,71 +1387,21 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
                 </div>
               </div>
 
-              {/* Right Column: Live Table Stand Card (Printable) */}
+              {/* Right Column: Live Table Stand Card (Printable A6 Horizontal 148mm × 105mm) */}
               <div className="lg:col-span-6 flex flex-col items-center">
-                <div className="w-full max-w-sm bg-gradient-to-b from-[#FAF4B7] via-[#F4E99B] to-[#E9D97E] border-4 border-[#080808] rounded-3xl p-6 sm:p-7 text-[#080808] shadow-2xl text-center relative overflow-hidden">
-                  {/* Subtle inner gold border */}
-                  <div className="absolute inset-2 rounded-2xl border border-dashed border-[#080808]/40 pointer-events-none" />
-
-                  {/* Top Branding */}
-                  <div className="flex flex-col items-center mb-3">
-                    <BrandLogo size="md" showSubtitle={false} />
-                    <h3 className="text-base font-black font-display tracking-wider uppercase mt-1 text-[#080808]">
-                      Four Season VIP Lounge
-                    </h3>
-                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#080808] text-[#FCF6BA] text-[10px] font-extrabold uppercase tracking-widest mt-1 shadow">
-                      <Crown className="w-3 h-3 text-[#D4AF37]" />
-                      Exclusive Guest Table
-                    </div>
-                  </div>
-
-                  {/* Table Identifier */}
-                  <div className="my-2 py-1.5 border-y border-[#080808]/30">
-                    <div className="text-2xl font-black font-mono tracking-tight text-[#080808]">
-                      {currentStudioTable.table_number}
-                    </div>
-                    <div className="text-xs font-extrabold text-[#222]">
-                      {currentStudioTable.name}
-                    </div>
-                  </div>
-
-                  {/* High-Resolution Scannable QR Container */}
-                  <div className="my-3 flex flex-col items-center justify-center">
-                    <div className="p-3 bg-white rounded-2xl border-2 border-[#080808] shadow-inner inline-block">
-                      {studioQrDataUrl ? (
-                        <img
-                          src={studioQrDataUrl}
-                          alt={`QR for ${currentStudioTable.table_number}`}
-                          className="w-48 h-48 sm:w-52 sm:h-52 object-contain"
-                        />
-                      ) : (
-                        <div className="w-48 h-48 flex items-center justify-center text-xs">Generating QR...</div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Scan Instructions */}
-                  <div className="space-y-1">
-                    <div className="bg-[#080808] text-[#FCF6BA] py-1 px-3 rounded-full text-xs font-black uppercase tracking-wider inline-block shadow">
-                      Point Camera to Scan
-                    </div>
-                    <p className="text-[11px] font-bold text-[#111] leading-tight pt-1">
-                      Direct VIP Access · Call Assigned Waiter · Full Menu
-                    </p>
-                    <div className="text-[10px] text-[#333] font-semibold pt-0.5">
-                      {currentStudioWaiter
-                        ? `Dedicated Waiter: ${currentStudioWaiter.name}`
-                        : 'Dedicated Priority Waiter Service'}
-                    </div>
-                    <div className="text-[9px] font-bold text-[#888] pt-0.5">
-                      Direct QR Stand Access · 4h Session
-                    </div>
-                  </div>
+                <div className="w-full">
+                  <A6StandCardPreview
+                    table={currentStudioTable}
+                    theme={qrTheme}
+                    customBgUrl={customBgUrl}
+                    qrDataUrl={studioQrDataUrl}
+                  />
                 </div>
 
-                <p className="text-[11px] text-white/50 text-center mt-3 max-w-xs">
-                  This card represents the standard A6 acrylic stand size placed on VIP tables.
-                </p>
+                <div className="flex items-center justify-between w-full mt-3 text-[11px] text-white/50 px-2">
+                  <span>Exact A6 Horizontal (148mm × 105mm · Standard Acrylic Stand)</span>
+                  <span className="text-[#D4AF37] font-bold">300 DPI Export (1748 × 1240 px)</span>
+                </div>
               </div>
             </div>
           )}
@@ -1579,14 +1609,24 @@ export const VipAdminManagement: React.FC<VipAdminManagementProps> = ({
             </p>
 
             <div className="flex gap-2">
-              <a
-                href={qrModalDataUrl}
-                download={`FourSeason-${selectedQRTable.table_number}-VIP-Access-QR.png`}
-                className="flex-1 py-2.5 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs shadow flex items-center justify-center gap-1.5 hover:brightness-110 cursor-pointer"
+              <button
+                onClick={async () => {
+                  const url = getVipTableUrl(selectedQRTable.table_number, null, true);
+                  await downloadA6StandCardPNG({
+                    tableNumber: selectedQRTable.table_number,
+                    tableName: selectedQRTable.name,
+                    theme: qrTheme,
+                    customBgDataUrl: customBgUrl,
+                    qrUrl: url,
+                    cafeName: 'Four Season Café & Restaurant',
+                    tagline: 'Good Food • Great Mood',
+                  });
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA771C] text-black font-extrabold text-xs shadow flex items-center justify-center gap-1.5 hover:brightness-110 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-                <span>Download PNG</span>
-              </a>
+                <span>Download A6 Stand PNG</span>
+              </button>
               <button
                 onClick={() => {
                   setSelectedStudioTableId(selectedQRTable.id);
