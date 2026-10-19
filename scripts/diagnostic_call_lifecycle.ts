@@ -9,14 +9,13 @@
  * 5. Customer Cancellation -> status: 'cancelled' (Clean release without stale zombie rings)
  * 
  * Usage:
- *   npx tsx scripts/diagnostic_call_lifecycle.ts
  *   npm run test:call
- *   npx tsx scripts/diagnostic_call_lifecycle.ts --quick
+ *   npm run test:call -- --quick
  */
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000';
 const IS_QUICK = process.argv.includes('--quick');
-const PAUSE_MS = IS_QUICK ? 300 : 2500;
+const PAUSE_MS = IS_QUICK ? 200 : 2500;
 
 // ANSI color helpers
 const c = {
@@ -35,6 +34,21 @@ const c = {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function pause(ms: number) {
+  if (IS_QUICK) {
+    await sleep(ms);
+    return;
+  }
+  const steps = 5;
+  const interval = ms / steps;
+  process.stdout.write(`   ${c.gray}Observing UI update in browser window... ${c.reset}`);
+  for (let i = 0; i < steps; i++) {
+    await sleep(interval);
+    process.stdout.write(`${c.gold}•${c.reset}`);
+  }
+  process.stdout.write(`\n`);
 }
 
 function printHeader(title: string) {
@@ -122,6 +136,25 @@ async function runDiagnostic() {
   }
   console.log(`  ${c.green}✔ Active Waiter Found:${c.reset} ${waiter.name} (PIN: ${waiter.pin || '1234'}, ID: ${waiter.id})`);
 
+  // Clear any existing busy calls for this waiter so accept/hold state machine is pristine
+  try {
+    const existingCallsRes = await api('/api/waiter-calls');
+    if (Array.isArray(existingCallsRes.data)) {
+      for (const ec of existingCallsRes.data) {
+        if (ec.status === 'pending' || ec.status === 'accepted' || ec.status === 'hold') {
+          if (ec.table_id === table.id || ec.accepted_by_waiter_id === waiter.id) {
+            await api(`/api/waiter-calls/${ec.id}/complete`, {
+              method: 'POST',
+              body: JSON.stringify({ waiter_id: waiter.id }),
+            });
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore cleanup warnings
+  }
+
   // ---------------------------------------------------------
   // STEP 1: Customer Call Placed (pending)
   // ---------------------------------------------------------
@@ -166,7 +199,7 @@ async function runDiagnostic() {
   }
 
   printSuccess(`Call created successfully! Call ID: ${call.id} | Status: PENDING | Rev: ${initialRevision}`);
-  await sleep(PAUSE_MS);
+  await pause(PAUSE_MS);
 
   // ---------------------------------------------------------
   // STEP 2: Waiter Places on Hold / Busy Queue (hold)
@@ -210,7 +243,7 @@ async function runDiagnostic() {
   }
 
   printSuccess(`Call queued on hold! Status: HOLD | Reason: "${heldCall.hold_reason || holdReason}" | Rev: ${heldCall.revision}`);
-  await sleep(PAUSE_MS);
+  await pause(PAUSE_MS);
 
   // ---------------------------------------------------------
   // STEP 3: Waiter Accepts Call (accepted)
@@ -253,7 +286,7 @@ async function runDiagnostic() {
   }
 
   printSuccess(`Call accepted by ${waiter.name}! Status: ACCEPTED | At: ${acceptedCall.accepted_at} | Rev: ${acceptedCall.revision}`);
-  await sleep(PAUSE_MS);
+  await pause(PAUSE_MS);
 
   // ---------------------------------------------------------
   // STEP 4: Waiter Completes Service (completed)
@@ -292,7 +325,7 @@ async function runDiagnostic() {
   }
 
   printSuccess(`Service marked completed! Status: COMPLETED | Completed At: ${completedCall.completed_at} | Rev: ${completedCall.revision}`);
-  await sleep(PAUSE_MS);
+  await pause(PAUSE_MS);
 
   // ---------------------------------------------------------
   // STEP 5: Customer Cancellation Edge Case (cancelled)
@@ -343,7 +376,7 @@ ${c.green}✔ 4. COMPLETED${c.reset}  -> Terminal state lock enforced, auto-dism
 ${c.green}✔ 5. CANCELLED${c.reset}  -> Immediate clean dismissal with zero residual audio
 
 ${c.gold}Live Browser Testing Verification URLs:${c.reset}
-1. VIP Table Customer View:  ${c.bright}${BASE_URL}/vip?table=${table.table_number}&entry=qr&scan=cam${c.reset}
+1. VIP Table Customer View:  ${c.bright}${BASE_URL}/vip?table=${table.table_number}&entry=qr&scan=camera${c.reset}
 2. Waiter Dispatch Terminal: ${c.bright}${BASE_URL}/waiter-app${c.reset}
 3. Admin Management Studio:  ${c.bright}${BASE_URL}/admin${c.reset}
 `);
