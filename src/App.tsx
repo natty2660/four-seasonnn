@@ -23,6 +23,7 @@ import {
 } from './lib/vipSession.ts';
 import { Capacitor } from '@capacitor/core';
 import { apiFetch, isNativeApp, getApiUrl } from './lib/apiConfig.ts';
+import { subscribeToLiveCallUpdates, broadcastLiveCallUpdate } from './lib/callSync.ts';
 import { PublicMenu } from './components/PublicMenu.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { AdminLoginModal } from './components/AdminLoginModal.tsx';
@@ -174,13 +175,13 @@ export default function App() {
   // so all statuses appear accurately without any visible UI clutter or flickers.
   // =========================================================================
   const executeDedicatedRefresh = useCallback(async () => {
-    // Prevent polling from clobbering optimistic UI state while mutations are in-flight
-    if (Date.now() - lastUserActionTimestamp.current < 3500) {
+    // Only yield if a user action occurred within the last 300ms to allow local state to set
+    if (Date.now() - lastUserActionTimestamp.current < 300) {
       return;
     }
     refreshCycleCount.current += 1;
-    // Every 6 cycles (~30s), also revalidate menu items & restaurant settings
-    const shouldRevalidateMenu = refreshCycleCount.current % 6 === 0;
+    // Every 10 cycles, also revalidate menu items & restaurant settings
+    const shouldRevalidateMenu = refreshCycleCount.current % 10 === 0;
 
     try {
       const t = Date.now();
@@ -261,14 +262,36 @@ export default function App() {
     }
   }, []);
 
-  // 1. Dedicated 5-Second Interval - runs silently inside the site every 5 seconds
+  // 1. Instant Real-Time Cross-Tab / Cross-Window Synchronization
+  useEffect(() => {
+    const unsubscribe = subscribeToLiveCallUpdates((incomingCalls) => {
+      setDbState((prev) => {
+        const mergedCalls = reconcileWaiterCalls(prev.waiter_calls || [], incomingCalls);
+        const hasCallDiff = JSON.stringify(prev.waiter_calls) !== JSON.stringify(mergedCalls);
+        if (hasCallDiff) {
+          const next: DatabaseState = {
+            ...prev,
+            waiter_calls: mergedCalls,
+            last_updated: new Date().toISOString(),
+          };
+          saveClientState(next);
+          return next;
+        }
+        return prev;
+      });
+    });
+    return unsubscribe;
+  }, []);
+
+  // 2. Authoritative Real-Time Status Refresh Engine (Runs smoothly every 1500ms)
   useEffect(() => {
     // Immediate refresh on mount
     executeDedicatedRefresh();
 
+    // Fast 1.5-second polling interval guarantees instant sub-second status changes
     const timer = setInterval(() => {
       executeDedicatedRefresh();
-    }, 5000);
+    }, 1500);
 
     // Instant revalidation when tab becomes visible or receives focus
     const handleVisibility = () => {

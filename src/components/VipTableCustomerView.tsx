@@ -4,6 +4,7 @@ import { ItemCard } from './ItemCard.tsx';
 import { callSound } from '../lib/callSound.ts';
 import { apiFetch, getApiUrl } from '../lib/apiConfig.ts';
 import { reconcileWaiterCalls } from '../utils/reconcileCalls.ts';
+import { subscribeToLiveCallUpdates } from '../lib/callSync.ts';
 import {
   isVipSessionValid,
   getRemainingVipTime,
@@ -99,6 +100,14 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
   useEffect(() => {
     setSyncedCalls((prev) => reconcileWaiterCalls(prev, activeCalls));
   }, [activeCalls]);
+
+  // Real-time inter-tab and inter-window call synchronization
+  useEffect(() => {
+    const unsubscribe = subscribeToLiveCallUpdates((incomingCalls) => {
+      setSyncedCalls((prev) => reconcileWaiterCalls(prev, incomingCalls));
+    });
+    return unsubscribe;
+  }, []);
 
   const refreshVipCallsAuthoritative = useCallback(async () => {
     try {

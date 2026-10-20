@@ -51,37 +51,25 @@ export function isNativeApp(): boolean {
     return true;
   }
 
-  // 6. Running on localhost inside Android WebView (Capacitor serves dist at https://localhost with no port)
-  // Local Vite development runs strictly on port 3000.
-  const hostname = window.location.hostname;
-  const port = window.location.port;
-
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // If not on dev port 3000, it is 100% running inside the Capacitor Android APK
-    if (port !== '3000') {
-      return true;
-    }
-  }
-
-  // 7. Android WebView user agent check
-  const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
-  const isWebView = /wv|Android.*Version\/[\d.]+/i.test(ua);
-  if (isWebView && (hostname === 'localhost' || hostname === '127.0.0.1' || !hostname)) {
-    return true;
-  }
-
+  // 6. Running on native Capacitor platform check
+  // In Capacitor Android, protocol is 'capacitor:' or 'file:' or Capacitor.isNativePlatform() is true
   return false;
 }
 
 /**
  * Returns the authoritative server base URL.
- * Physical Android APK connects directly to PRODUCTION_BACKEND_URL.
+ * Physical Android APK connects directly to stored URL or PRODUCTION_BACKEND_URL.
  * Browser connects to current origin.
  */
 export function getServerBaseUrl(): string {
   if (typeof window === 'undefined') return PRODUCTION_BACKEND_URL;
 
-  // Retrieve stored URL if any
+  // In standard browser environment, always use current origin
+  if (!isNativeApp() && window.location && window.location.origin && window.location.origin !== 'null') {
+    return window.location.origin;
+  }
+
+  // Retrieve stored URL if any (configured in native app settings)
   const stored = localStorage.getItem(SERVER_URL_KEY);
   if (stored) {
     const trimmed = stored.trim();
@@ -93,22 +81,11 @@ export function getServerBaseUrl(): string {
     }
   }
 
-  // Native Capacitor Android APK always connects to authoritative production backend
-  const isCapacitorLocal =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-    window.location.port !== '3000';
-
-  if (isNativeApp() || isCapacitorLocal) {
+  if (isNativeApp()) {
     return PRODUCTION_BACKEND_URL;
   }
 
-  // In standard browser environment, use window.location.origin
-  if (window.location && window.location.origin && window.location.origin !== 'null') {
-    return window.location.origin;
-  }
-
-  return PRODUCTION_BACKEND_URL;
+  return window.location.origin || PRODUCTION_BACKEND_URL;
 }
 
 export function setServerBaseUrl(url: string): void {
@@ -121,7 +98,7 @@ export function setServerBaseUrl(url: string): void {
 
 /**
  * Converts any relative API endpoint (e.g. '/api/waiter-calls') into an authoritative URL.
- * In native Capacitor APK, prefixes with PRODUCTION_BACKEND_URL.
+ * In native Capacitor APK, prefixes with server base URL.
  * In browser, preserves relative path so dev server/proxy works seamlessly.
  */
 export function getApiUrl(endpoint: string): string {
@@ -131,20 +108,10 @@ export function getApiUrl(endpoint: string): string {
     return cleanEndpoint;
   }
 
-  if (isNativeApp()) {
+  // In native Capacitor APK where protocol is capacitor: or file:, use server base URL
+  if (isNativeApp() || (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.protocol === 'capacitor:'))) {
     const base = getServerBaseUrl();
     return `${base}${cleanEndpoint}`;
-  }
-
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    const port = window.location.port;
-    if ((hostname === 'localhost' || hostname === '127.0.0.1') && port !== '3000') {
-      return `${PRODUCTION_BACKEND_URL}${cleanEndpoint}`;
-    }
-    if (window.location.protocol === 'file:' || window.location.protocol === 'capacitor:') {
-      return `${PRODUCTION_BACKEND_URL}${cleanEndpoint}`;
-    }
   }
 
   return cleanEndpoint;

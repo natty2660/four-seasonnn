@@ -14,7 +14,7 @@ export function reconcileWaiterCalls(
   const localList = Array.isArray(localCalls) ? localCalls : [];
   const mergedMap = new Map<string, WaiterCall>();
 
-  // 1. Process all incoming calls
+  // 1. Process all incoming authoritative calls from server
   for (const inc of incomingList) {
     mergedMap.set(inc.id, {
       ...inc,
@@ -22,50 +22,69 @@ export function reconcileWaiterCalls(
     });
   }
 
-  // 2. Preserve optimistic local states if newer
+  // 2. Reconcile with local calls
   const now = Date.now();
   for (const loc of localList) {
     const inc = mergedMap.get(loc.id);
     if (!inc) {
-      // If local call is still active and recently created, don't drop it immediately
+      // Local call not present in incoming array yet.
+      // If locally created within last 30s and still active, preserve it so it doesn't vanish while POST request is in flight
       if (loc.status === 'pending' || loc.status === 'accepted' || loc.status === 'hold') {
         const timeRef = new Date(loc.created_at).getTime();
         if (now - timeRef < 30000) {
           mergedMap.set(loc.id, loc);
         }
       } else if (loc.status === 'completed' || loc.status === 'cancelled' || loc.status === 'missed') {
-        // Also preserve recently completed/cancelled/missed calls in history for at least 60s
+        // Preserve recently completed/cancelled in history log for at least 60s
         const timeRef = new Date(loc.completed_at || loc.missed_at || loc.created_at).getTime();
         if (now - timeRef < 60000) {
           mergedMap.set(loc.id, loc);
         }
       }
-    } else {
-      const locRev = loc.revision || 1;
-      const incRev = inc.revision || 1;
-
-      // Retain local state if the local revision is strictly newer
-      if (locRev > incRev) {
-        mergedMap.set(loc.id, loc);
-        continue;
-      }
-
-      // Retain local state if local was modified more recently within a 10-second window
-      const locTime = new Date(loc.completed_at || loc.accepted_at || loc.held_at || loc.missed_at || loc.created_at).getTime();
-      const incTime = new Date(inc.completed_at || inc.accepted_at || inc.held_at || inc.missed_at || inc.created_at).getTime();
-      if (locRev === incRev && locTime > incTime && now - locTime < 10000) {
-        mergedMap.set(loc.id, loc);
-        continue;
-      }
-
-      // Retain local terminal state if completed/cancelled/missed locally within last 20 seconds
-      const locIsTerminal = loc.status === 'completed' || loc.status === 'cancelled' || loc.status === 'missed';
-      const incIsActive = inc.status === 'pending' || inc.status === 'accepted' || inc.status === 'hold';
-      if (locIsTerminal && incIsActive && now - locTime < 20000) {
-        mergedMap.set(loc.id, loc);
-        continue;
-      }
+      continue;
     }
+
+    // Both incoming and local exist. Decide which status is authoritative:
+    // Rule A: If incoming call is 'accepted', 'hold', 'completed', 'cancelled', or 'missed'
+    // and local is still 'pending', INCOMING ALWAYS WINS!
+    // (A customer never reverts an accepted or queued call back to pending).
+    if (loc.status === 'pending' && inc.status !== 'pending') {
+      mergedMap.set(loc.id, inc);
+      continue;
+    }
+
+    // Rule B: If incoming is 'accepted' with an accepted_at timestamp and local has none or is hold/pending,
+    // INCOMING WINS!
+    if (inc.status === 'accepted' && inc.accepted_at && (!loc.accepted_at || loc.status !== 'accepted')) {
+      mergedMap.set(loc.id, inc);
+      continue;
+    }
+
+    // Rule C: Terminal states ('completed' / 'cancelled')
+    // If incoming is completed/cancelled, incoming wins!
+    if (inc.status === 'completed' || inc.status === 'cancelled') {
+      mergedMap.set(loc.id, inc);
+      continue;
+    }
+
+    // If local was marked completed/cancelled locally within last 15s and server hasn't committed yet:
+    const locIsTerminal = loc.status === 'completed' || loc.status === 'cancelled';
+    const locTermTime = new Date(loc.completed_at || loc.created_at).getTime();
+    if (locIsTerminal && now - locTermTime < 15000) {
+      mergedMap.set(loc.id, loc);
+      continue;
+    }
+
+    // Rule D: Compare revisions
+    const locRev = loc.revision || 1;
+    const incRev = inc.revision || 1;
+    if (incRev >= locRev) {
+      mergedMap.set(loc.id, inc);
+      continue;
+    }
+
+    // Retain optimistic local state if strictly newer revision
+    mergedMap.set(loc.id, loc);
   }
 
   // 3. Stably sort active calls by priority & history by completion time descending

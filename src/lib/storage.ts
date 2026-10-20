@@ -298,6 +298,11 @@ export function saveClientState(state: DatabaseState): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (Array.isArray(state.waiter_calls)) {
+      import('./callSync.js').then(({ broadcastLiveCallUpdate }) => {
+        broadcastLiveCallUpdate(state.waiter_calls);
+      }).catch(() => {});
+    }
   } catch (e) {
     console.warn('Failed saving client state to localStorage:', e);
   }

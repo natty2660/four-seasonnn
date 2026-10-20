@@ -1059,6 +1059,9 @@ apiRouter.get(['/waiter-calls/stream', '/waiter/stream'], async (_req: Request, 
     'X-Accel-Buffering': 'no',
     'Access-Control-Allow-Origin': '*',
   });
+  if (res.socket) {
+    res.socket.setNoDelay(true);
+  }
   if (typeof (res as any).flushHeaders === 'function') {
     (res as any).flushHeaders();
   }
