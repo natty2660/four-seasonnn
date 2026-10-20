@@ -1283,22 +1283,12 @@ apiRouter.post(
       const call = db.waiter_calls.find((c) => c.id === id);
       if (call) {
         if (call.status !== 'completed' && call.status !== 'cancelled') {
-          // Check if this waiter is already in 'accepted' status for another active call
-          const alreadyAttendingCall = waiter_id
-            ? db.waiter_calls.find(
-                (c) =>
-                  c.id !== id &&
-                  c.status === 'accepted' &&
-                  (c.accepted_by_waiter_id === waiter_id || c.assigned_waiter_id === waiter_id)
-              )
-            : null;
-
-          if (alreadyAttendingCall || force_hold) {
+          if (force_hold) {
             call.status = 'hold';
             call.held_at = new Date().toISOString();
             call.hold_reason =
               hold_reason ||
-              `Waiter ${waiter_name || 'Staff'} is attending Table ${alreadyAttendingCall?.table_number || ''}`;
+              `Waiter ${waiter_name || 'Staff'} placed call on hold`;
             call.accepted_by_waiter_id = waiter_id || call.accepted_by_waiter_id;
             call.accepted_by_name = waiter_name || call.accepted_by_name || 'Staff Member';
             call.revision = (call.revision || 1) + 1;

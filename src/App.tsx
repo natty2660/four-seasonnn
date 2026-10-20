@@ -462,37 +462,61 @@ export default function App() {
 
     lastUserActionTimestamp.current = Date.now();
 
+    // Normalize tableId matching so whether tableId is "vip_10" or "VIP-10", it matches the table in dbState.vip_tables
+    const cleanId = (tableId || '').trim().toLowerCase();
+    const matchedTable = dbState.vip_tables.find(
+      (t) =>
+        t.id.toLowerCase() === cleanId ||
+        t.table_number.toLowerCase() === cleanId ||
+        t.table_number.toLowerCase().replace('-', '') === cleanId.replace('-', '') ||
+        t.id.toLowerCase().replace('_', '-') === cleanId ||
+        t.id.toLowerCase() === cleanId.replace('-', '_')
+    );
+    const resolvedTableId = matchedTable ? matchedTable.id : tableId;
+
     try {
       const res = await apiFetch('/api/waiter-calls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table_id: tableId, call_type: callType, message }),
+        body: JSON.stringify({ table_id: resolvedTableId, call_type: callType, message }),
       });
-      if (res.ok) {
-        const call: WaiterCall = await res.json();
-        setDbState((prev) => {
-          // Archive previous pending, hold, or missed calls for this table in local state
-          const updatedPrevCalls = (prev.waiter_calls || []).map((c) =>
-            (c.table_id === call.table_id || c.table_number === call.table_number) &&
-            c.id !== call.id &&
-            (c.status === 'pending' || c.status === 'hold' || c.status === 'missed')
-              ? { ...c, status: 'completed' as const, completed_at: new Date().toISOString() }
-              : c
-          );
-          const nextCalls = [
-            call,
-            ...updatedPrevCalls.filter((c) => c.id !== call.id),
-          ].sort(
-            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-          const next = {
-            ...prev,
-            waiter_calls: nextCalls,
-          };
-          saveClientState(next);
-          return next;
-        });
-        return true;
+
+      if (res && res.ok) {
+        const data = await res.json().catch(() => null);
+        const call: WaiterCall = data?.call || data;
+
+        if (call && call.id) {
+          setDbState((prev) => {
+            if (data && Array.isArray(data.calls)) {
+              const merged = reconcileWaiterCalls(prev.waiter_calls || [], data.calls);
+              const next = { ...prev, waiter_calls: merged };
+              saveClientState(next);
+              return next;
+            }
+
+            // Archive previous pending, hold, or missed calls for this table in local state
+            const updatedPrevCalls = (prev.waiter_calls || []).map((c) =>
+              (c.table_id === call.table_id || c.table_number === call.table_number) &&
+              c.id !== call.id &&
+              (c.status === 'pending' || c.status === 'hold' || c.status === 'missed')
+                ? { ...c, status: 'completed' as const, completed_at: new Date().toISOString() }
+                : c
+            );
+            const nextCalls = [
+              call,
+              ...updatedPrevCalls.filter((c) => c.id !== call.id),
+            ].sort(
+              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+            const next = {
+              ...prev,
+              waiter_calls: nextCalls,
+            };
+            saveClientState(next);
+            return next;
+          });
+          return true;
+        }
       }
     } catch (e) {
       console.warn('Fallback offline place call:', e);
@@ -500,7 +524,7 @@ export default function App() {
     return false;
   };
 
-  // Waiter & Admin: Accept Call (Auto-places on HOLD if waiter already attending another table)
+  // Waiter & Admin: Accept Call (Instant Acceptance without automatic forced hold)
   const handleAcceptCall = async (
     callId: string,
     waiterId: string,
@@ -509,22 +533,7 @@ export default function App() {
     lastUserActionTimestamp.current = Date.now();
     const acceptedAt = new Date().toISOString();
 
-    // Check if this waiter already has another active accepted call in progress
-    const alreadyAttendingCall = (dbState.waiter_calls || []).find(
-      (c) =>
-        c.id !== callId &&
-        c.status === 'accepted' &&
-        (c.accepted_by_waiter_id === waiterId || c.assigned_waiter_id === waiterId)
-    );
-
-    const isPlacingOnHold = Boolean(alreadyAttendingCall);
-    const targetStatus: CallStatus = isPlacingOnHold ? 'hold' : 'accepted';
-    const heldAt = isPlacingOnHold ? acceptedAt : null;
-    const holdReason = isPlacingOnHold
-      ? `Waiter ${waiterName || 'Staff'} is attending Table ${alreadyAttendingCall?.table_number}`
-      : null;
-
-    // 1. Immediately update UI state optimistically so action responds with 0 latency
+    // 1. Immediately update UI state to 'accepted' so multiple tables can be attended simultaneously
     setDbState((prev) => {
       const next = {
         ...prev,
@@ -532,12 +541,12 @@ export default function App() {
           c.id === callId
             ? {
                 ...c,
-                status: targetStatus,
+                status: 'accepted' as const,
                 accepted_by_waiter_id: waiterId,
                 accepted_by_name: waiterName,
-                accepted_at: isPlacingOnHold ? c.accepted_at || null : acceptedAt,
-                held_at: isPlacingOnHold ? heldAt : null,
-                hold_reason: isPlacingOnHold ? holdReason : null,
+                accepted_at: acceptedAt,
+                held_at: null,
+                hold_reason: null,
                 revision: (c.revision || 1) + 1,
               }
             : c
@@ -549,35 +558,11 @@ export default function App() {
 
     // 2. Authoritative backend synchronization
     try {
-      let res: Response;
-      if (isPlacingOnHold) {
-        res = await apiFetch(`/api/waiter-calls/${callId}/hold`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            waiter_id: waiterId,
-            waiter_name: waiterName,
-            hold_reason: holdReason,
-          }),
-        }).catch(async () => {
-          return apiFetch(`/api/waiter-calls/${callId}/accept`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              waiter_id: waiterId,
-              waiter_name: waiterName,
-              force_hold: true,
-              hold_reason: holdReason,
-            }),
-          });
-        });
-      } else {
-        res = await apiFetch(`/api/waiter-calls/${callId}/accept`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
-        });
-      }
+      const res = await apiFetch(`/api/waiter-calls/${callId}/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
+      });
 
       if (res && res.ok) {
         const data = await res.json().catch(() => null);
@@ -896,10 +881,11 @@ export default function App() {
         // Detect authentic physical QR stand camera scan via embedded hidden pass or scan token
         const isPhysicalQrScan = Boolean(
           pass ||
-          scan === 'camera' ||
+          (scan && scan.toLowerCase().startsWith('cam')) ||
           scan === 'fresh' ||
           scan === '1' ||
-          (entry === 'qr' && (pass || access === 'granted'))
+          entry === 'qr' ||
+          access === 'granted'
         );
 
         if (isPhysicalQrScan) {
