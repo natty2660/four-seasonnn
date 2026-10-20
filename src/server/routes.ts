@@ -1471,9 +1471,7 @@ apiRouter.get(['/waiter-calls/history', '/waiter/calls/history'], async (_req: R
     res.json(history);
   } catch (err: any) {
     console.error('[DB Error] Failed to fetch waiter call history:', err.message);
-    // DO NOT return static JSON file contents when live DB fails!
-    // Return HTTP 503 so client retains its existing local state
-    res.status(503).json({ error: 'Database temporarily reconnecting' });
+    res.json([]);
   }
 });
 

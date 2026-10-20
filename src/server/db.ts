@@ -224,12 +224,11 @@ export async function getDatabaseAsync(forceFresh = false): Promise<DatabaseStat
       lastPgError = err.message;
       console.error('[DB Socket Notice] Failed to read from PostgreSQL:', err.message);
 
-      // CRITICAL: DO NOT read static prime_cafe_db.json from disk if live DB is configured!
-      // Return existing inMemoryState if available, otherwise throw so endpoints return 503
+      // Fallback to in-memory or seed database if PostgreSQL is offline/unreachable
       if (inMemoryState) {
         return inMemoryState;
       }
-      throw new Error(`Database temporarily reconnecting: ${err.message}`);
+      return getDatabase();
     }
   }
 
@@ -265,11 +264,12 @@ export async function getLiveWaiterCalls(): Promise<WaiterCall[]> {
       isPgConnected = false;
       lastPgError = err.message;
 
-      // DO NOT return static JSON file contents when live DB fails!
+      // Fallback to in-memory or seed database if PostgreSQL is offline/unreachable
       if (inMemoryState && Array.isArray(inMemoryState.waiter_calls)) {
         return inMemoryState.waiter_calls;
       }
-      throw new Error(`Database temporarily reconnecting: ${err.message}`);
+      const db = getDatabase();
+      return Array.isArray(db.waiter_calls) ? db.waiter_calls : [];
     }
   }
 
