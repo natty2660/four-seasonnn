@@ -299,10 +299,6 @@ export default function App() {
       eventSource = new EventSource(streamUrl);
 
       eventSource.onmessage = (event) => {
-        // Prevent incoming SSE broadcasts from clobbering optimistic UI state while a user mutation is in-flight
-        if (Date.now() - lastUserActionTimestamp.current < 3500) {
-          return;
-        }
         try {
           const data = JSON.parse(event.data);
           if (data && (data.calls || data.waiters || data.tables)) {
@@ -711,6 +707,75 @@ export default function App() {
     }
   };
 
+  // Dedicated Status Changer: Changes call status between Waiter App and VIP Customer
+  const handleStatusChange = async (
+    callId: string,
+    status: 'accepted' | 'hold' | 'completed' | 'pending' | 'missed',
+    waiterId: string,
+    waiterName: string,
+    holdReason?: string
+  ): Promise<void> => {
+    if (status === 'accepted') {
+      return handleAcceptCall(callId, waiterId, waiterName);
+    }
+    if (status === 'hold') {
+      return handleHoldCall(callId, waiterId, waiterName, holdReason);
+    }
+    if (status === 'completed') {
+      return handleCompleteCall(callId);
+    }
+
+    lastUserActionTimestamp.current = Date.now();
+    const nowIso = new Date().toISOString();
+
+    setDbState((prev) => {
+      const next = {
+        ...prev,
+        waiter_calls: (prev.waiter_calls || []).map((c) =>
+          c.id === callId
+            ? {
+                ...c,
+                status,
+                revision: (c.revision || 1) + 1,
+                accepted_by_waiter_id: waiterId || c.accepted_by_waiter_id,
+                accepted_by_name: waiterName || c.accepted_by_name,
+                ...(status === 'missed' ? { missed_at: nowIso } : {}),
+                ...(status === 'pending' ? { held_at: null, hold_reason: null } : {}),
+              }
+            : c
+        ),
+      };
+      saveClientState(next);
+      return next;
+    });
+
+    try {
+      const res = await apiFetch(`/api/waiter-calls/${callId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status,
+          waiter_id: waiterId,
+          waiter_name: waiterName,
+          hold_reason: holdReason,
+        }),
+      });
+      if (res && res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && Array.isArray(data.calls)) {
+          setDbState((prev) => {
+            const merged = reconcileWaiterCalls(prev.waiter_calls || [], data.calls);
+            const next = { ...prev, waiter_calls: merged };
+            saveClientState(next);
+            return next;
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Status change network error:', e);
+    }
+  };
+
   // Customer & Admin: Cancel Call
   const handleCancelCall = async (callId: string): Promise<void> => {
     lastUserActionTimestamp.current = Date.now();
@@ -973,6 +1038,7 @@ export default function App() {
           onAcceptCall={handleAcceptCall}
           onHoldCall={handleHoldCall}
           onCompleteCall={handleCompleteCall}
+          onStatusChange={handleStatusChange}
           onToggleDuty={handleToggleDuty}
           onBackToMenu={() => {
             if (typeof window !== 'undefined') {

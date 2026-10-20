@@ -296,6 +296,19 @@ export const NativeIncomingCallScreen: React.FC<NativeIncomingCallScreenProps> =
             <span>{isMuted ? 'Unmute Ringtone' : 'Silence Sound'}</span>
           </button>
         </div>
+
+        {/* Dedicated Status Changer Live Notification Bar */}
+        <div className="mt-1 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-white/70 px-1">
+          <span className="text-[#D4AF37] font-black uppercase tracking-wider flex items-center gap-1">
+            <span>⚡ Dedicated Status Changer</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-white/50 text-[10px]">Customer Sees:</span>
+            <span className="px-2 py-0.5 rounded-full bg-red-500/25 text-red-300 border border-red-500/50 text-[10px] font-black uppercase animate-pulse">
+              Calling Floor Staff...
+            </span>
+          </span>
+        </div>
       </div>
     </div>
   );

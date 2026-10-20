@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Restaurant, Category, MenuItem, VipTable, Waiter, WaiterCall, CallType } from '../types/index.ts';
 import { ItemCard } from './ItemCard.tsx';
 import { callSound } from '../lib/callSound.ts';
-import { apiFetch } from '../lib/apiConfig.ts';
+import { apiFetch, getApiUrl } from '../lib/apiConfig.ts';
 import { reconcileWaiterCalls } from '../utils/reconcileCalls.ts';
 import {
   isVipSessionValid,
@@ -64,6 +64,7 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
   const [customNote, setCustomNote] = useState('');
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [callSuccessFeedback, setCallSuccessFeedback] = useState<string | null>(null);
+  const [showAcceptanceAlert, setShowAcceptanceAlert] = useState<boolean>(false);
 
   // VIP Expiration (4 Hours)
   const [remainingMs, setRemainingMs] = useState<number>(() => getRemainingVipTime(table.id));
@@ -100,9 +101,6 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
   }, [activeCalls]);
 
   const refreshVipCallsAuthoritative = useCallback(async () => {
-    if (Date.now() - lastActionTimestamp.current < 3500) {
-      return;
-    }
     try {
       const res = await apiFetch(`/api/waiter-calls?_t=${Date.now()}`, {
         cache: 'no-store',
@@ -118,12 +116,36 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
     }
   }, []);
 
+  // Instant direct SSE reception for sub-second status changes from Waiter app
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    try {
+      const streamUrl = getApiUrl('/api/waiter-calls/stream');
+      eventSource = new EventSource(streamUrl);
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data && Array.isArray(data.calls)) {
+            setSyncedCalls((prev) => reconcileWaiterCalls(prev, data.calls));
+          }
+        } catch {}
+      };
+      eventSource.onerror = () => {
+        refreshVipCallsAuthoritative();
+      };
+    } catch {}
+
+    return () => {
+      if (eventSource) eventSource.close();
+    };
+  }, [refreshVipCallsAuthoritative]);
+
   useEffect(() => {
     // 1. Initial immediate refresh
     refreshVipCallsAuthoritative();
 
-    // 2. Strong 5-second interval
-    const interval = setInterval(refreshVipCallsAuthoritative, 5000);
+    // 2. Strong 1.5-second interval (guarantees sub-two-second delivery even if SSE drops)
+    const interval = setInterval(refreshVipCallsAuthoritative, 1500);
 
     // 3. Instant revalidation on tab visibility / phone wake
     const handleVisibilityChange = () => {
@@ -234,9 +256,10 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
       if (!alertedCallStatuses.current.has(alertKey)) {
         alertedCallStatuses.current.add(alertKey);
 
-        // Trigger vibration / sound only ONCE per state transition
+        // Trigger vibration / sound and show dedicated acceptance notification modal
         if (currentActiveCall.status === 'accepted') {
           callSound.playCustomerConfirmationChime();
+          setShowAcceptanceAlert(true);
         }
         if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
           navigator.vibrate([200, 100, 200]);
@@ -480,6 +503,44 @@ export const VipTableCustomerView: React.FC<VipTableCustomerViewProps> = ({
           </div>
         </div>
       </header>
+
+      {/* DEDICATED ACCEPTANCE STATUS NOTIFICATION (Communicated Directly from Waiter App to Customer) */}
+      {showAcceptanceAlert && currentCall && currentCall.status === 'accepted' && (
+        <div className="sticky top-[58px] z-50 px-3 sm:px-4 pt-2">
+          <div className="max-w-4xl mx-auto bg-gradient-to-r from-emerald-950 via-[#0e2716] to-emerald-950 border-2 border-emerald-400 rounded-2xl p-3.5 sm:p-4 shadow-2xl shadow-emerald-950/90 text-white animate-bounce-short">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-black flex items-center justify-center font-black shrink-0 shadow-lg shadow-emerald-500/40">
+                  <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7 stroke-[3]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-400 text-black px-2 py-0.5 rounded-full shadow-sm">
+                      CALL ACCEPTED
+                    </span>
+                    <span className="text-xs text-emerald-300 font-bold">
+                      Direct Waiter Confirmation
+                    </span>
+                  </div>
+                  <h3 className="text-sm sm:text-base font-black text-[#FCF6BA] mt-0.5">
+                    {currentCall.accepted_by_name || 'Staff Member'} is coming to {table.table_number}!
+                  </h3>
+                  <p className="text-[11px] text-emerald-100/90 mt-0.5">
+                    Your VIP service call was accepted. Waiter is actively walking to your table now.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAcceptanceAlert(false)}
+                className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-white/70 hover:text-white transition-colors cursor-pointer text-xs shrink-0"
+                title="Dismiss Alert"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main VIP Deck */}
       <main className="max-w-4xl mx-auto w-full px-3 sm:px-4 pt-3 sm:pt-4 flex-1">

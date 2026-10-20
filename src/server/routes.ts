@@ -1212,7 +1212,7 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
       return false; // If unassigned, floor staff on duty can accept it
     });
 
-    const initialStatus: CallStatus = (isWaiterBusyWithAnotherCustomer && !isUrgent) ? 'hold' : 'pending';
+    const initialStatus: CallStatus = 'pending';
 
     // Archive / complete any previous pending, hold, or missed call for this table
     db.waiter_calls.forEach((c) => {
@@ -1239,8 +1239,8 @@ apiRouter.post('/waiter-calls', async (req: Request, res: Response) => {
       original_waiter_id: validAssignedWaiterId,
       revision: 1,
       created_at: new Date().toISOString(),
-      held_at: initialStatus === 'hold' ? new Date().toISOString() : null,
-      hold_reason: initialStatus === 'hold' ? 'Waiter currently attending another customer' : null,
+      held_at: null,
+      hold_reason: null,
     };
 
     db.waiter_calls.unshift(newCall);
@@ -1358,6 +1358,58 @@ apiRouter.post(
       ...(heldCall as WaiterCall),
       call: heldCall,
       calls: sortedAfterHold,
+    });
+  }
+);
+
+// 20.3c Dedicated Direct Call Status Changer Endpoint
+apiRouter.post(
+  ['/waiter-calls/:id/status', '/waiter/calls/:id/status'],
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status, waiter_id, waiter_name, hold_reason } = req.body;
+    let resultingCall: WaiterCall | null = null;
+
+    if (!['pending', 'accepted', 'hold', 'completed', 'cancelled', 'missed'].includes(status)) {
+      res.status(400).json({ error: 'Invalid status' });
+      return;
+    }
+
+    const updatedDb = await mutateDatabaseAsync((db) => {
+      if (!Array.isArray(db.waiter_calls)) db.waiter_calls = [];
+      const call = db.waiter_calls.find((c) => c.id === id);
+      if (call) {
+        call.status = status;
+        call.revision = (call.revision || 1) + 1;
+        if (waiter_id) call.accepted_by_waiter_id = waiter_id;
+        if (waiter_name) call.accepted_by_name = waiter_name;
+
+        if (status === 'accepted') {
+          call.accepted_at = new Date().toISOString();
+          call.held_at = null;
+          call.hold_reason = null;
+        } else if (status === 'hold') {
+          call.held_at = new Date().toISOString();
+          call.hold_reason = hold_reason || `Waiter ${waiter_name || 'Staff'} placed call on hold`;
+        } else if (status === 'completed' || status === 'cancelled') {
+          call.completed_at = new Date().toISOString();
+        }
+        resultingCall = call;
+      }
+      return db;
+    });
+
+    if (!resultingCall) {
+      res.status(404).json({ error: 'Call not found.' });
+      return;
+    }
+
+    broadcastWaiterUpdate(updatedDb);
+    const sortedCalls = sortCallsByPriority(updatedDb.waiter_calls || []);
+    res.json({
+      ...(resultingCall as WaiterCall),
+      call: resultingCall,
+      calls: sortedCalls,
     });
   }
 );

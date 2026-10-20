@@ -43,6 +43,13 @@ interface WaiterMobileAppProps {
   onAcceptCall: (callId: string, waiterId: string, waiterName: string) => Promise<void>;
   onHoldCall?: (callId: string, waiterId: string, waiterName: string, reason?: string) => Promise<void>;
   onCompleteCall: (callId: string) => Promise<void>;
+  onStatusChange?: (
+    callId: string,
+    status: 'accepted' | 'hold' | 'completed' | 'pending' | 'missed',
+    waiterId: string,
+    waiterName: string,
+    reason?: string
+  ) => Promise<void>;
   onToggleDuty: (waiterId: string, onDuty: boolean) => Promise<void>;
   onBackToMenu: () => void;
 }
@@ -54,6 +61,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   onAcceptCall,
   onHoldCall,
   onCompleteCall,
+  onStatusChange,
   onToggleDuty,
   onBackToMenu,
 }) => {
@@ -102,6 +110,7 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
   const [selectedIncomingCallId, setSelectedIncomingCallId] = useState<string | null>(null);
   const [isIncomingScreenMinimized, setIsIncomingScreenMinimized] = useState<boolean>(false);
   const lastRungCallId = useRef<string | null>(null);
+  const [statusToast, setStatusToast] = useState<{ message: string; type: 'accept' | 'hold' | 'complete' } | null>(null);
 
   // 1-second heartbeat to re-evaluate 45s escalation without needing page reload
   const [, setEscalationTick] = useState(0);
@@ -430,6 +439,136 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
         body: JSON.stringify({ waiter_id: waiterId, waiter_name: waiterName }),
       });
     }
+  };
+
+  // Dedicated Call Status Changer handler - communicates directly to VIP customer
+  const handleStatusChange = async (
+    callId: string,
+    targetStatus: 'accepted' | 'hold' | 'completed',
+    tableNumber?: string
+  ) => {
+    if (!currentWaiter) return;
+    callSound.stopWaiterRingtone();
+    await nativeCallBridge.stopNativeCallAlert();
+    setSilencedCallIds((prev) => new Set(prev).add(callId));
+
+    if (onStatusChange) {
+      await onStatusChange(callId, targetStatus, currentWaiter.id, currentWaiter.name);
+    } else if (targetStatus === 'accepted') {
+      await handleAccept(callId, currentWaiter.id, currentWaiter.name);
+    } else if (targetStatus === 'hold') {
+      await handleHold(callId, currentWaiter.id, currentWaiter.name);
+    } else if (targetStatus === 'completed') {
+      await onCompleteCall(callId);
+    }
+
+    if (targetStatus === 'accepted') {
+      setStatusToast({
+        message: `✅ Table ${tableNumber || ''} ACCEPTED! VIP Customer notified: ${currentWaiter.name} is on the way immediately.`,
+        type: 'accept',
+      });
+    } else if (targetStatus === 'hold') {
+      setStatusToast({
+        message: `⏳ Table ${tableNumber || ''} placed on Hold. Customer informed they are queued.`,
+        type: 'hold',
+      });
+    } else if (targetStatus === 'completed') {
+      setStatusToast({
+        message: `✓ Table ${tableNumber || ''} call marked completed.`,
+        type: 'complete',
+      });
+    }
+
+    setTimeout(() => {
+      setStatusToast(null);
+    }, 4500);
+  };
+
+  // Dedicated Status Changer component for all call states - communicates directly to VIP customer
+  const renderStatusChanger = (call: WaiterCall) => {
+    const isAccepted = call.status === 'accepted';
+    const isHold = call.status === 'hold';
+    const isCompleted = call.status === 'completed';
+
+    return (
+      <div className="mt-3 pt-2.5 border-t border-white/10 w-full">
+        <div className="flex items-center justify-between text-[11px] mb-1.5 flex-wrap gap-1">
+          <span className="text-[#D4AF37] font-black uppercase tracking-wider flex items-center gap-1.5">
+            <Zap className="w-3.5 h-3.5 text-[#D4AF37]" /> Dedicated Status Changer:
+          </span>
+          <span className="text-white/60 font-mono text-[10px] flex items-center gap-1">
+            <span>Customer Sees:</span>
+            <span
+              className={`font-black uppercase px-2 py-0.5 rounded text-[9px] shadow-sm flex items-center gap-1 ${
+                isAccepted
+                  ? 'bg-emerald-400 text-black ring-1 ring-emerald-300 animate-pulse'
+                  : isHold
+                  ? 'bg-amber-400 text-black ring-1 ring-amber-300'
+                  : call.status === 'missed'
+                  ? 'bg-rose-500 text-white'
+                  : 'bg-red-500/80 text-white animate-pulse'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+              {isAccepted
+                ? 'Accepted (On Way)'
+                : isHold
+                ? 'On Hold (Queued)'
+                : call.status === 'missed'
+                ? 'Missed Call'
+                : 'Paging / Calling'}
+            </span>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          {/* 1. Accept Status Button (Direct to VIP Customer) */}
+          <button
+            type="button"
+            onClick={() => handleStatusChange(call.id, 'accepted', call.table_number)}
+            className={`py-2.5 px-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              isAccepted
+                ? 'bg-emerald-400 text-black ring-2 ring-emerald-200 shadow-lg shadow-emerald-950/60 font-black'
+                : 'bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border-2 border-emerald-500/60 hover:border-emerald-400 active:scale-95 shadow-sm shadow-emerald-950/40'
+            }`}
+            title="Accept this call immediately and notify VIP customer that you are coming"
+          >
+            <Check className="w-4 h-4 stroke-[3]" />
+            <span>{isAccepted ? '✓ Accepted' : 'Accept (On Way)'}</span>
+          </button>
+
+          {/* 2. Hold Status Button */}
+          <button
+            type="button"
+            onClick={() => handleStatusChange(call.id, 'hold', call.table_number)}
+            className={`py-2.5 px-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              isHold
+                ? 'bg-amber-400 text-black ring-2 ring-amber-200 shadow-lg shadow-amber-950/60 font-black'
+                : 'bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 border border-amber-500/40 hover:border-amber-400 active:scale-95'
+            }`}
+            title="Place call on hold and notify VIP customer they are next in line"
+          >
+            <Clock className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>{isHold ? '⏳ On Hold' : 'Put on Hold'}</span>
+          </button>
+
+          {/* 3. Complete Status Button */}
+          <button
+            type="button"
+            onClick={() => handleStatusChange(call.id, 'completed', call.table_number)}
+            className={`py-2.5 px-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              isCompleted
+                ? 'bg-blue-500 text-white font-black'
+                : 'bg-white/5 hover:bg-white/10 text-white/80 border border-white/15 hover:border-white/30 active:scale-95'
+            }`}
+            title="Mark call completed"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>{isCompleted ? '✓ Done' : 'Complete'}</span>
+          </button>
+        </div>
+      </div>
+    );
   };
 
   // Test ring function
@@ -1141,6 +1280,30 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
 
       {/* Main Waiter Dashboard Body */}
       <main className="max-w-3xl mx-auto w-full px-4 pt-4 flex-1">
+        {/* Live Status Change Alert Toast */}
+        {statusToast && (
+          <div
+            className={`mb-4 p-3.5 rounded-2xl shadow-xl border text-xs font-black flex items-center justify-between gap-2 transition-all animate-bounce ${
+              statusToast.type === 'accept'
+                ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 shadow-emerald-950/80 ring-1 ring-emerald-400/50'
+                : statusToast.type === 'hold'
+                ? 'bg-amber-950/90 border-amber-400 text-amber-200 shadow-amber-950/80 ring-1 ring-amber-400/50'
+                : 'bg-blue-950/90 border-blue-400 text-blue-200 shadow-blue-950/80 ring-1 ring-blue-400/50'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#D4AF37] shrink-0" />
+              <span>{statusToast.message}</span>
+            </div>
+            <button
+              onClick={() => setStatusToast(null)}
+              className="p-1 rounded-full hover:bg-white/10 text-white/60 hover:text-white cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Device Sound & Vibration Readiness Deck */}
         <div className="bg-[#141414] border border-[#D4AF37]/30 rounded-2xl p-4 shadow-lg mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -1414,35 +1577,22 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
                           <span className="hidden sm:inline">Silence</span>
                         </button>
                         <button
-                          onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
+                          onClick={() => handleStatusChange(call.id, 'accepted', call.table_number)}
                           className={`flex-1 sm:flex-initial px-6 py-3.5 rounded-xl font-black text-sm shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                            inProgressCalls.length > 0
-                              ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-[#D4AF37] text-black shadow-amber-950/50'
-                              : isUrgent
+                            isUrgent
                               ? 'bg-gradient-to-r from-red-500 via-red-600 to-amber-500 text-white shadow-red-900/50'
                               : 'bg-gradient-to-r from-emerald-400 to-emerald-500 text-black shadow-emerald-900/50'
                           }`}
                         >
-                          {inProgressCalls.length > 0 ? (
-                            <>
-                              <Clock className="w-5 h-5 stroke-[2.5]" />
-                              <span>Accept &amp; Put on Hold</span>
-                            </>
-                          ) : (
-                            <>
-                              <Check className="w-5 h-5 stroke-[3]" />
-                              <span>I&apos;m on My Way / Accept</span>
-                            </>
-                          )}
+                          <Check className="w-5 h-5 stroke-[3]" />
+                          <span>I&apos;m on My Way / Accept</span>
                         </button>
                       </div>
-                      {inProgressCalls.length > 0 && (
-                        <span className="text-[10px] text-amber-300 font-bold">
-                          Attending {inProgressCalls[0].table_number} · Will place on Hold
-                        </span>
-                      )}
                     </div>
                   </div>
+
+                  {/* Dedicated Call Status Changer Bar */}
+                  {renderStatusChanger(call)}
                 </div>
               );
             })}
@@ -1466,52 +1616,57 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
               return (
                 <div
                   key={call.id}
-                  className="bg-[#181111] border-2 border-rose-500/60 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden"
+                  className="bg-[#181111] border-2 border-rose-500/60 rounded-2xl p-4 shadow-lg flex flex-col gap-3 relative overflow-hidden"
                 >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 rounded-xl bg-rose-950/80 text-rose-300 font-mono font-black text-lg flex items-center justify-center border border-rose-500/40 shrink-0">
-                      {call.table_number.replace('VIP-', '')}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-xl bg-rose-950/80 text-rose-300 font-mono font-black text-lg flex items-center justify-center border border-rose-500/40 shrink-0">
+                        {call.table_number.replace('VIP-', '')}
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
+                          <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
+                          {getCallTypeBadge(call.call_type)}
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 border border-rose-500/40 font-bold">
+                            Missed Call
+                          </span>
+                        </div>
+                        {call.message && (
+                          <p className="text-xs text-amber-200/90 mt-1 italic">&ldquo;{call.message}&rdquo;</p>
+                        )}
+                        <div className="text-[10px] text-white/50 mt-1 flex items-center gap-2">
+                          <span>
+                            Missed at{' '}
+                            {new Date(call.missed_at || call.created_at).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
-                        <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
-                        {getCallTypeBadge(call.call_type)}
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 border border-rose-500/40 font-bold">
-                          Missed Call
-                        </span>
-                      </div>
-                      {call.message && (
-                        <p className="text-xs text-amber-200/90 mt-1 italic">&ldquo;{call.message}&rdquo;</p>
-                      )}
-                      <div className="text-[10px] text-white/50 mt-1 flex items-center gap-2">
-                        <span>
-                          Missed at{' '}
-                          {new Date(call.missed_at || call.created_at).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <button
+                        onClick={() => handleStatusChange(call.id, 'accepted', call.table_number)}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer"
+                      >
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>Attend Missed Call</span>
+                      </button>
+                      <button
+                        onClick={() => onCompleteCall(call.id)}
+                        className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-medium text-xs border border-white/10 transition-colors cursor-pointer"
+                      >
+                        Clear
+                      </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                    <button
-                      onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
-                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer"
-                    >
-                      <Check className="w-4 h-4 stroke-[3]" />
-                      <span>Attend Missed Call</span>
-                    </button>
-                    <button
-                      onClick={() => onCompleteCall(call.id)}
-                      className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-medium text-xs border border-white/10 transition-colors cursor-pointer"
-                    >
-                      Clear
-                    </button>
-                  </div>
+                  {/* Dedicated Call Status Changer Bar */}
+                  {renderStatusChanger(call)}
                 </div>
               );
             })}
@@ -1534,44 +1689,49 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
             {heldCalls.map((call) => (
               <div
                 key={call.id}
-                className="bg-[#19150e] border-2 border-amber-500/50 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden"
+                className="bg-[#19150e] border-2 border-amber-500/50 rounded-2xl p-4 shadow-lg flex flex-col gap-3 relative overflow-hidden"
               >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-xl bg-amber-950/80 text-amber-300 font-mono font-black text-lg flex items-center justify-center border border-amber-500/40 shrink-0">
-                    {call.table_number.replace('VIP-', '')}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-amber-950/80 text-amber-300 font-mono font-black text-lg flex items-center justify-center border border-amber-500/40 shrink-0">
+                      {call.table_number.replace('VIP-', '')}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
+                        <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
+                        {getCallTypeBadge(call.call_type)}
+                        <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-amber-400 text-black font-black uppercase tracking-wider shadow-sm">
+                          <Clock className="w-3 h-3 stroke-[3]" />
+                          Hold
+                        </span>
+                      </div>
+                      {call.hold_reason && (
+                        <p className="text-[11px] text-amber-300 font-semibold mt-1">
+                          📌 {call.hold_reason}
+                        </p>
+                      )}
+                      <p className="text-xs text-amber-200/80 mt-0.5">
+                        Customer is queued waiting for you to complete your current table.
+                      </p>
+                      {call.message && (
+                        <p className="text-xs text-white/70 mt-0.5 italic">&ldquo;{call.message}&rdquo;</p>
+                      )}
+                    </div>
                   </div>
 
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
-                      <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
-                      {getCallTypeBadge(call.call_type)}
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-amber-400 text-black font-black uppercase tracking-wider shadow-sm">
-                        <Clock className="w-3 h-3 stroke-[3]" />
-                        Hold
-                      </span>
-                    </div>
-                    {call.hold_reason && (
-                      <p className="text-[11px] text-amber-300 font-semibold mt-1">
-                        📌 {call.hold_reason}
-                      </p>
-                    )}
-                    <p className="text-xs text-amber-200/80 mt-0.5">
-                      Customer is queued waiting for you to complete your current table.
-                    </p>
-                    {call.message && (
-                      <p className="text-xs text-white/70 mt-0.5 italic">&ldquo;{call.message}&rdquo;</p>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => handleStatusChange(call.id, 'accepted', call.table_number)}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer self-end sm:self-center shrink-0"
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>Accept Now</span>
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
-                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#FBF5B7] text-[#0A0A0A] font-black text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer self-end sm:self-center shrink-0"
-                >
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>Accept Now</span>
-                </button>
+                {/* Dedicated Call Status Changer Bar */}
+                {renderStatusChanger(call)}
               </div>
             ))}
           </div>
@@ -1588,39 +1748,44 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
             {inProgressCalls.map((call) => (
               <div
                 key={call.id}
-                className="bg-[#141414] border-2 border-emerald-500/40 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                className="bg-[#141414] border-2 border-emerald-500/40 rounded-2xl p-4 shadow-lg flex flex-col gap-3"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center border border-emerald-500/30">
-                    {call.table_number}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-[#FCF6BA]">{call.table_name}</span>
-                      {getCallTypeBadge(call.call_type)}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center border border-emerald-500/30">
+                      {call.table_number}
                     </div>
-                    {call.message && (
-                      <p className="text-xs text-white/70 mt-0.5">&ldquo;{call.message}&rdquo;</p>
-                    )}
-                    <span className="text-[10px] text-white/50 block mt-1">
-                      Accepted at{' '}
-                      {call.accepted_at
-                        ? new Date(call.accepted_at).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : 'just now'}
-                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-[#FCF6BA]">{call.table_name}</span>
+                        {getCallTypeBadge(call.call_type)}
+                      </div>
+                      {call.message && (
+                        <p className="text-xs text-white/70 mt-0.5">&ldquo;{call.message}&rdquo;</p>
+                      )}
+                      <span className="text-[10px] text-white/50 block mt-1">
+                        Accepted at{' '}
+                        {call.accepted_at
+                          ? new Date(call.accepted_at).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : 'just now'}
+                      </span>
+                    </div>
                   </div>
+
+                  <button
+                    onClick={() => handleStatusChange(call.id, 'completed', call.table_number)}
+                    className="px-4 py-2 rounded-xl bg-[#1e2e1e] hover:bg-[#253a25] text-emerald-300 border border-emerald-500/50 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer self-end sm:self-center"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Mark Done / Complete</span>
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => onCompleteCall(call.id)}
-                  className="px-4 py-2 rounded-xl bg-[#1e2e1e] hover:bg-[#253a25] text-emerald-300 border border-emerald-500/50 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer self-end sm:self-center"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Mark Done / Complete</span>
-                </button>
+                {/* Dedicated Call Status Changer Bar */}
+                {renderStatusChanger(call)}
               </div>
             ))}
           </div>
@@ -1643,65 +1808,57 @@ export const WaiterMobileApp: React.FC<WaiterMobileAppProps> = ({
               return (
                 <div
                   key={call.id}
-                  className={`p-4 bg-[#141414] border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md transition-all ${
+                  className={`p-4 bg-[#141414] border rounded-2xl flex flex-col gap-3 shadow-md transition-all ${
                     isUrgent
                       ? 'border-red-500/80 shadow-red-950/40 animate-pulse'
                       : 'border-[#D4AF37]/30'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl ${theme.numberBg} font-mono font-bold flex items-center justify-center border border-white/10 shrink-0`}>
-                      {call.table_number.replace('VIP-', '')}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
-                        <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
-                        {getCallTypeBadge(call.call_type)}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl ${theme.numberBg} font-mono font-bold flex items-center justify-center border border-white/10 shrink-0`}>
+                        {call.table_number.replace('VIP-', '')}
                       </div>
-                      {call.message && (
-                        <p className="text-xs text-white/70 mt-1 italic">&ldquo;{call.message}&rdquo;</p>
-                      )}
-                      <div className="text-[11px] text-white/50 mt-1 flex items-center gap-2 flex-wrap">
-                        <span>
-                          {waiter ? `Assigned to ${waiter.name}` : 'Unassigned (General Broadcast)'}
-                        </span>
-                        <span>·</span>
-                        <span>
-                          {new Date(call.created_at).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                        {call.is_escalated && (
-                          <span className="text-red-400 font-bold bg-red-500/20 px-1.5 py-0.5 rounded text-[10px] border border-red-500/40">
-                            ⚡ Escalated Broadcast
-                          </span>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-sm text-[#FCF6BA]">{call.table_number}</span>
+                          <span className="text-white/80 text-xs font-semibold">{call.table_name}</span>
+                          {getCallTypeBadge(call.call_type)}
+                        </div>
+                        {call.message && (
+                          <p className="text-xs text-white/70 mt-1 italic">&ldquo;{call.message}&rdquo;</p>
                         )}
+                        <div className="text-[11px] text-white/50 mt-1 flex items-center gap-2 flex-wrap">
+                          <span>
+                            {waiter ? `Assigned to ${waiter.name}` : 'Unassigned (General Broadcast)'}
+                          </span>
+                          <span>·</span>
+                          <span>
+                            {new Date(call.created_at).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                          {call.is_escalated && (
+                            <span className="text-red-400 font-bold bg-red-500/20 px-1.5 py-0.5 rounded text-[10px] border border-red-500/40">
+                              ⚡ Escalated Broadcast
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
+
+                    <button
+                      onClick={() => handleStatusChange(call.id, 'accepted', call.table_number)}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer self-end sm:self-center shrink-0"
+                    >
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      <span>Accept &amp; Assist</span>
+                    </button>
                   </div>
 
-                  <button
-                    onClick={() => handleAccept(call.id, currentWaiter.id, currentWaiter.name)}
-                    className={`px-4 py-2 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer self-end sm:self-center shrink-0 ${
-                      inProgressCalls.length > 0
-                        ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-amber-950/40'
-                        : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black'
-                    }`}
-                  >
-                    {inProgressCalls.length > 0 ? (
-                      <>
-                        <Clock className="w-4 h-4 stroke-[2.5]" />
-                        <span>Queue on Hold</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4 stroke-[2.5]" />
-                        <span>Accept &amp; Assist</span>
-                      </>
-                    )}
-                  </button>
+                  {/* Dedicated Call Status Changer Bar */}
+                  {renderStatusChanger(call)}
                 </div>
               );
             })}
